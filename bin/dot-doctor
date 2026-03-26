@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+# Description: Check if all required tools are installed and healthy
+
+set -Eeuo pipefail
+source "$DOTFILES/bin/lib/common.sh"
+
+missing_count=0
+optional_missing=0
+
+check_tool() {
+  local name="$1"
+  local cmd="${2:-$1}"
+  local required="${3:-true}"
+
+  if command -v "$cmd" &>/dev/null; then
+    local version
+    version=$("$cmd" --version 2>/dev/null | head -n1 | sed 's/\x1b\[[0-9;]*m//g') || version=""
+    [[ -z "$version" ]] && version="installed"
+    printf "  %b %b%-14s%b %b%s%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "$name" "$RESET" "$DIM" "$version" "$RESET"
+  else
+    if [[ "$required" == "true" ]]; then
+      printf "  %b %b%-14s%b %b%s%b\n" "${RED}${ERROR_ICON}" "$BOLD" "$name" "$RESET" "$RED" "not found" "$RESET"
+      missing_count=$((missing_count + 1))
+    else
+      printf "  %b %b%-14s%b %b%s%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "$name" "$RESET" "$YELLOW" "not found (optional)" "$RESET"
+      optional_missing=$((optional_missing + 1))
+    fi
+  fi
+}
+
+check_sdkman() {
+  local sdkman_dir="${SDKMAN_DIR:-$HOME/.sdkman}"
+  if [[ -s "$sdkman_dir/bin/sdkman-init.sh" ]]; then
+    local version
+    version=$(bash -c "source '$sdkman_dir/bin/sdkman-init.sh' && sdk version 2>/dev/null" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1) || version="installed"
+    printf "  %b %b%-14s%b %b%s%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "sdkman" "$RESET" "$DIM" "$version" "$RESET"
+  else
+    printf "  %b %b%-14s%b %b%s%b\n" "${RED}${ERROR_ICON}" "$BOLD" "sdkman" "$RESET" "$RED" "not found" "$RESET"
+    missing_count=$((missing_count + 1))
+  fi
+}
+
+check_java() {
+  if command -v java &>/dev/null; then
+    local version
+    version=$(java --version 2>&1 | head -n1) || version="installed"
+    printf "  %b %b%-14s%b %b%s%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "java" "$RESET" "$DIM" "$version" "$RESET"
+  else
+    printf "  %b %b%-14s%b %b%s%b\n" "${RED}${ERROR_ICON}" "$BOLD" "java" "$RESET" "$RED" "not found (install via: sdk install java)" "$RESET"
+    missing_count=$((missing_count + 1))
+  fi
+}
+
+main() {
+  fmt_title_border "Dotfiles Health Check"
+  echo
+
+  # Core tools
+  fmt_title_underline "Core"
+  check_tool "brew" "brew"
+  check_tool "git" "git"
+  check_tool "neovim" "nvim"
+  check_tool "tmux" "tmux"
+  echo
+
+  # Shell & navigation
+  fmt_title_underline "Shell & Navigation"
+  check_tool "starship" "starship"
+  check_tool "fzf" "fzf"
+  check_tool "ripgrep" "rg"
+  check_tool "fd" "fd"
+  check_tool "eza" "eza"
+  check_tool "zoxide" "zoxide"
+  check_tool "bat" "bat"
+  echo
+
+  # Java / Backend development
+  fmt_title_underline "Java / Backend"
+  check_sdkman
+  check_java
+  check_tool "gradle" "gradle" "false"
+  check_tool "maven" "mvn" "false"
+  echo
+
+  # Frontend tooling
+  fmt_title_underline "Frontend"
+  check_tool "fnm" "fnm" "false"
+  check_tool "node" "node" "false"
+  echo
+
+  # Infrastructure
+  fmt_title_underline "Infrastructure"
+  check_tool "docker" "docker"
+  check_tool "kubectl" "kubectl" "false"
+  check_tool "helm" "helm" "false"
+  check_tool "terraform" "terraform" "false"
+  check_tool "k9s" "k9s" "false"
+  echo
+
+  # Utilities
+  fmt_title_underline "Utilities"
+  check_tool "gh" "gh"
+  check_tool "lazygit" "lazygit"
+  check_tool "jq" "jq"
+  check_tool "httpie" "http" "false"
+  check_tool "pgcli" "pgcli" "false"
+  check_tool "dive" "dive" "false"
+  check_tool "btop" "btop" "false"
+  echo
+
+  # Summary
+  echo "─────────────────────────────"
+  if [[ "$missing_count" -gt 0 ]]; then
+    log_error "$missing_count required tool(s) missing"
+    [[ "$optional_missing" -gt 0 ]] && log_warning "$optional_missing optional tool(s) missing"
+    echo
+    log_info "Install missing Homebrew packages: dot homebrew bundle"
+    log_info "Install Java tools via SDKMAN:     sdk install java"
+    exit 1
+  else
+    log_success "All required tools are installed"
+    [[ "$optional_missing" -gt 0 ]] && log_warning "$optional_missing optional tool(s) missing"
+  fi
+}
+
+main "$@"

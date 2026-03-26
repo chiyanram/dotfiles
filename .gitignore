@@ -1,0 +1,34 @@
+# Editor / IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# Neovim
+config/nvim/spell
+config/nvim/shada
+.netrwhist
+lazy-lock.json
+
+# ZSH
+config/zsh/.zsh_history
+config/zsh/.zsh_sessions
+config/zsh/.zcompdump
+config/zsh/.zcompdump-*
+config/zsh/.zshrc.pre-oh-my-zsh
+config/zsh/ohmyzsh/
+
+# Ghostty
+config/ghostty/overrides
+
+# Homebrew
+Brewfile.lock.json
+
+# Legacy (no longer in use)
+vim/vim.symlink/spell/
+vim/vim.symlink/plugged/
+config/kitty/kitty-overrides.conf
+npm-debug.log
+
+# OS
+.DS_Store

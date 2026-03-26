@@ -1,0 +1,27 @@
+{
+  "includeCoAuthoredBy": false,
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(mkdir:*)",
+      "Read(~/Developer/**)",
+      "Bash(docker compose exec:*)",
+      "Bash(docker run:*)",
+      "Bash(find:*)",
+      "Bash(git branch:*)",
+      "Bash(git checkout:*)",
+      "Bash(git switch:*)",
+      "Bash(git fetch:*)",
+      "Bash(git rebase:*)",
+      "Bash(git stash:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh run view:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Fetch(https://docs.anthropic.com/*)",
+      "Fetch(https://github.com/*)"
+    ]
+  },
+  "theme": "dark",
+  "model": "sonnet"
+}
