@@ -6,7 +6,13 @@ Senior backend engineer. Primary stack: Java 25+, Spring Boot 4.x, Gradle, Postg
 
 ## About This Repo
 
-Personal dotfiles managing my macOS development environment. Forked originally from nicknisi/dotfiles, now fully customized and independent with clean git history.
+Personal dotfiles managing my macOS development environment. Clean git history, fully independent.
+
+## Platform
+
+- macOS only (setup script assumes Darwin)
+- Apple Silicon (`/opt/homebrew`) with Intel fallback (`/usr/local`)
+- `.zshrc` uses `brew shellenv` for architecture-appropriate paths
 
 ## Architecture
 
@@ -73,6 +79,21 @@ Personal dotfiles managing my macOS development environment. Forked originally f
 ### Config Management
 - `bin/dot` clean and backup arrays must match actual config directories
 - When adding a new config package: add to both arrays and test `dot link`/`dot backup`
+
+### Local Customization
+- `~/.localrc` and `~/.zshrc.local` — machine-specific shell config (sourced by .zshrc, not committed)
+- `~/.zshenv.local` — machine-specific env vars (sourced by .zshenv, not committed)
+- `~/.gitconfig-local` — personal git config (name, email, signing key)
+
+### Common Commands
+```bash
+dot link all -v           # Symlink everything
+dot doctor                # Verify all tools installed
+dot update all            # Update brew, nvim, zsh, sdkman, dotfiles
+dot backup -v             # Backup before changes
+dot homebrew bundle       # Install all Brewfile packages
+pre-commit run --all-files  # Validate configs
+```
 
 ### What Not to Commit
 - `.idea/`, `.zcompdump-*`, `ohmyzsh/`, `*.DS_Store` (covered by .gitignore)
