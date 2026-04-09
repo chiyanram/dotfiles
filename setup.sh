@@ -50,22 +50,30 @@ fi
 
 run_step "Docker runtime"
 
-echo "  1) Docker Desktop (default — personal laptop)"
-echo "  2) Rancher Desktop (company laptop)"
-echo
-printf "Choose [1/2]: "
-read -r docker_choice
+if brew list --cask docker-desktop &>/dev/null; then
+  log_success "Docker Desktop already installed"
+  export HOMEBREW_DOCKER_RUNTIME="docker-desktop"
+elif brew list --cask rancher &>/dev/null; then
+  log_success "Rancher Desktop already installed"
+  export HOMEBREW_DOCKER_RUNTIME="rancher"
+else
+  echo "  1) Docker Desktop (default — personal laptop)"
+  echo "  2) Rancher Desktop (company laptop)"
+  echo
+  printf "Choose [1/2]: "
+  read -r docker_choice
 
-case "$docker_choice" in
-  2)
-    export HOMEBREW_DOCKER_RUNTIME="rancher"
-    log_info "Using Rancher Desktop"
-    ;;
-  *)
-    export HOMEBREW_DOCKER_RUNTIME="docker-desktop"
-    log_info "Using Docker Desktop"
-    ;;
-esac
+  case "$docker_choice" in
+    2)
+      export HOMEBREW_DOCKER_RUNTIME="rancher"
+      log_info "Using Rancher Desktop"
+      ;;
+    *)
+      export HOMEBREW_DOCKER_RUNTIME="docker-desktop"
+      log_info "Using Docker Desktop"
+      ;;
+  esac
+fi
 
 # ── Step 4: Brew bundle ─────────────────────────────────────────────
 
@@ -86,17 +94,58 @@ run_step "Change default shell to ZSH"
 
 "$DOT" shell change
 
-# ── Step 7: Git identity ────────────────────────────────────────────
+# ── Step 7: SSH key ────────────────────────────────────────────────
+
+run_step "SSH key"
+
+if [[ -f "$HOME/.ssh/id_ed25519" ]]; then
+  log_success "SSH key already exists (~/.ssh/id_ed25519)"
+else
+  if ask_yes_no "Generate a new SSH key?"; then
+    local_config="$HOME/.gitconfig-local"
+    ssh_email=$(git config -f "$local_config" user.email 2>/dev/null || true)
+
+    if [[ -z "$ssh_email" ]]; then
+      printf "Email for SSH key: "
+      read -r ssh_email
+    else
+      log_info "Using git email: $ssh_email"
+    fi
+
+    mkdir -p "$HOME/.ssh"
+    ssh-keygen -t ed25519 -C "$ssh_email" -f "$HOME/.ssh/id_ed25519"
+    eval "$(ssh-agent -s)" >/dev/null
+    ssh-add "$HOME/.ssh/id_ed25519"
+
+    log_success "SSH key generated"
+    echo
+    log_info "Add this public key to GitHub → Settings → SSH Keys:"
+    echo
+    cat "$HOME/.ssh/id_ed25519.pub"
+    echo
+    if command -v pbcopy &>/dev/null; then
+      pbcopy < "$HOME/.ssh/id_ed25519.pub"
+      log_info "Public key copied to clipboard"
+    fi
+
+    log_warning "Press any key after adding the key to GitHub"
+    read -r -n 1 -s
+  else
+    log_info "Skipping — generate later: ssh-keygen -t ed25519"
+  fi
+fi
+
+# ── Step 8: Git identity ──────────────────────────────────────────
 
 run_step "Configure git identity"
 
-if ask_yes_no "Configure git user settings now?"; then
-  "$DOT" git setup
+if [[ -f "$HOME/.gitconfig-local" ]]; then
+  log_success "Git identity already configured (~/.gitconfig-local)"
 else
-  log_info "Skipping — run 'dot git setup' later"
+  "$DOT" git setup
 fi
 
-# ── Step 8: macOS defaults ──────────────────────────────────────────
+# ── Step 9: macOS defaults ─────────────────────────────────────────
 
 run_step "macOS system defaults"
 
@@ -106,7 +155,7 @@ else
   log_info "Skipping — run 'dot macos defaults' later"
 fi
 
-# ── Step 9: SDKMAN & JVM tools ─────────────────────────────────────
+# ── Step 10: SDKMAN & JVM tools ────────────────────────────────────
 
 run_step "SDKMAN & JVM tools"
 
@@ -131,7 +180,7 @@ else
   fi
 fi
 
-# ── Step 10: Health check ──────────────────────────────────────────
+# ── Step 11: Health check ──────────────────────────────────────────
 
 run_step "Health check"
 
