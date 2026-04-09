@@ -121,7 +121,6 @@ export ZPLUGDIR="$CACHEDIR/zsh/plugins"
 typeset -A plugins
 
 # Load plugins
-zfetch mafredri/zsh-async async.plugin.zsh
 zfetch zsh-users/zsh-syntax-highlighting
 zfetch zsh-users/zsh-autosuggestions
 zfetch grigorii-zander/zsh-npm-scripts-autocomplete
@@ -206,7 +205,7 @@ fi
 [[ -f ~/.localrc ]] && source ~/.localrc
 
 # Load modular config files
-for file in "$ZDOTDIR/.zsh_prompt" "$ZDOTDIR/.zsh_aliases" "$ZDOTDIR/.docker_aliases"; do
+for file in "$ZDOTDIR/.zsh_aliases" "$ZDOTDIR/.docker_aliases"; do
     [[ -f "$file" ]] && source "$file"
 done
 

@@ -71,7 +71,7 @@ EOF
 cmd_clean() {
   links=(
     ".zshrc" ".zshenv" ".zprofile" ".zsh_aliases"
-    ".zsh_functions" ".zsh_prompt" ".config/aerospace"
+    ".zsh_functions" ".config/aerospace"
     ".config/git" ".config/ghostty" ".config/lazygit"
     ".config/nvim" ".config/ripgrep" ".config/sesh"
     ".config/tmux" ".config/zsh" ".config/starship"
@@ -144,7 +144,6 @@ cmd_backup() {
     ".zprofile"
     ".zsh_aliases"
     ".zsh_functions"
-    ".zsh_prompt"
     ".config/aerospace"
     ".config/git"
     ".config/ghostty"
