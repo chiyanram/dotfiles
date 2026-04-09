@@ -23,6 +23,12 @@ if type brew &>/dev/null; then
     FPATH="$(brew --prefix)/share/zsh/site-functions:${FPATH}"
 fi
 
+# Extra completions (before compinit)
+export ZPLUGDIR="${CACHEDIR:-$HOME/.local/share}/zsh/plugins"
+[[ -d "$ZPLUGDIR" ]] || mkdir -p "$ZPLUGDIR"
+zfetch zsh-users/zsh-completions
+[[ -d "$ZPLUGDIR/zsh-users/zsh-completions/src" ]] && FPATH="$ZPLUGDIR/zsh-users/zsh-completions/src:${FPATH}"
+
 # Initialize autocomplete with 24h caching
 autoload -U compinit add-zsh-hook
 if [[ -n "${ZDOTDIR:-${HOME}}"/.zcompdump(#qN.mh+24) ]]; then
@@ -99,6 +105,10 @@ bindkey -M viins "^E" vi-add-eol
 bindkey "^J" history-beginning-search-forward
 bindkey "^K" history-beginning-search-backward
 
+# History substring search (requires zsh-history-substring-search plugin)
+bindkey '^[[A' history-substring-search-up
+bindkey '^[[B' history-substring-search-down
+
 ########################################################
 # Completion Settings
 ########################################################
@@ -116,13 +126,12 @@ zstyle ':completion:*' group-name ''
 # Plugin Management
 ########################################################
 
-export ZPLUGDIR="$CACHEDIR/zsh/plugins"
-[[ -d "$ZPLUGDIR" ]] || mkdir -p "$ZPLUGDIR"
 typeset -A plugins
 
 # Load plugins
 zfetch zsh-users/zsh-syntax-highlighting
 zfetch zsh-users/zsh-autosuggestions
+zfetch zsh-users/zsh-history-substring-search
 zfetch grigorii-zander/zsh-npm-scripts-autocomplete
 zfetch Aloxaf/fzf-tab
 
