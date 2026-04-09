@@ -91,7 +91,7 @@ main() {
 
   # Infrastructure
   fmt_title_underline "Infrastructure"
-  check_tool "docker" "docker"
+  check_tool "docker" "docker" "false"
   check_tool "kubectl" "kubectl" "false"
   check_tool "helm" "helm" "false"
   check_tool "terraform" "terraform" "false"
