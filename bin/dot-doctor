@@ -94,8 +94,10 @@ main() {
   check_tool "docker" "docker" "false"
   check_tool "kubectl" "kubectl" "false"
   check_tool "helm" "helm" "false"
-  check_tool "terraform" "terraform" "false"
   check_tool "k9s" "k9s" "false"
+  check_tool "kubectx" "kubectx" "false"
+  check_tool "stern" "stern" "false"
+  check_tool "lazydocker" "lazydocker" "false"
   echo
 
   # Utilities
@@ -103,6 +105,9 @@ main() {
   check_tool "gh" "gh"
   check_tool "lazygit" "lazygit"
   check_tool "jq" "jq"
+  check_tool "just" "just" "false"
+  check_tool "direnv" "direnv" "false"
+  check_tool "jbang" "jbang" "false"
   check_tool "httpie" "http" "false"
   check_tool "pgcli" "pgcli" "false"
   check_tool "dive" "dive" "false"

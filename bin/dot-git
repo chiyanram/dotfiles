@@ -32,9 +32,9 @@ setup_git() {
 
   local_config="$HOME/.gitconfig-local"
 
-  defaultName=$(git config user.name)
-  defaultEmail=$(git config user.email)
-  defaultGithub=$(git config github.user)
+  defaultName=$(git config user.name 2>/dev/null || true)
+  defaultEmail=$(git config user.email 2>/dev/null || true)
+  defaultGithub=$(git config github.user 2>/dev/null || true)
 
   read -rp "Name [$defaultName] " name
   read -rp "Email [$defaultEmail] " email

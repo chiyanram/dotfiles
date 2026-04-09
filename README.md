@@ -193,7 +193,7 @@ The Brewfile includes backend and infrastructure tools:
 dot homebrew bundle         # Install everything from Brewfile
 ```
 
-Installed tools include: `kubectl`, `helm`, `k9s`, `terraform`, `docker`, `httpie`, `pgcli`, `dive`
+Installed tools include: `kubectl`, `helm`, `k9s`, `kubectx`, `stern`, `docker`, `lazydocker`, `httpie`, `pgcli`, `dive`
 
 ### Health Check
 
@@ -210,10 +210,11 @@ Full list in `Brewfile`. Key packages:
 | Category | Tools |
 |----------|-------|
 | Core | git, zsh, neovim, tmux |
-| Shell | starship, fzf, fd, ripgrep, zoxide, bat, eza |
-| Dev | lazygit, gh, git-delta, fnm, python, jq, shellcheck |
-| Infra | kubectl, helm, k9s, terraform, docker, httpie, pgcli, dive |
-| macOS | ghostty, aerospace, 1password-cli, trash, noti |
+| Shell | starship, fzf, fd, ripgrep, zoxide, bat, eza, sd, dust, procs |
+| Dev | lazygit, gh, git-delta, just, direnv, fnm, python, jq, jnv, shellcheck |
+| Java | jbang, sdkman (external) |
+| Infra | kubectl, helm, k9s, kubectx, stern, docker, lazydocker, httpie, pgcli, dive |
+| macOS | ghostty, aerospace, trash, noti |
 
 ## macOS Settings
 

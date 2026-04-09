@@ -1,7 +1,5 @@
 # vim:ft=ruby
 
-tap 'hashicorp/tap'
-
 if OS.mac?
   # macOS utilities
   brew 'noti'                          # utility to display notifications from scripts
@@ -33,6 +31,9 @@ brew 'zoxide'                          # switch between most used directories
 brew 'bat'                             # better cat
 brew 'eza'                             # ls alternative
 brew 'tree'                            # pretty-print directory contents
+brew 'sd'                              # intuitive sed replacement
+brew 'dust'                            # visual du replacement
+brew 'procs'                           # modern ps with color and tree view
 
 # Development tools
 brew 'neovim'                          # A better vim
@@ -42,6 +43,8 @@ brew 'lazygit'                         # a better git UI
 brew 'gh'                              # GitHub CLI
 brew 'git-delta'                       # a better git diff
 brew 'entr'                            # file watcher / command runner
+brew 'just'                            # project command runner (like make, but better)
+brew 'direnv'                          # per-directory environment variables via .envrc
 brew 'fnm'                             # Fast Node version manager
 brew 'python'                          # python (latest)
 brew 'stylua'                          # lua code formatter
@@ -49,15 +52,21 @@ brew 'shellcheck'                      # diagnostics for shell scripts
 brew 'gum'                             # fancy UI utilities
 brew 'glow'                            # markdown viewer
 brew 'jq'                              # work with JSON files in shell scripts
+brew 'jnv'                             # interactive JSON navigator using jq
 brew 'gnupg'                           # GPG
 brew 'btop'                            # a top alternative
 brew 'wget'                            # internet file retriever
 
-# Infrastructure & backend
+# Java / backend
+brew 'jbang'                           # run Java source files as scripts without a project
+
+# Infrastructure
 brew 'kubectl'                         # Kubernetes CLI
 brew 'helm'                            # Kubernetes package manager
 brew 'k9s'                             # Kubernetes TUI
-brew 'hashicorp/tap/terraform'         # Infrastructure as Code
+brew 'kubectx'                         # fast Kubernetes context and namespace switching
+brew 'stern'                           # multi-pod log tailing for Kubernetes
 brew 'httpie'                          # better HTTP client
 brew 'pgcli'                           # PostgreSQL CLI with autocomplete
 brew 'dive'                            # Docker image layer analyzer
+brew 'lazydocker'                      # Docker TUI (containers, images, volumes, logs)
