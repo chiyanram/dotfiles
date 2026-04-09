@@ -10,7 +10,7 @@ if OS.mac?
   # Applications
   cask 'ghostty'                       # a better terminal emulator
   cask 'nikitabobko/tap/aerospace'     # a tiling window manager
-  cask 'docker-desktop'                 # Docker Desktop
+  cask ENV.fetch('DOCKER_RUNTIME', 'docker-desktop')  # Docker runtime (set DOCKER_RUNTIME=rancher for Rancher Desktop)
 
   # Fonts
   cask 'font-symbols-only-nerd-font'   # nerd-only symbols font

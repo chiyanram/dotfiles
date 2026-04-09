@@ -4,76 +4,54 @@ Personal configuration files for my development environment on macOS. These dotf
 
 ## Fresh Laptop Setup
 
-Step-by-step guide for setting up a brand new macOS machine.
-
-### 1. Install XCode CLI tools
+Clone the repo and run the interactive setup script:
 
 ```bash
-xcode-select --install
-```
-
-### 2. Clone this repo
-
-Clone anywhere on your system. The dotfiles are location-independent.
-
-```bash
+xcode-select --install        # if not already installed
 git clone git@github.com:<your-username>/dotfiles.git
 cd dotfiles
+./setup.sh
 ```
 
-### 3. Install Homebrew
+The script walks you through each step interactively:
+
+1. Xcode CLI tools check
+2. Homebrew installation
+3. Docker runtime selection (Docker Desktop or Rancher Desktop)
+4. Homebrew package installation
+5. Backup existing configs and symlink dotfiles
+6. Set ZSH as default shell
+7. Git identity configuration (optional, can skip)
+8. macOS system defaults (optional, can skip)
+9. Health check via `dot doctor`
+
+> **Note:** After setup, open a new terminal. `dot` will be in your `$PATH`.
+
+### Docker Runtime
+
+The Brewfile defaults to Docker Desktop. For company laptops that require Rancher Desktop:
 
 ```bash
-bin/dot homebrew install
+# Add to ~/.localrc so future brew bundle runs use Rancher
+export DOCKER_RUNTIME=rancher
 ```
 
-### 4. Install packages from Brewfile
+The setup script asks which runtime to use during installation.
+
+### Manual Setup
+
+If you prefer to run steps individually:
 
 ```bash
-bin/dot homebrew bundle
+bin/dot homebrew install        # Install Homebrew
+bin/dot homebrew bundle         # Install Brewfile packages
+bin/dot backup -v               # Backup existing configs
+bin/dot link all -v             # Symlink all packages
+bin/dot shell change            # Set ZSH as default shell
+bin/dot git setup               # Configure git identity
+bin/dot macos defaults          # Apply macOS defaults
+dot doctor                      # Verify everything
 ```
-
-### 5. Backup existing configs and link everything
-
-```bash
-bin/dot backup -v
-bin/dot link all -v
-```
-
-### 6. Change default shell to ZSH
-
-```bash
-bin/dot shell change
-```
-
-### 7. Configure git identity
-
-```bash
-bin/dot git setup
-```
-
-### 8. Apply macOS defaults
-
-```bash
-bin/dot macos defaults
-```
-
-### 9. Install JVM tools
-
-```bash
-sdk install java
-sdk install gradle
-```
-
-### 10. Verify everything
-
-Open a new terminal, then:
-
-```bash
-dot doctor
-```
-
-> **Note:** After step 5 and opening a new shell, `dot` will be in your `$PATH` so you can drop the `bin/` prefix.
 
 ### Local Customization (not committed)
 
@@ -82,7 +60,7 @@ These files are sourced automatically if they exist:
 | File | Purpose |
 |------|---------|
 | `~/.gitconfig-local` | Git name, email, signing key |
-| `~/.localrc` | Machine-specific shell config |
+| `~/.localrc` | Machine-specific shell config (e.g., `DOCKER_RUNTIME`) |
 | `~/.zshrc.local` | Additional shell config |
 | `~/.zshenv.local` | Machine-specific env vars |
 
