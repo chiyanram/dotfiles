@@ -23,6 +23,8 @@ fi
 
 find_commands() {
   IFS=: read -ra path_dirs <<<"$PATH"
+  # Include script_dir so external commands are discoverable before bin/ is in PATH
+  path_dirs+=("$script_dir")
   for dir in "${path_dirs[@]}"; do
     # skip if the directory doesn't exist or isn't readable
     [[ ! -d "$dir" ]] && continue
@@ -438,6 +440,8 @@ main() {
   *)
     if command -v "dot-$cmd" >/dev/null 2>&1; then
       "dot-$cmd" "$@"
+    elif [[ -x "$script_dir/dot-$cmd" ]]; then
+      "$script_dir/dot-$cmd" "$@"
     else
       log_error "Unknown command: $cmd"
       usage
