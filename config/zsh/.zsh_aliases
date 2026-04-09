@@ -11,10 +11,16 @@ alias .....="cd ../../../.."
 
 # Helpers
 alias grep='grep --color=auto'
-alias df='df -h' # disk free, in Gigabytes, not bytes
-alias du='du -h -c' # calculate disk usage for a folder
+alias df='df -h'
+alias du='du -h -c'
+alias sudo='sudo '
+alias lpath='echo $PATH | tr ":" "\n"'
 
-alias lpath='echo $PATH | tr ":" "\n"' # list the PATH separated by new lines
+# Modern tool replacements
+[[ -x "$(command -v bat)" ]] && alias cat='bat'
+[[ -x "$(command -v fd)" ]] && alias find='fd'
+[[ -x "$(command -v dust)" ]] && alias du='dust'
+[[ -x "$(command -v procs)" ]] && alias ps='procs'
 
 # Hide/show all desktop icons (useful when presenting)
 alias hidedesktop="defaults write com.apple.finder CreateDesktop -bool false && killall Finder"
@@ -30,12 +36,15 @@ alias clsym="find -L . -name . -o -type d -prune -o -type l -exec rm {} +"
 if [[ -x "$(command -v eza)" ]]; then
   alias ll="eza --icons --git --long"
   alias l="eza --icons --git --all --long"
+  alias la="eza --icons --git --all"
+  alias tree="eza --tree --icons"
+  alias lld="eza --long --only-dirs"
 else
   alias l="ls -lah ${colorflag}"
   alias ll="ls -lFh ${colorflag}"
+  alias la="ls -AF ${colorflag}"
+  alias lld="ls -l | grep ^d"
 fi
-alias la="ls -AF ${colorflag}"
-alias lld="ls -l | grep ^d"
 alias rmf="rm -rf"
 
 # git aliases
@@ -56,3 +65,11 @@ if [[ -n "$(command -v nvim)" ]]; then
     # immediately open to fugitive's status screen
     alias vimg="nvim +Ge:"
 fi
+
+# Utilities
+alias afk='pmset displaysleepnow'
+alias pubkey='cat ~/.ssh/id_ed25519.pub | pbcopy && echo "Public key copied to clipboard"'
+alias flush='sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder'
+alias ip='curl -s https://ifconfig.me'
+alias localip='ipconfig getifaddr en0'
+alias gr='cd $(git rev-parse --show-toplevel 2>/dev/null || echo ".")'

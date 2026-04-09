@@ -23,9 +23,10 @@ if type brew &>/dev/null; then
     FPATH="$(brew --prefix)/share/zsh/site-functions:${FPATH}"
 fi
 
-# Extra completions (before compinit)
+# Plugin setup (before compinit for zsh-completions)
 export ZPLUGDIR="${CACHEDIR:-$HOME/.local/share}/zsh/plugins"
 [[ -d "$ZPLUGDIR" ]] || mkdir -p "$ZPLUGDIR"
+typeset -A plugins
 zfetch zsh-users/zsh-completions
 [[ -d "$ZPLUGDIR/zsh-users/zsh-completions/src" ]] && FPATH="$ZPLUGDIR/zsh-users/zsh-completions/src:${FPATH}"
 
@@ -63,6 +64,14 @@ setopt LOCAL_OPTIONS
 setopt LOCAL_TRAPS
 setopt PROMPT_SUBST
 setopt COMPLETE_ALIASES
+setopt AUTO_CD
+setopt CORRECT
+setopt COMPLETE_IN_WORD
+setopt ALWAYS_TO_END
+setopt IGNORE_EOF
+setopt AUTO_PUSHD
+setopt PUSHD_IGNORE_DUPS
+setopt PUSHD_SILENT
 
 # History settings
 setopt EXTENDED_HISTORY
@@ -126,14 +135,14 @@ zstyle ':completion:*' group-name ''
 # Plugin Management
 ########################################################
 
-typeset -A plugins
-
 # Load plugins
 zfetch zsh-users/zsh-syntax-highlighting
 zfetch zsh-users/zsh-autosuggestions
 zfetch zsh-users/zsh-history-substring-search
+zfetch MichaelAquilina/zsh-you-should-use you-should-use.plugin.zsh
 zfetch grigorii-zander/zsh-npm-scripts-autocomplete
 zfetch Aloxaf/fzf-tab
+zfetch junegunn/fzf-git.sh fzf-git.sh
 
 ########################################################
 # Tool Initialization
