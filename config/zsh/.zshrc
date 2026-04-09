@@ -1,5 +1,3 @@
-export ZSH=$DOTFILES/zsh
-
 # Profiler (activate with: touch ~/.zshrc.profiler)
 if [[ -f "$HOME/.zshrc.profiler" ]]; then
     zmodload zsh/datetime
@@ -114,10 +112,6 @@ bindkey -M viins "^E" vi-add-eol
 bindkey "^J" history-beginning-search-forward
 bindkey "^K" history-beginning-search-backward
 
-# History substring search (requires zsh-history-substring-search plugin)
-bindkey '^[[A' history-substring-search-up
-bindkey '^[[B' history-substring-search-down
-
 ########################################################
 # Completion Settings
 ########################################################
@@ -144,6 +138,10 @@ zfetch grigorii-zander/zsh-npm-scripts-autocomplete
 zfetch Aloxaf/fzf-tab
 zfetch junegunn/fzf-git.sh fzf-git.sh
 
+# History substring search bindings (must be after plugin load)
+bindkey '^[[A' history-substring-search-up
+bindkey '^[[B' history-substring-search-down
+
 ########################################################
 # Tool Initialization
 ########################################################
@@ -169,11 +167,14 @@ if [[ -x "$(command -v pnpm)" ]]; then
     esac
 fi
 
-# Directory Navigation (choose ONE - zoxide is better)
+# Directory Navigation
 if [[ -x "$(command -v zoxide)" ]]; then
-    eval "$(zoxide init zsh)"  # REMOVED --hook pwd (this was your problem)
-elif [[ -f "$(brew --prefix)/etc/profile.d/z.sh" ]]; then
-    source "$(brew --prefix)/etc/profile.d/z.sh"
+    eval "$(zoxide init zsh)"
+fi
+
+# Per-directory environment variables
+if [[ -x "$(command -v direnv)" ]]; then
+    eval "$(direnv hook zsh)"
 fi
 
 # FZF

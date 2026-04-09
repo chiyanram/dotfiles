@@ -12,14 +12,13 @@ alias .....="cd ../../../.."
 # Helpers
 alias grep='grep --color=auto'
 alias df='df -h'
-alias du='du -h -c'
 alias sudo='sudo '
 alias lpath='echo $PATH | tr ":" "\n"'
 
 # Modern tool replacements
 [[ -x "$(command -v bat)" ]] && alias cat='bat'
 [[ -x "$(command -v fd)" ]] && alias find='fd'
-[[ -x "$(command -v dust)" ]] && alias du='dust'
+[[ -x "$(command -v dust)" ]] && alias du='dust' || alias du='du -h -c'
 [[ -x "$(command -v procs)" ]] && alias ps='procs'
 
 # Hide/show all desktop icons (useful when presenting)

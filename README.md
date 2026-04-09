@@ -17,14 +17,15 @@ The script walks you through each step interactively:
 
 1. Xcode CLI tools check
 2. Homebrew installation
-3. Docker runtime selection (Docker Desktop or Rancher Desktop)
-4. Homebrew package installation
-5. Backup existing configs and symlink dotfiles
-6. Set ZSH as default shell
-7. Git identity configuration (optional, can skip)
-8. macOS system defaults (optional, can skip)
-9. SDKMAN + Java/Gradle installation (optional, can skip)
-10. Health check via `dot doctor`
+3. SSH key generation (copies public key to clipboard)
+4. Docker runtime selection (Docker Desktop or Rancher Desktop)
+5. Homebrew package installation
+6. Backup existing configs and symlink dotfiles
+7. Set ZSH as default shell
+8. Git identity configuration
+9. macOS system defaults (optional, can skip)
+10. SDKMAN + Java/Gradle installation (optional, can skip)
+11. Health check via `dot doctor`
 
 > **Note:** After setup, open a new terminal. `dot` will be in your `$PATH`.
 

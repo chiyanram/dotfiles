@@ -82,7 +82,7 @@ function dlab {
 }
 
 function dc-fn {
-  docker compose "$*"
+  docker compose "$@"
 }
 
 function d-aws-cli-fn {

@@ -12,7 +12,7 @@ HISTFILE="$HOME/.zsh_history"
 HISTSIZE=1000000
 SAVEHIST=1000000
 
-export DOTFILES="$(dirname "$(dirname "$(readlink -f "${(%):-%N}")")")"
+export DOTFILES="${${(%):-%N}:A:h:h}"
 
 export CACHEDIR="$HOME/.local/share"
 export VIM_TMP="$HOME/.vim-tmp"
@@ -25,7 +25,6 @@ export RIPGREP_CONFIG_PATH="$HOME/.config/ripgrep/config"
 [[ -f ~/.zshenv.local ]] && source ~/.zshenv.local
 
 fpath=(
-    $DOTFILES/config/zsh/functions
     /usr/local/share/zsh/site-functions
     $fpath
 )

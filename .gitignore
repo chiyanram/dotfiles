@@ -24,6 +24,9 @@ config/ghostty/overrides
 # Homebrew
 Brewfile.lock.json
 
+# Plans (ephemeral, not for git)
+plan_*.md
+
 # Legacy
 npm-debug.log
 

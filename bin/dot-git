@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Description: Setup Git confgiuration personalized for you.
+# Description: Setup Git configuration personalized for you.
 
 set -Eeuo pipefail
 DOTFILES="${DOTFILES:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
