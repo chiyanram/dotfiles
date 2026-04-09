@@ -30,7 +30,7 @@ cmd_change() {
   fmt_title_underline "Configuring shell"
 
   [[ -n "$(command -v brew)" ]] && zsh_path="$(brew --prefix)/bin/zsh" || zsh_path="$(which zsh)"
-  if ! grep "$zsh_path" /etc/shells; then
+  if ! grep -qF "$zsh_path" /etc/shells; then
     log_info "adding $zsh_path to /etc/shells"
     echo "$zsh_path" | sudo tee -a /etc/shells
   fi
