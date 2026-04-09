@@ -2,18 +2,89 @@
 
 Personal configuration files for my development environment on macOS. These dotfiles are tailored for backend engineering (Java/Spring Boot, Kubernetes, Terraform) with a focus on productivity and clean tooling.
 
-## Initial Setup
+## Fresh Laptop Setup
 
-Clone this repo anywhere on your system. The dotfiles are location-independent.
+Step-by-step guide for setting up a brand new macOS machine.
 
-> **Note:** On macOS, install XCode CLI tools first:
-> ```bash
-> xcode-select --install
-> ```
+### 1. Install XCode CLI tools
+
+```bash
+xcode-select --install
+```
+
+### 2. Clone this repo
+
+Clone anywhere on your system. The dotfiles are location-independent.
 
 ```bash
 git clone git@github.com:<your-username>/dotfiles.git
+cd dotfiles
 ```
+
+### 3. Install Homebrew
+
+```bash
+bin/dot homebrew install
+```
+
+### 4. Install packages from Brewfile
+
+```bash
+bin/dot homebrew bundle
+```
+
+### 5. Backup existing configs and link everything
+
+```bash
+bin/dot backup -v
+bin/dot link all -v
+```
+
+### 6. Change default shell to ZSH
+
+```bash
+bin/dot shell change
+```
+
+### 7. Configure git identity
+
+```bash
+bin/dot git setup
+```
+
+### 8. Apply macOS defaults
+
+```bash
+bin/dot macos defaults
+```
+
+### 9. Install JVM tools
+
+```bash
+sdk install java
+sdk install gradle
+```
+
+### 10. Verify everything
+
+Open a new terminal, then:
+
+```bash
+dot doctor
+```
+
+> **Note:** After step 5 and opening a new shell, `dot` will be in your `$PATH` so you can drop the `bin/` prefix.
+
+### Local Customization (not committed)
+
+These files are sourced automatically if they exist:
+
+| File | Purpose |
+|------|---------|
+| `~/.gitconfig-local` | Git name, email, signing key |
+| `~/.localrc` | Machine-specific shell config |
+| `~/.zshrc.local` | Additional shell config |
+| `~/.zshenv.local` | Machine-specific env vars |
 
 ## The `dot` Command
 

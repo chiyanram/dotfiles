@@ -2,6 +2,7 @@
 # Description: Check if all required tools are installed and healthy
 
 set -Eeuo pipefail
+DOTFILES="${DOTFILES:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
 source "$DOTFILES/bin/lib/common.sh"
 
 missing_count=0

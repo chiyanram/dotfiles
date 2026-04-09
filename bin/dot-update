@@ -2,6 +2,7 @@
 # Description: Update all the things
 
 set -Eeuo pipefail
+DOTFILES="${DOTFILES:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
 
 # source helpers
 source "$DOTFILES/bin/lib/common.sh"
@@ -146,7 +147,7 @@ update_sdkman() {
   local log_file=$(mktemp)
   trap 'rm -f "$log_file"' EXIT
 
-  run_with_spinner "bash -c 'source \"$sdkman_dir/bin/sdkman-init.sh\" && sdk update 2>&1 && sdk upgrade 2>&1' > '$log_file' 2>&1" 11 "Updating SDKMAN"
+  run_with_spinner "bash -c 'export sdkman_auto_answer=true && source \"$sdkman_dir/bin/sdkman-init.sh\" && sdk update 2>&1 && sdk upgrade 2>&1' > '$log_file' 2>&1" 11 "Updating SDKMAN"
 
   if grep -q "Error\|fatal\|Failed" "$log_file"; then
     log_error "Error occurred during SDKMAN update:"
