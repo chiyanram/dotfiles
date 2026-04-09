@@ -130,13 +130,9 @@ zfetch Aloxaf/fzf-tab
 # Tool Initialization
 ########################################################
 
-# Node Version Manager (choose ONE - fnm is faster)
+# Node Version Manager
 if [[ -x "$(command -v fnm)" ]]; then
     eval "$(fnm env --use-on-cd)"
-elif [[ -s "/opt/homebrew/opt/nvm/nvm.sh" ]]; then
-    export NVM_DIR="$HOME/.nvm"
-    source "/opt/homebrew/opt/nvm/nvm.sh"
-    [[ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ]] && source "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"
 fi
 
 # Python

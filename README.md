@@ -224,15 +224,6 @@ dot macos defaults
 
 Configures: Finder (show extensions, hidden files, path bar), keyboard (fast repeat, full access), Terminal (UTF-8), and more.
 
-## Docker Setup
-
-A Dockerfile is included for testing linux support:
-
-```bash
-docker build -t dotfiles --force-rm .
-docker run -it --rm dotfiles
-```
-
 ## Preferred Software
 
 - [Ghostty](https://ghostty.org) — GPU-accelerated terminal emulator

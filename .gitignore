@@ -24,10 +24,7 @@ config/ghostty/overrides
 # Homebrew
 Brewfile.lock.json
 
-# Legacy (no longer in use)
-vim/vim.symlink/spell/
-vim/vim.symlink/plugged/
-config/kitty/kitty-overrides.conf
+# Legacy
 npm-debug.log
 
 # OS
