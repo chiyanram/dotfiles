@@ -23,7 +23,8 @@ The script walks you through each step interactively:
 6. Set ZSH as default shell
 7. Git identity configuration (optional, can skip)
 8. macOS system defaults (optional, can skip)
-9. Health check via `dot doctor`
+9. SDKMAN + Java/Gradle installation (optional, can skip)
+10. Health check via `dot doctor`
 
 > **Note:** After setup, open a new terminal. `dot` will be in your `$PATH`.
 

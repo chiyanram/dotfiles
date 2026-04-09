@@ -106,7 +106,32 @@ else
   log_info "Skipping — run 'dot macos defaults' later"
 fi
 
-# ── Step 9: Health check ────────────────────────────────────────────
+# ── Step 9: SDKMAN & JVM tools ─────────────────────────────────────
+
+run_step "SDKMAN & JVM tools"
+
+if [[ -d "$HOME/.sdkman" ]]; then
+  log_success "SDKMAN already installed"
+else
+  if ask_yes_no "Install SDKMAN (Java, Gradle, Maven manager)?"; then
+    log_info "Installing SDKMAN..."
+    curl -s "https://get.sdkman.io" | bash
+    export SDKMAN_DIR="$HOME/.sdkman"
+    source "$SDKMAN_DIR/bin/sdkman-init.sh"
+    log_success "SDKMAN installed"
+
+    if ask_yes_no "Install latest Java?"; then
+      sdk install java
+    fi
+    if ask_yes_no "Install latest Gradle?"; then
+      sdk install gradle
+    fi
+  else
+    log_info "Skipping — install later: curl -s https://get.sdkman.io | bash"
+  fi
+fi
+
+# ── Step 10: Health check ──────────────────────────────────────────
 
 run_step "Health check"
 
