@@ -77,7 +77,7 @@ run_step "Install Homebrew packages"
 
 run_step "Backup existing configs & link dotfiles"
 
-"$DOT" backup -v
+"$DOT" backup -v || true
 "$DOT" link all -v
 
 # ── Step 6: Default shell ───────────────────────────────────────────

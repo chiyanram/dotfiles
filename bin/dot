@@ -182,6 +182,7 @@ cmd_backup() {
   done
 
   if [[ -s "$tmpfile" ]]; then
+    mkdir -p "$backup_dir"
     tar -czf "${backup_path}.tar.gz" -C "$HOME" -T "$tmpfile" || {
       log_error "Failed to create backup archive"
       exit 1
