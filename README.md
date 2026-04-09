@@ -33,7 +33,7 @@ The Brewfile defaults to Docker Desktop. For company laptops that require Ranche
 
 ```bash
 # Add to ~/.localrc so future brew bundle runs use Rancher
-export DOCKER_RUNTIME=rancher
+export HOMEBREW_DOCKER_RUNTIME=rancher
 ```
 
 The setup script asks which runtime to use during installation.
@@ -60,7 +60,7 @@ These files are sourced automatically if they exist:
 | File | Purpose |
 |------|---------|
 | `~/.gitconfig-local` | Git name, email, signing key |
-| `~/.localrc` | Machine-specific shell config (e.g., `DOCKER_RUNTIME`) |
+| `~/.localrc` | Machine-specific shell config (e.g., `HOMEBREW_DOCKER_RUNTIME`) |
 | `~/.zshrc.local` | Additional shell config |
 | `~/.zshenv.local` | Machine-specific env vars |
 

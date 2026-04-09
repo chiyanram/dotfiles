@@ -58,11 +58,11 @@ read -r docker_choice
 
 case "$docker_choice" in
   2)
-    export DOCKER_RUNTIME="rancher"
+    export HOMEBREW_DOCKER_RUNTIME="rancher"
     log_info "Using Rancher Desktop"
     ;;
   *)
-    export DOCKER_RUNTIME="docker-desktop"
+    export HOMEBREW_DOCKER_RUNTIME="docker-desktop"
     log_info "Using Docker Desktop"
     ;;
 esac
@@ -120,6 +120,6 @@ echo
 log_info "Open a new terminal for all changes to take effect"
 log_info "Run 'dot doctor' anytime to verify your setup"
 
-if [[ "$DOCKER_RUNTIME" == "rancher" ]]; then
-  log_info "Company laptop: add 'export DOCKER_RUNTIME=rancher' to ~/.localrc"
+if [[ "${HOMEBREW_DOCKER_RUNTIME:-}" == "rancher" ]]; then
+  log_info "Company laptop: add 'export HOMEBREW_DOCKER_RUNTIME=rancher' to ~/.localrc"
 fi
