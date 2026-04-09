@@ -29,38 +29,53 @@ EOF
 
 update_homebrew() {
   fmt_title_underline "Updating Homebrew packages"
-  local log_file=$(mktemp)
-  trap 'rm -f "$log_file"' EXIT
 
-  run_with_spinner "brew update > '$log_file' 2>&1 && brew upgrade > '$log_file' 2>&1" 11 "Updating Homebrew"
+  if ! command -v brew &>/dev/null; then
+    log_warning "Homebrew is not installed. Skipping..."
+    return 0
+  fi
 
-  if grep -q "Error\|fatal\|Failed" "$log_file"; then
-    log_error "Error occurred during update:"
+  local log_file
+  log_file=$(mktemp)
+
+  run_with_spinner "brew update > '$log_file' 2>&1 && brew upgrade >> '$log_file' 2>&1" 11 "Updating Homebrew"
+  local exit_status=$?
+
+  if [[ $exit_status -ne 0 ]] || grep -q "Error\|fatal\|Failed" "$log_file"; then
+    log_error "Error occurred during update"
     [[ "$verbose" == true ]] && cat "$log_file"
-    exit 1
+    rm -f "$log_file"
+    return 1
   fi
 
   grep -A1 "=>" "$log_file" | grep -v "^--$" || log_info "No updates found"
+  rm -f "$log_file"
   echo -e
 }
 
 update_nvim_plugins() {
   fmt_title_underline "Updating Neovim plugins"
 
-  local log_file=$(mktemp)
-  trap 'rm -f "$log_file"' EXIT
+  if ! command -v nvim &>/dev/null; then
+    log_warning "Neovim is not installed. Skipping..."
+    return 0
+  fi
 
-  # Use run_with_spinner helper with style 11 (complex braille pattern)
+  local log_file
+  log_file=$(mktemp)
+
   run_with_spinner "nvim --headless '+Lazy! sync' +qa > '$log_file' 2>&1" 11 "Updating Neovim plugins"
+  local exit_status=$?
 
-  # Check for errors
-  if grep -q "Error\|ERROR\|Could not\|not installed" "$log_file"; then
-    echo "Error occurred during update:"
-    rm -f "$temp_lua" "$log_file"
-    exit 1
+  if [[ $exit_status -ne 0 ]] || grep -q "Error\|ERROR\|Could not\|not installed" "$log_file"; then
+    log_error "Error occurred during Neovim plugin update"
+    [[ "$verbose" == true ]] && cat "$log_file"
+    rm -f "$log_file"
+    return 1
   fi
 
   grep -i "updated\|installed\|removed" "$log_file" || log_info "No updates found"
+  rm -f "$log_file"
   echo -e
 }
 
@@ -73,62 +88,84 @@ update_dotfiles() {
     return 1
   fi
 
-  local log_file=$(mktemp)
+  local log_file
+  log_file=$(mktemp)
 
-  trap 'rm -f "$log_file"' EXIT
-
-  # Fetch updates with spinner
   run_with_spinner "git -C '$DOTFILES' fetch --quiet origin main > '$log_file' 2>&1" 11 "Checking for dotfiles updates"
 
-  # Compare local with remote
+  local local_rev remote_rev
   local_rev=$(git -C "$DOTFILES" rev-parse HEAD)
-  remote_rev=$(git -C "$DOTFILES" rev-parse "@{u}" 2>/dev/null)
+  remote_rev=$(git -C "$DOTFILES" rev-parse "@{u}" 2>/dev/null || true)
 
-  if [ "$local_rev" = "$remote_rev" ]; then
+  if [[ -z "$remote_rev" || "$local_rev" = "$remote_rev" ]]; then
     log_info "Dotfiles are up to date"
+    rm -f "$log_file"
     return 0
   fi
 
   echo "Updates available:"
   git -C "$DOTFILES" --no-pager log --oneline --graph --decorate --color=always HEAD.."@{u}"
-  # Try to update if everything is clean
+
   run_with_spinner "git -C '$DOTFILES' pull --ff-only origin main > '$log_file' 2>&1" 11 "Updating dotfiles"
 
   if [ $? -eq 0 ]; then
     log_info "Dotfiles updated successfully"
   else
     log_error "Failed to update dotfiles"
-    cat "$log_file"
+    [[ "$verbose" == true ]] && cat "$log_file"
+    rm -f "$log_file"
     return 1
   fi
+
+  rm -f "$log_file"
 }
 
 update_zsh_plugins() {
-  fmt_title_underline "Updating ZSH plugins..."
-  echo -e
+  fmt_title_underline "Updating ZSH plugins"
 
-  local cwd="$(pwd)"
-  while IFS=: read -r name path; do
-    # update logic here
-    cd "$path" || exit
+  local plugin_dir="${ZPLUGDIR:-$HOME/.local/share/zsh/plugins}"
 
-    local before=$(git rev-parse HEAD)
+  if [[ ! -d "$plugin_dir" ]]; then
+    log_warning "No ZSH plugins directory found. Skipping..."
+    return 0
+  fi
 
-    run_with_spinner 'git pull --quiet --recurse-submodules' 11 "Updating $name..."
+  local found=false
+  for dir in "$plugin_dir"/*/; do
+    [[ -d "$dir/.git" ]] || continue
+    found=true
 
-    # Check if anything changed
-    local after=$(git rev-parse HEAD)
-    if [[ $before != $after ]]; then
-      local commit_count=$(git rev-list --count "$before".."$after")
-      local commit_msg=$(git log -1 --pretty=format:"%s")
+    local name
+    name=$(basename "$dir")
+    local cwd
+    cwd=$(pwd)
+    cd "$dir" || continue
+
+    local before
+    before=$(git rev-parse HEAD)
+
+    run_with_spinner 'git pull --quiet --recurse-submodules 2>/dev/null' 11 "Updating $name"
+
+    local after
+    after=$(git rev-parse HEAD)
+    if [[ "$before" != "$after" ]]; then
+      local commit_count
+      commit_count=$(git rev-list --count "$before".."$after")
+      local commit_msg
+      commit_msg=$(git log -1 --pretty=format:"%s")
       log_success "$name updated ($commit_count new commit(s))"
-      fmt_value "  → $commit_msg"
+      printf "  %b→ %s%b\n" "$DIM" "$commit_msg" "$RESET"
     else
       log_info "$name already up to date"
     fi
 
-    cd "$cwd" || exit
-  done < <(zsh -ic 'for k in ${(k)plugins}; do echo "$k:$plugins[$k]"; done')
+    cd "$cwd" || true
+  done
+
+  if [[ "$found" == false ]]; then
+    log_warning "No ZSH plugins installed yet. Open a new shell first."
+    return 0
+  fi
 
   echo -e
   log_success "ZSH Plugin updates completed."
@@ -144,18 +181,20 @@ update_sdkman() {
     return 0
   fi
 
-  local log_file=$(mktemp)
-  trap 'rm -f "$log_file"' EXIT
+  local log_file
+  log_file=$(mktemp)
 
   run_with_spinner "bash -c 'export sdkman_auto_answer=true && source \"$sdkman_dir/bin/sdkman-init.sh\" && sdk update 2>&1 && sdk upgrade 2>&1' > '$log_file' 2>&1" 11 "Updating SDKMAN"
 
   if grep -q "Error\|fatal\|Failed" "$log_file"; then
-    log_error "Error occurred during SDKMAN update:"
+    log_error "Error occurred during SDKMAN update"
     [[ "$verbose" == true ]] && cat "$log_file"
+    rm -f "$log_file"
     return 1
   fi
 
   grep -i "updated\|upgraded\|installed" "$log_file" || log_info "All SDKs are up to date"
+  rm -f "$log_file"
   echo -e
 }
 
