@@ -46,7 +46,41 @@ else
   "$DOT" homebrew install
 fi
 
-# ── Step 3: Docker runtime ──────────────────────────────────────────
+# ── Step 3: SSH key ────────────────────────────────────────────────
+
+run_step "SSH key"
+
+if [[ -f "$HOME/.ssh/id_ed25519" ]]; then
+  log_success "SSH key already exists (~/.ssh/id_ed25519)"
+else
+  if ask_yes_no "Generate a new SSH key?"; then
+    printf "Email for SSH key: "
+    read -r ssh_email
+
+    mkdir -p "$HOME/.ssh"
+    ssh-keygen -t ed25519 -C "$ssh_email" -f "$HOME/.ssh/id_ed25519"
+    eval "$(ssh-agent -s)" >/dev/null
+    ssh-add "$HOME/.ssh/id_ed25519"
+
+    log_success "SSH key generated"
+    echo
+    log_info "Add this public key to GitHub → Settings → SSH Keys:"
+    echo
+    cat "$HOME/.ssh/id_ed25519.pub"
+    echo
+    if command -v pbcopy &>/dev/null; then
+      pbcopy < "$HOME/.ssh/id_ed25519.pub"
+      log_info "Public key copied to clipboard"
+    fi
+
+    log_warning "Press any key after adding the key to GitHub"
+    read -r -n 1 -s
+  else
+    log_info "Skipping — generate later: ssh-keygen -t ed25519"
+  fi
+fi
+
+# ── Step 4: Docker runtime ──────────────────────────────────────────
 
 run_step "Docker runtime"
 
@@ -75,65 +109,24 @@ else
   esac
 fi
 
-# ── Step 4: Brew bundle ─────────────────────────────────────────────
+# ── Step 5: Brew bundle ─────────────────────────────────────────────
 
 run_step "Install Homebrew packages"
 
 "$DOT" homebrew bundle
 
-# ── Step 5: Backup & link ───────────────────────────────────────────
+# ── Step 6: Backup & link ───────────────────────────────────────────
 
 run_step "Backup existing configs & link dotfiles"
 
 "$DOT" backup -v || true
 "$DOT" link all -v
 
-# ── Step 6: Default shell ───────────────────────────────────────────
+# ── Step 7: Default shell ───────────────────────────────────────────
 
 run_step "Change default shell to ZSH"
 
 "$DOT" shell change
-
-# ── Step 7: SSH key ────────────────────────────────────────────────
-
-run_step "SSH key"
-
-if [[ -f "$HOME/.ssh/id_ed25519" ]]; then
-  log_success "SSH key already exists (~/.ssh/id_ed25519)"
-else
-  if ask_yes_no "Generate a new SSH key?"; then
-    local_config="$HOME/.gitconfig-local"
-    ssh_email=$(git config -f "$local_config" user.email 2>/dev/null || true)
-
-    if [[ -z "$ssh_email" ]]; then
-      printf "Email for SSH key: "
-      read -r ssh_email
-    else
-      log_info "Using git email: $ssh_email"
-    fi
-
-    mkdir -p "$HOME/.ssh"
-    ssh-keygen -t ed25519 -C "$ssh_email" -f "$HOME/.ssh/id_ed25519"
-    eval "$(ssh-agent -s)" >/dev/null
-    ssh-add "$HOME/.ssh/id_ed25519"
-
-    log_success "SSH key generated"
-    echo
-    log_info "Add this public key to GitHub → Settings → SSH Keys:"
-    echo
-    cat "$HOME/.ssh/id_ed25519.pub"
-    echo
-    if command -v pbcopy &>/dev/null; then
-      pbcopy < "$HOME/.ssh/id_ed25519.pub"
-      log_info "Public key copied to clipboard"
-    fi
-
-    log_warning "Press any key after adding the key to GitHub"
-    read -r -n 1 -s
-  else
-    log_info "Skipping — generate later: ssh-keygen -t ed25519"
-  fi
-fi
 
 # ── Step 8: Git identity ──────────────────────────────────────────
 
