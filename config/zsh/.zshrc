@@ -36,6 +36,10 @@ else
     compinit -C
 fi
 
+# Register completions for functions defined in .zsh_functions (compdef requires compinit)
+compdef _c c
+compdef _h h
+
 # PATH setup (consolidated)
 export PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:$PATH"
 export PATH="/opt/homebrew/bin:$PATH"

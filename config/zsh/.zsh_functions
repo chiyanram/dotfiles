@@ -1,9 +1,5 @@
 #!/usr/bin/env zsh
 
-# compdef is used below — ensure compinit is loaded (cached version)
-autoload -Uz compinit
-compinit -C
-
 ########################################################
 # Navigation
 ########################################################
@@ -15,7 +11,6 @@ c() {
 _c() {
   _files -W $CODE_DIR -/
 }
-compdef _c c
 
 h() {
   cd $HOME/$1
@@ -24,7 +19,6 @@ h() {
 _h() {
   _files -W $HOME -/
 }
-compdef _h h
 
 md() {
   mkdir -p $1
