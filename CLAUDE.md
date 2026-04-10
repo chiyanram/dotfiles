@@ -50,6 +50,11 @@ Personal dotfiles managing my macOS development environment. Clean git history, 
 - Use `run_with_spinner` for long operations
 - Use `fmt_title_underline` for section headers
 - Use `printf` with `%b` for ANSI color variables (not `%s`)
+- Use `return 1` in functions, not `exit 1` (kills entire script under set -e)
+- Never use `trap EXIT` inside functions — use explicit cleanup instead
+- macOS ships BSD tools: no `readlink -f`, no GNU `sed -i`. Use ZSH `:A` modifier or `cd && pwd -P`
+- Every script must work on a fresh machine (day 0): guard tools with `command -v`, files with `[[ -f ]]`
+- `git config <key>` returns exit 1 if key missing — always use `2>/dev/null || true`
 
 ### Brewfile
 - Organized by category with comments: macOS, core, shell, dev tools, infra
@@ -60,11 +65,16 @@ Personal dotfiles managing my macOS development environment. Clean git history, 
 ### Zsh Config
 - `.zshrc` is sectioned with `########` comment blocks
 - Profiler hooks wrap the entire file (start at top, stop at bottom)
+- `.zsh_functions` has its own `compinit -C` (cached) because `compdef` calls require it, and the file is sourced BEFORE `.zshrc`'s compinit
 - Homebrew completions before compinit
 - compinit with 24h caching
+- Plugin keybindings must come AFTER the plugin's `zfetch` call, not in the Key Bindings section
+- `fzf-git.sh` requires `[[ -o zle ]]` guard — it registers zle widgets at source time
 - Tool initializations check `command -v` before running
 - SDKMAN must be at the end (it modifies PATH)
 - Starship init is the very last thing
+- Never alias POSIX core commands (`find`, `grep`, `sed`, `awk`, `sort`) — other tools call them internally (SDKMAN uses `find`, etc.)
+- After any zsh config change, verify with: `zsh -i -c 'echo ok' 2>&1`
 
 ### Git Functions
 - Auto-detect main/master via `git remote show origin`
