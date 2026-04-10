@@ -31,7 +31,7 @@ Personal dotfiles managing my macOS development environment. Clean git history, 
 - `bin/dot-doctor` — health check for all tools
 - `bin/dot-update` — update brew, nvim, zsh plugins, sdkman, dotfiles
 - `config/zsh/.zshrc` — shell config (plugins, tools, completions)
-- `config/zsh/.zsh_functions` — git functions (gcom, grbm, gpum, gll), utilities
+- `config/zsh/.zsh_functions` — zfetch plugin manager, git functions (gcom, grbm, gpum, gll), navigation (c, h, g, md), utilities
 - `config/zsh/.zsh_aliases` — shell aliases
 - `config/zsh/.docker_aliases` — docker/compose helpers
 - `config/starship/starship.toml` — prompt config
@@ -65,7 +65,7 @@ Personal dotfiles managing my macOS development environment. Clean git history, 
 ### Zsh Config
 - `.zshrc` is sectioned with `########` comment blocks
 - Profiler hooks wrap the entire file (start at top, stop at bottom)
-- `.zsh_functions` has its own `compinit -C` (cached) because `compdef` calls require it, and the file is sourced BEFORE `.zshrc`'s compinit
+- `compdef` calls live in `.zshrc` after compinit (not in `.zsh_functions` — it is sourced before compinit)
 - Homebrew completions before compinit
 - compinit with 24h caching
 - Plugin keybindings must come AFTER the plugin's `zfetch` call, not in the Key Bindings section
