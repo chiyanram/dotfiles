@@ -1,5 +1,9 @@
 #!/usr/bin/env zsh
 
+# compdef is used below — ensure compinit is loaded (cached version)
+autoload -Uz compinit
+compinit -C
+
 ########################################################
 # Navigation
 ########################################################

@@ -136,7 +136,9 @@ zfetch zsh-users/zsh-history-substring-search
 zfetch MichaelAquilina/zsh-you-should-use you-should-use.plugin.zsh
 zfetch grigorii-zander/zsh-npm-scripts-autocomplete
 zfetch Aloxaf/fzf-tab
-zfetch junegunn/fzf-git.sh fzf-git.sh
+# fzf-git: clone only, source manually (requires zle)
+zfetch junegunn/fzf-git.sh __skip__
+[[ -o zle ]] && [[ -f "$ZPLUGDIR/junegunn/fzf-git.sh/fzf-git.sh" ]] && source "$ZPLUGDIR/junegunn/fzf-git.sh/fzf-git.sh"
 
 # History substring search bindings (must be after plugin load)
 bindkey '^[[A' history-substring-search-up

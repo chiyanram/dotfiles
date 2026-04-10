@@ -17,7 +17,6 @@ alias lpath='echo $PATH | tr ":" "\n"'
 
 # Modern tool replacements
 [[ -x "$(command -v bat)" ]] && alias cat='bat'
-[[ -x "$(command -v fd)" ]] && alias find='fd'
 [[ -x "$(command -v dust)" ]] && alias du='dust' || alias du='du -h -c'
 [[ -x "$(command -v procs)" ]] && alias ps='procs'
 
