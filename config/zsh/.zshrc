@@ -248,6 +248,7 @@ export SDKMAN_DIR="$HOME/.sdkman"
 
 # Prompt (initialize last)
 if [[ -x "$(command -v starship)" ]]; then
+    export STARSHIP_CONFIG="$XDG_CONFIG_HOME/starship/starship.toml"
     eval "$(starship init zsh)"
 fi
 
