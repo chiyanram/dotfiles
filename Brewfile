@@ -30,9 +30,6 @@ brew 'ripgrep'                         # very fast file searcher
 brew 'zoxide'                          # switch between most used directories
 brew 'bat'                             # better cat
 brew 'eza'                             # ls alternative
-brew 'tree'                            # pretty-print directory contents
-brew 'sd'                              # intuitive sed replacement
-brew 'dust'                            # visual du replacement
 brew 'procs'                           # modern ps with color and tree view
 
 # Development tools
@@ -49,19 +46,18 @@ brew 'fnm'                             # Fast Node version manager
 brew 'python'                          # python (latest)
 brew 'stylua'                          # lua code formatter
 brew 'shellcheck'                      # diagnostics for shell scripts
-brew 'gum'                             # fancy UI utilities
-brew 'glow'                            # markdown viewer
+brew 'glow'                            # terminal markdown viewer
 brew 'jq'                              # work with JSON files in shell scripts
-brew 'jnv'                             # interactive JSON navigator using jq
 brew 'gnupg'                           # GPG
 brew 'btop'                            # a top alternative
-brew 'wget'                            # internet file retriever
 
 # Java / backend
 brew 'jbang'                           # run Java source files as scripts without a project
 
 # Infrastructure
+brew 'yq'                              # jq for YAML — essential for K8s/Helm work
 brew 'kubectl'                         # Kubernetes CLI
+brew 'kubecolor'                       # colorized kubectl output
 brew 'helm'                            # Kubernetes package manager
 brew 'k9s'                             # Kubernetes TUI
 brew 'kubectx'                         # fast Kubernetes context and namespace switching

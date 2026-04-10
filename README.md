@@ -212,10 +212,10 @@ Full list in `Brewfile`. Key packages:
 | Category | Tools |
 |----------|-------|
 | Core | git, zsh, neovim, tmux |
-| Shell | starship, fzf, fd, ripgrep, zoxide, bat, eza, sd, dust, procs |
-| Dev | lazygit, gh, git-delta, just, direnv, fnm, python, jq, jnv, shellcheck |
+| Shell | starship, fzf, fd, ripgrep, zoxide, bat, eza, procs |
+| Dev | lazygit, gh, git-delta, just, direnv, fnm, python, jq, shellcheck |
 | Java | jbang, sdkman (external) |
-| Infra | kubectl, helm, k9s, kubectx, stern, docker, lazydocker, httpie, pgcli, dive |
+| Infra | kubectl, kubecolor, helm, k9s, kubectx, stern, yq, docker, lazydocker, httpie, pgcli, dive |
 | macOS | ghostty, aerospace, trash, noti |
 
 ## macOS Settings
