@@ -125,12 +125,12 @@ spinner() {
   tput civis
 
   # Cleanup function to restore cursor and remove spinner
-  cleanup() {
+  _spinner_cleanup() {
     tput cnorm # Restore cursor
     tput el    # Clear line
     echo -en "\r${RESET}"
   }
-  trap cleanup EXIT SIGINT SIGTERM
+  trap _spinner_cleanup EXIT SIGINT SIGTERM
 
   # Main spinner loop with rainbow effect
   local rainbow_index=0
@@ -143,7 +143,7 @@ spinner() {
     done
   done
 
-  cleanup
+  _spinner_cleanup
 }
 
 # Example of how to use in a real script
