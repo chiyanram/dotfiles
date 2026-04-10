@@ -38,6 +38,14 @@ The script walks you through each step interactively:
 
 > **Note:** After setup, open a new terminal. `dot` will be in your `$PATH`.
 
+### Migrating an Existing Laptop
+
+Already have dotfiles installed? One command pulls latest changes, cleans stale symlinks, force-relinks configs, installs new packages, and runs a health check:
+
+```bash
+dot migrate
+```
+
 ### Docker Runtime
 
 The Brewfile defaults to Docker Desktop. For company laptops that require Rancher Desktop:
@@ -117,6 +125,7 @@ dot unlink [package]        # Unlink all or specific package
 | `dot update zsh` | Update ZSH plugins |
 | `dot update sdkman` | Update SDKMAN and installed SDKs |
 | `dot update dotfiles` | Pull latest dotfiles from git |
+| `dot migrate` | Pull latest, clean, relink, install packages, health check |
 | `dot doctor` | Health check — config links, shell, plugins, and tools |
 | `dot git setup` | Configure git user settings interactively |
 | `dot macos defaults` | Configure recommended macOS system defaults |

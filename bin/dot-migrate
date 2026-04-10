@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Description: Migrate dotfiles to latest version (pull, clean, relink, install, verify)
+
+set -Eeuo pipefail
+DOTFILES="${DOTFILES:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
+source "$DOTFILES/bin/lib/common.sh"
+
+DOT="$DOTFILES/bin/dot"
+
+main() {
+  fmt_title_border "Dotfiles Migration"
+  echo
+
+  # Step 1: Pull latest
+  fmt_title_underline "Step 1: Pull latest dotfiles"
+  local current_branch
+  current_branch="$(git -C "$DOTFILES" symbolic-ref --short HEAD 2>/dev/null || true)"
+  if [ "$current_branch" != "main" ]; then
+    log_warning "Not on main branch (current: $current_branch)"
+    log_info "Switch to main first: git -C $DOTFILES checkout main"
+    return 1
+  fi
+
+  git -C "$DOTFILES" pull --ff-only origin main
+  log_success "Dotfiles updated"
+  echo
+
+  # Step 2: Clean stale symlinks
+  fmt_title_underline "Step 2: Clean stale symlinks"
+  "$DOT" clean
+  echo
+
+  # Step 3: Force relink everything
+  fmt_title_underline "Step 3: Relink all configs"
+  "$DOT" link all --force -v
+  echo
+
+  # Step 4: Install new/updated Homebrew packages
+  fmt_title_underline "Step 4: Install Homebrew packages"
+  if command -v brew &>/dev/null; then
+    brew bundle --file="$DOTFILES/Brewfile" --no-upgrade
+    log_success "Homebrew packages synced"
+  else
+    log_warning "Homebrew not installed. Run: dot homebrew install"
+  fi
+  echo
+
+  # Step 5: Health check
+  fmt_title_underline "Step 5: Health check"
+  "$DOT" doctor || true
+  echo
+
+  fmt_title_border "Migration complete"
+  echo
+  log_info "Open a new terminal for all changes to take effect"
+}
+
+main "$@"
