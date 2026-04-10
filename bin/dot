@@ -81,6 +81,20 @@ cmd_clean() {
     fi
   done
 
+  # Clean stale symlinks pointing to deleted dotfiles config dirs
+  if [ -d "$CONFIG_HOME" ]; then
+    while IFS= read -r -d '' link; do
+      if [ -L "$link" ] && [ ! -e "$link" ]; then
+        local link_target
+        link_target=$(readlink "$link")
+        if [[ "$link_target" == "$DOTFILES"* ]]; then
+          log_info "Removing stale symbolic link: ~${link#"$HOME"} → $link_target"
+          rm "$link"
+        fi
+      fi
+    done < <(find "$CONFIG_HOME" -maxdepth 1 -type l -print0 2>/dev/null || true)
+  fi
+
   # Clean broken home directory symlinks
   if [ -d "$DOTFILES/home" ]; then
     while IFS= read -r -d '' file; do
