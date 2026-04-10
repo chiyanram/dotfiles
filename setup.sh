@@ -44,6 +44,12 @@ if command -v brew &>/dev/null; then
   log_success "Homebrew already installed"
 else
   "$DOT" homebrew install
+  # Source brew into current shell — not in PATH until next login shell
+  if [[ -f /opt/homebrew/bin/brew ]]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+  elif [[ -f /usr/local/bin/brew ]]; then
+    eval "$(/usr/local/bin/brew shellenv)"
+  fi
 fi
 
 # ── Step 3: SSH key ────────────────────────────────────────────────
