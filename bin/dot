@@ -69,39 +69,31 @@ EOF
 }
 
 cmd_clean() {
-  links=(
-    ".zshrc" ".zshenv" ".zprofile" ".zsh_aliases"
-    ".zsh_functions" ".config/aerospace"
-    ".config/git" ".config/ghostty" ".config/lazygit"
-    ".config/nvim" ".config/ripgrep" ".config/sesh"
-    ".config/tmux" ".config/zsh" ".config/starship"
-  )
-
   fmt_title_underline "Cleaning up broken legacy symlinks..."
 
-  for link in "${links[@]}"; do
-    path_link="$HOME/$link"
-    if [ -L "$path_link" ] && [ ! -e "$path_link" ]; then
-      log_success "Removing Broken symbolic link: $path_link"
-      rm "$path_link"
-    else
-      log_info "Link to $path_link not found or is not broken. Skipping..."
+  # Clean broken config symlinks (derived from config/ directory)
+  for config in "$DOTFILES/config"/*; do
+    [[ -d "$config" ]] || continue
+    local target="$CONFIG_HOME/$(basename "$config")"
+    if [ -L "$target" ] && [ ! -e "$target" ]; then
+      log_info "Removing broken symbolic link: ~${target#"$HOME"}"
+      rm "$target"
     fi
   done
 
-  # Clean up broken symlinks from home directory
+  # Clean broken home directory symlinks
   if [ -d "$DOTFILES/home" ]; then
     while IFS= read -r -d '' file; do
       relative_path="${file#"$DOTFILES"/home/}"
       target_path="$HOME/$relative_path"
       if [ -L "$target_path" ] && [ ! -e "$target_path" ]; then
-        log_success "Removing broken symbolic link: $target_path"
+        log_info "Removing broken symbolic link: ~${target_path#"$HOME"}"
         rm "$target_path"
       fi
     done < <(find "$DOTFILES/home" -type f -print0)
   fi
 
-  echo -e
+  echo
   log_success "Done."
 }
 
@@ -139,22 +131,12 @@ cmd_backup() {
 
   log_info "Creating backup in: $backup_path"
 
-  files_to_backup=(
-    ".zshrc"
-    ".zprofile"
-    ".zsh_aliases"
-    ".zsh_functions"
-    ".config/aerospace"
-    ".config/git"
-    ".config/ghostty"
-    ".config/lazygit"
-    ".config/nvim"
-    ".config/ripgrep"
-    ".config/sesh"
-    ".config/tmux"
-    ".config/zsh"
-    ".config/starship"
-  )
+  # Derive backup list from config/ directory (single source of truth)
+  files_to_backup=()
+  for config in "$DOTFILES/config"/*; do
+    [[ -d "$config" ]] || continue
+    files_to_backup+=(".config/$(basename "$config")")
+  done
 
   # Add home directory files to backup
   if [ -d "$DOTFILES/home" ]; then

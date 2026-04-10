@@ -87,8 +87,8 @@ Personal dotfiles managing my macOS development environment. Clean git history, 
 - Floating layout for system dialogs (Finder, System Preferences)
 
 ### Config Management
-- `bin/dot` clean and backup arrays must match actual config directories
-- When adding a new config package: add to both arrays and test `dot link`/`dot backup`
+- `bin/dot` clean and backup dynamically derive the config list from `$DOTFILES/config/*/`
+- No hardcoded arrays — adding a new config package only requires creating the directory
 
 ### Local Customization
 - `~/.localrc` and `~/.zshrc.local` — machine-specific shell config (sourced by .zshrc, not committed)
