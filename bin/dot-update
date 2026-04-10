@@ -138,29 +138,24 @@ update_zsh_plugins() {
 
     local name
     name=$(basename "$dir")
-    local cwd
-    cwd=$(pwd)
-    cd "$dir" || continue
 
     local before
-    before=$(git rev-parse HEAD)
+    before=$(git -C "$dir" rev-parse HEAD)
 
-    run_with_spinner 'git pull --quiet --recurse-submodules 2>/dev/null' 11 "Updating $name"
+    run_with_spinner "git -C '$dir' pull --quiet --recurse-submodules 2>/dev/null" 11 "Updating $name"
 
     local after
-    after=$(git rev-parse HEAD)
+    after=$(git -C "$dir" rev-parse HEAD)
     if [[ "$before" != "$after" ]]; then
       local commit_count
-      commit_count=$(git rev-list --count "$before".."$after")
+      commit_count=$(git -C "$dir" rev-list --count "$before".."$after")
       local commit_msg
-      commit_msg=$(git log -1 --pretty=format:"%s")
+      commit_msg=$(git -C "$dir" log -1 --pretty=format:"%s")
       log_success "$name updated ($commit_count new commit(s))"
       printf "  %b→ %s%b\n" "$DIM" "$commit_msg" "$RESET"
     else
       log_info "$name already up to date"
     fi
-
-    cd "$cwd" || true
   done
 
   if [[ "$found" == false ]]; then
