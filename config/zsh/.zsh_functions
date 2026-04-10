@@ -77,7 +77,7 @@ zshrc_profiler_view() {
 
 g() {
   if [[ $# > 0 ]]; then
-      git $@
+      git "$@"
   else
       git s
   fi

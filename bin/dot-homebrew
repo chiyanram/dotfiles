@@ -61,10 +61,13 @@ homebrew_bundle() {
 
   log_success "Homebrew packages installed successfully."
 
-  # install fzf
-  echo -e
-  log_info "Installing fzf"
-  "$(brew --prefix)"/opt/fzf/install --key-bindings --completion --no-update-rc --no-bash --no-fish
+  # install fzf key bindings (only on first run)
+  local fzf_install="$(brew --prefix)/opt/fzf/install"
+  if [[ -x "$fzf_install" ]] && [[ ! -f "$HOME/.fzf.zsh" ]]; then
+    echo -e
+    log_info "Installing fzf key bindings"
+    "$fzf_install" --key-bindings --completion --no-update-rc --no-bash --no-fish
+  fi
 }
 
 main() {

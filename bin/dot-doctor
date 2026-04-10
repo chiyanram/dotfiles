@@ -36,8 +36,8 @@ check_sdkman() {
     version=$(bash -c "source '$sdkman_dir/bin/sdkman-init.sh' && sdk version 2>/dev/null" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1) || version="installed"
     printf "  %b %b%-14s%b %b%s%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "sdkman" "$RESET" "$DIM" "$version" "$RESET"
   else
-    printf "  %b %b%-14s%b %b%s%b\n" "${RED}${ERROR_ICON}" "$BOLD" "sdkman" "$RESET" "$RED" "not found" "$RESET"
-    missing_count=$((missing_count + 1))
+    printf "  %b %b%-14s%b %b%s%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "sdkman" "$RESET" "$YELLOW" "not found (optional)" "$RESET"
+    optional_missing=$((optional_missing + 1))
   fi
 }
 
@@ -47,8 +47,8 @@ check_java() {
     version=$(java --version 2>&1 | head -n1) || version="installed"
     printf "  %b %b%-14s%b %b%s%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "java" "$RESET" "$DIM" "$version" "$RESET"
   else
-    printf "  %b %b%-14s%b %b%s%b\n" "${RED}${ERROR_ICON}" "$BOLD" "java" "$RESET" "$RED" "not found (install via: sdk install java)" "$RESET"
-    missing_count=$((missing_count + 1))
+    printf "  %b %b%-14s%b %b%s%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "java" "$RESET" "$YELLOW" "not found — install via: sdk install java (optional)" "$RESET"
+    optional_missing=$((optional_missing + 1))
   fi
 }
 

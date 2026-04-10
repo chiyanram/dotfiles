@@ -82,10 +82,11 @@ update_nvim_plugins() {
 update_dotfiles() {
   fmt_title_underline "Updating dotfiles"
 
-  current_branch="$(git -C "$DOTFILES" symbolic-ref --short HEAD)"
+  local current_branch
+  current_branch="$(git -C "$DOTFILES" symbolic-ref --short HEAD 2>/dev/null || true)"
   if [ "$current_branch" != "main" ]; then
-    log_warning "Not on main branch (current: $current_branch)"
-    return 1
+    log_warning "Not on main branch (current: $current_branch). Skipping dotfiles update."
+    return 0
   fi
 
   local log_file
