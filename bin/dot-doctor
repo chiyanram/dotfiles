@@ -194,64 +194,42 @@ main() {
   check_zsh_plugins || config_issues=$((config_issues + $?))
   echo
 
-  # Core tools
-  fmt_title_underline "Core"
+  # Homebrew packages (auto-derived from Brewfile)
+  fmt_title_underline "Homebrew Packages"
   check_tool "brew" "brew"
-  check_tool "git" "git"
-  check_tool "neovim" "nvim"
-  check_tool "tmux" "tmux"
+
+  # Formula name → binary name for mismatched entries
+  declare -A brew_cmd_map=(
+    [neovim]="nvim" [ripgrep]="rg" [git-delta]="delta"
+    [httpie]="http" [gnupg]="gpg" [python]="python3"
+  )
+
+  # Formulas to skip (system-provided or no user-facing binary)
+  local brew_skip=" bash zsh grep font-symbols-only-nerd-font "
+
+  # Required tools (everything else is optional)
+  local required_tools=" git neovim tmux starship fzf fd ripgrep zoxide bat eza gh lazygit git-delta jq "
+
+  local brewfile="$DOTFILES/Brewfile"
+  if [[ -f "$brewfile" ]]; then
+    while IFS= read -r formula; do
+      [[ "$brew_skip" == *" $formula "* ]] && continue
+      local cmd="${brew_cmd_map[$formula]:-$formula}"
+      local required="false"
+      [[ "$required_tools" == *" $formula "* ]] && required="true"
+      check_tool "$formula" "$cmd" "$required"
+    done < <(grep -E "^[[:space:]]*brew '" "$brewfile" | sed "s/.*brew '\\([^']*\\)'.*/\\1/")
+  else
+    log_warning "Brewfile not found at $brewfile"
+  fi
   echo
 
-  # Shell & navigation
-  fmt_title_underline "Shell & Navigation"
-  check_tool "starship" "starship"
-  check_tool "fzf" "fzf"
-  check_tool "ripgrep" "rg"
-  check_tool "fd" "fd"
-  check_tool "eza" "eza"
-  check_tool "zoxide" "zoxide"
-  check_tool "bat" "bat"
-  echo
-
-  # Java / Backend development
+  # Java / Backend (external to Homebrew)
   fmt_title_underline "Java / Backend"
   check_sdkman
   check_java
   check_tool "gradle" "gradle" "false"
   check_tool "maven" "mvn" "false"
-  echo
-
-  # Frontend tooling
-  fmt_title_underline "Frontend"
-  check_tool "fnm" "fnm" "false"
-  check_tool "node" "node" "false"
-  echo
-
-  # Infrastructure
-  fmt_title_underline "Infrastructure"
-  check_tool "docker" "docker" "false"
-  check_tool "kubectl" "kubectl" "false"
-  check_tool "helm" "helm" "false"
-  check_tool "k9s" "k9s" "false"
-  check_tool "kubectx" "kubectx" "false"
-  check_tool "stern" "stern" "false"
-  check_tool "lazydocker" "lazydocker" "false"
-  echo
-
-  # Utilities
-  fmt_title_underline "Utilities"
-  check_tool "gh" "gh"
-  check_tool "lazygit" "lazygit"
-  check_tool "delta" "delta"
-  check_tool "jq" "jq"
-  check_tool "gum" "gum" "false"
-  check_tool "just" "just" "false"
-  check_tool "direnv" "direnv" "false"
-  check_tool "jbang" "jbang" "false"
-  check_tool "httpie" "http" "false"
-  check_tool "pgcli" "pgcli" "false"
-  check_tool "dive" "dive" "false"
-  check_tool "btop" "btop" "false"
   echo
 
   # Summary
