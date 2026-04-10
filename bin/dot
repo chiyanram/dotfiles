@@ -52,6 +52,8 @@ $(fmt_key "Available Commands:")
         clean                     Clean up broken symlinks
             -n, --dry-run         Show what would be removed without actually removing
             -v, --verbose         Show detailed output
+        -f, --force               Replace existing symlinks (refuses to overwrite real files)
+        --status                  Show link status without making changes
         -v, --verbose             Show detailed output
     unlink                        Unlink dotfiles packages
         all                       Unlink all
@@ -199,6 +201,7 @@ cmd_backup() {
 link_home_files() {
   local operation="$1"
   local verbose="$2"
+  local force="${3:-false}"
 
   if [ ! -d "$DOTFILES/home" ]; then
     return 0
@@ -216,7 +219,15 @@ link_home_files() {
         mkdir -p "$target_dir"
       fi
 
-      if [ -e "$target_path" ]; then
+      if [ "$force" = true ] && [ -e "$target_path" ]; then
+        if [ -L "$target_path" ]; then
+          [ "$verbose" = true ] && log_info "Replacing symlink: ~${target_path#"$HOME"}"
+          rm "$target_path"
+          ln -s "$file" "$target_path"
+        else
+          log_warning "~${target_path#"$HOME"} is a real file, not a symlink. Skipping (backup first with: dot backup)"
+        fi
+      elif [ -e "$target_path" ]; then
         log_warning "~${target_path#"$HOME"} already exists... Skipping."
       else
         [ "$verbose" = true ] && log_info "Linking $relative_path"
@@ -319,6 +330,86 @@ cmd_link_clean() {
   fi
 }
 
+classify_link() {
+  local source="$1"
+  local target="$2"
+  if [ -L "$target" ]; then
+    local actual
+    actual=$(readlink "$target")
+    if [ "$actual" = "$source" ]; then
+      echo "ok"
+    else
+      echo "wrong"
+    fi
+  elif [ -e "$target" ]; then
+    echo "real"
+  else
+    echo "missing"
+  fi
+}
+
+link_status() {
+  fmt_title_underline "Link Status"
+
+  local ok=0 missing=0 wrong=0 real=0
+
+  # Config packages
+  for config in "$DOTFILES/config"/*; do
+    [[ -d "$config" ]] || continue
+    local name target state
+    name=$(basename "$config")
+    target="$CONFIG_HOME/$name"
+    state=$(classify_link "$config" "$target")
+    case "$state" in
+      ok)      printf "  %b%-22s%b %b%s%b\n" "$GREEN" "[OK]" "$RESET" "$DIM" "~/.config/$name" "$RESET"; ok=$((ok + 1)) ;;
+      wrong)   printf "  %b%-22s%b %s → %s\n" "$YELLOW" "[WRONG]" "$RESET" "~/.config/$name" "$(readlink "$target")"; wrong=$((wrong + 1)) ;;
+      real)    printf "  %b%-22s%b %s (real file/dir)\n" "$RED" "[REAL]" "$RESET" "~/.config/$name"; real=$((real + 1)) ;;
+      missing) printf "  %b%-22s%b %s\n" "$RED" "[MISSING]" "$RESET" "~/.config/$name"; missing=$((missing + 1)) ;;
+    esac
+  done
+
+  # Home files
+  if [ -d "$DOTFILES/home" ]; then
+    while IFS= read -r -d '' file; do
+      local relative_path target_path state
+      relative_path="${file#"$DOTFILES"/home/}"
+      target_path="$HOME/$relative_path"
+      state=$(classify_link "$file" "$target_path")
+      case "$state" in
+        ok)      printf "  %b%-22s%b %b%s%b\n" "$GREEN" "[OK]" "$RESET" "$DIM" "~/$relative_path" "$RESET"; ok=$((ok + 1)) ;;
+        wrong)   printf "  %b%-22s%b %s → %s\n" "$YELLOW" "[WRONG]" "$RESET" "~/$relative_path" "$(readlink "$target_path")"; wrong=$((wrong + 1)) ;;
+        real)    printf "  %b%-22s%b %s (real file)\n" "$RED" "[REAL]" "$RESET" "~/$relative_path"; real=$((real + 1)) ;;
+        missing) printf "  %b%-22s%b %s\n" "$RED" "[MISSING]" "$RESET" "~/$relative_path"; missing=$((missing + 1)) ;;
+      esac
+    done < <(find "$DOTFILES/home" -type f -print0)
+  fi
+
+  echo
+  printf "  %b%d ok%b  %b%d missing%b  %b%d wrong%b  %b%d real%b\n" \
+    "$GREEN" "$ok" "$RESET" "$RED" "$missing" "$RESET" "$YELLOW" "$wrong" "$RESET" "$RED" "$real" "$RESET"
+}
+
+link_config() {
+  local config="$1" target="$2" verbose="$3" force="$4"
+  local name
+  name=$(basename "$config")
+
+  if [ "$force" = true ] && [ -e "$target" ]; then
+    if [ -L "$target" ]; then
+      [ "$verbose" = true ] && log_info "Replacing symlink: ~${target#"$HOME"}"
+      rm "$target"
+      ln -s "$config" "$target"
+    else
+      log_warning "~${target#"$HOME"} is a real file/directory, not a symlink. Skipping (backup first with: dot backup)"
+    fi
+  elif [ -e "$target" ]; then
+    log_warning "~${target#"$HOME"} already exists... Skipping."
+  else
+    [ "$verbose" = true ] && log_info "Linking $name"
+    ln -s "$config" "$target"
+  fi
+}
+
 cmd_link() {
   local operation="$1"
   local pkg="$2"
@@ -330,13 +421,28 @@ cmd_link() {
     return
   fi
 
+  # Handle 'dot link --status' (no pkg required)
+  if [ "$operation" = "link" ] && [ "$pkg" = "--status" ]; then
+    link_status
+    return
+  fi
+
   local verbose=false
+  local force=false
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
     -v | --verbose)
       verbose=true
       shift
+      ;;
+    -f | --force)
+      force=true
+      shift
+      ;;
+    --status)
+      link_status
+      return
       ;;
     *)
       log_error "Unknown argument: $1"
@@ -359,12 +465,7 @@ cmd_link() {
       if [ -d "$config" ]; then
         local target="$CONFIG_HOME/$(basename "$config")"
         if [ "$operation" = "link" ]; then
-          if [ -e "$target" ]; then
-            log_warning "~${target#"$HOME"} already exists... Skipping."
-          else
-            [ "$verbose" = true ] && log_info "Linking $(basename "$config")"
-            ln -s "$config" "$target"
-          fi
+          link_config "$config" "$target" "$verbose" "$force"
         else # unlink
           if [ -L "$target" ]; then
             [ "$verbose" = true ] && log_info "Unlinking $target"
@@ -377,18 +478,13 @@ cmd_link() {
     done
 
     # Handle home directory files
-    link_home_files "$operation" "$verbose"
+    link_home_files "$operation" "$verbose" "$force"
   else
     # Handle specific package
     local target="$CONFIG_HOME/$pkg"
     if [ -d "$DOTFILES/config/$pkg" ]; then
       if [ "$operation" = "link" ]; then
-        if [ -e "$target" ]; then
-          log_warning "~${target#"$HOME"} already exists... Skipping."
-        else
-          [ "$verbose" = true ] && log_info "Linking $pkg"
-          ln -s "$DOTFILES/config/$pkg" "$target"
-        fi
+        link_config "$DOTFILES/config/$pkg" "$target" "$verbose" "$force"
       else # unlink
         if [ -L "$target" ]; then
           [ "$verbose" = true ] && log_info "Unlinking $target"
