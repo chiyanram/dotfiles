@@ -2,14 +2,23 @@
 
 Personal configuration files for my development environment on macOS. These dotfiles are tailored for backend engineering (Java/Spring Boot, Kubernetes, Terraform) with a focus on productivity and clean tooling.
 
-## Fresh Laptop Setup
+## Quick Start (Bare Machine)
 
-Clone the repo and run the interactive setup script:
+Open Terminal.app on a fresh Mac and paste:
 
 ```bash
-xcode-select --install        # if not already installed
-git clone git@github.com:<your-username>/dotfiles.git
-cd dotfiles
+bash <(curl -fsSL https://raw.githubusercontent.com/chiyanram/dotfiles/main/bootstrap.sh)
+```
+
+This handles everything: Xcode CLI tools, git clone, and the full interactive setup.
+
+### Manual Setup
+
+If you prefer to clone manually:
+
+```bash
+git clone git@github.com:chiyanram/dotfiles.git ~/tools-repo/dotfiles
+cd ~/tools-repo/dotfiles
 ./setup.sh
 ```
 
@@ -91,9 +100,11 @@ dot unlink [package]        # Unlink all or specific package
 |---------|-------------|
 | `dot link all` | Symlink all config packages to `~/.config` |
 | `dot link <pkg>` | Link a specific package (e.g., `dot link nvim`) |
+| `dot link --status` | Show status of all links (OK, MISSING, WRONG, REAL) |
+| `dot link all --force` | Replace existing symlinks (refuses to overwrite real files) |
 | `dot unlink all` | Remove all symlinks |
 | `dot backup` | Create timestamped backup of existing dotfiles |
-| `dot clean` | Remove broken legacy symlinks |
+| `dot clean` | Remove broken and stale symlinks |
 | `dot help` | Show all available commands |
 
 ### External Commands
@@ -106,7 +117,7 @@ dot unlink [package]        # Unlink all or specific package
 | `dot update zsh` | Update ZSH plugins |
 | `dot update sdkman` | Update SDKMAN and installed SDKs |
 | `dot update dotfiles` | Pull latest dotfiles from git |
-| `dot doctor` | Health check — verify all required tools are installed |
+| `dot doctor` | Health check — config links, shell, plugins, and tools |
 | `dot git setup` | Configure git user settings interactively |
 | `dot macos defaults` | Configure recommended macOS system defaults |
 | `dot shell change` | Change default shell to zsh |
