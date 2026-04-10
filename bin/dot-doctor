@@ -52,8 +52,146 @@ check_java() {
   fi
 }
 
+CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+
+check_config_links() {
+  local issues=0
+  for config in "$DOTFILES/config"/*; do
+    [[ -d "$config" ]] || continue
+    local name target
+    name=$(basename "$config")
+    target="$CONFIG_HOME/$name"
+    if [ -L "$target" ]; then
+      local actual
+      actual=$(readlink "$target")
+      if [ "$actual" = "$config" ]; then
+        printf "  %b %b%-22s%b %blinked%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "$name" "$RESET" "$DIM" "$RESET"
+      else
+        printf "  %b %b%-22s%b %bwrong target → %s%b\n" "${RED}${ERROR_ICON}" "$BOLD" "$name" "$RESET" "$RED" "$actual" "$RESET"
+        log_info "    Fix: dot link $name --force"
+        issues=$((issues + 1))
+      fi
+    elif [ -e "$target" ]; then
+      printf "  %b %b%-22s%b %breal file/dir (not a symlink)%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "$name" "$RESET" "$YELLOW" "$RESET"
+      log_info "    Fix: dot backup && dot link $name --force"
+      issues=$((issues + 1))
+    else
+      printf "  %b %b%-22s%b %bnot linked%b\n" "${RED}${ERROR_ICON}" "$BOLD" "$name" "$RESET" "$RED" "$RESET"
+      log_info "    Fix: dot link $name"
+      issues=$((issues + 1))
+    fi
+  done
+  return "$issues"
+}
+
+check_home_links() {
+  local issues=0
+  if [ ! -d "$DOTFILES/home" ]; then
+    return 0
+  fi
+  while IFS= read -r -d '' file; do
+    local relative_path target_path
+    relative_path="${file#"$DOTFILES"/home/}"
+    target_path="$HOME/$relative_path"
+    if [ -L "$target_path" ]; then
+      local actual
+      actual=$(readlink "$target_path")
+      if [ "$actual" = "$file" ]; then
+        printf "  %b %b%-22s%b %blinked%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "~/$relative_path" "$RESET" "$DIM" "$RESET"
+      else
+        printf "  %b %b%-22s%b %bwrong target%b\n" "${RED}${ERROR_ICON}" "$BOLD" "~/$relative_path" "$RESET" "$RED" "$RESET"
+        issues=$((issues + 1))
+      fi
+    elif [ -e "$target_path" ]; then
+      printf "  %b %b%-22s%b %breal file (not a symlink)%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "~/$relative_path" "$RESET" "$YELLOW" "$RESET"
+      issues=$((issues + 1))
+    else
+      printf "  %b %b%-22s%b %bnot linked%b\n" "${RED}${ERROR_ICON}" "$BOLD" "~/$relative_path" "$RESET" "$RED" "$RESET"
+      issues=$((issues + 1))
+    fi
+  done < <(find "$DOTFILES/home" -type f -print0)
+  return "$issues"
+}
+
+check_stale_links() {
+  local issues=0
+  if [ -d "$CONFIG_HOME" ]; then
+    while IFS= read -r -d '' link; do
+      if [ -L "$link" ] && [ ! -e "$link" ]; then
+        local link_target
+        link_target=$(readlink "$link")
+        if [[ "$link_target" == "$DOTFILES"* ]]; then
+          local name
+          name=$(basename "$link")
+          printf "  %b %b%-22s%b %bstale → %s%b\n" "${RED}${ERROR_ICON}" "$BOLD" "$name" "$RESET" "$RED" "$link_target" "$RESET"
+          log_info "    Fix: dot clean"
+          issues=$((issues + 1))
+        fi
+      fi
+    done < <(find "$CONFIG_HOME" -maxdepth 1 -type l -print0 2>/dev/null || true)
+  fi
+  return "$issues"
+}
+
+check_default_shell() {
+  local current_shell
+  current_shell=$(dscl . -read ~/ UserShell 2>/dev/null | awk '{print $2}')
+  if [[ "$current_shell" == *zsh ]]; then
+    printf "  %b %b%-22s%b %b%s%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "default shell" "$RESET" "$DIM" "$current_shell" "$RESET"
+  else
+    printf "  %b %b%-22s%b %b%s (expected zsh)%b\n" "${RED}${ERROR_ICON}" "$BOLD" "default shell" "$RESET" "$RED" "$current_shell" "$RESET"
+    log_info "    Fix: dot shell change"
+    return 1
+  fi
+}
+
+check_zsh_plugins() {
+  local plugin_dir="${ZPLUGDIR:-$HOME/.local/share/zsh/plugins}"
+  local expected_plugins=(
+    "zsh-users/zsh-completions"
+    "zsh-users/zsh-syntax-highlighting"
+    "zsh-users/zsh-autosuggestions"
+    "zsh-users/zsh-history-substring-search"
+    "MichaelAquilina/zsh-you-should-use"
+    "grigorii-zander/zsh-npm-scripts-autocomplete"
+    "Aloxaf/fzf-tab"
+    "junegunn/fzf-git.sh"
+  )
+  local issues=0
+  for plugin in "${expected_plugins[@]}"; do
+    local name dir
+    name=$(basename "$plugin")
+    dir="$plugin_dir/$plugin"
+    if [ -d "$dir/.git" ] || [ -d "$dir" ]; then
+      printf "  %b %b%-22s%b %binstalled%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "$name" "$RESET" "$DIM" "$RESET"
+    else
+      printf "  %b %b%-22s%b %bnot installed%b\n" "${RED}${ERROR_ICON}" "$BOLD" "$name" "$RESET" "$RED" "$RESET"
+      issues=$((issues + 1))
+    fi
+  done
+  if [ "$issues" -gt 0 ]; then
+    log_info "    Fix: open a new shell to auto-install plugins"
+  fi
+  return "$issues"
+}
+
 main() {
   fmt_title_border "Dotfiles Health Check"
+  echo
+
+  local config_issues=0
+
+  # Config health
+  fmt_title_underline "Config Links"
+  check_config_links || config_issues=$((config_issues + $?))
+  check_home_links || config_issues=$((config_issues + $?))
+  check_stale_links || config_issues=$((config_issues + $?))
+  echo
+
+  # Shell health
+  fmt_title_underline "Shell"
+  check_default_shell || config_issues=$((config_issues + 1))
+  check_zsh_plugins || config_issues=$((config_issues + $?))
   echo
 
   # Core tools
@@ -118,16 +256,26 @@ main() {
 
   # Summary
   echo "─────────────────────────────"
+  local has_issues=false
+
+  if [[ "$config_issues" -gt 0 ]]; then
+    log_warning "$config_issues config/link issue(s) — run: dot link --status"
+    has_issues=true
+  fi
+
   if [[ "$missing_count" -gt 0 ]]; then
     log_error "$missing_count required tool(s) missing"
-    [[ "$optional_missing" -gt 0 ]] && log_warning "$optional_missing optional tool(s) missing"
-    echo
     log_info "Install missing Homebrew packages: dot homebrew bundle"
     log_info "Install Java tools via SDKMAN:     sdk install java"
+    has_issues=true
+  fi
+
+  [[ "$optional_missing" -gt 0 ]] && log_warning "$optional_missing optional tool(s) missing"
+
+  if [[ "$has_issues" == true ]]; then
     exit 1
   else
-    log_success "All required tools are installed"
-    [[ "$optional_missing" -gt 0 ]] && log_warning "$optional_missing optional tool(s) missing"
+    log_success "All checks passed"
   fi
 }
 
