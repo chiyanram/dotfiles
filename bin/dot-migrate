@@ -38,6 +38,7 @@ main() {
   # Step 4: Install new/updated Homebrew packages
   fmt_title_underline "Step 4: Install Homebrew packages"
   if command -v brew &>/dev/null; then
+    detect_docker_runtime
     brew bundle --file="$DOTFILES/Brewfile" --no-upgrade
     log_success "Homebrew packages synced"
   else

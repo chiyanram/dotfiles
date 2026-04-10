@@ -54,6 +54,7 @@ homebrew_bundle() {
 
   fmt_title_underline "Installing Homebrew packages"
 
+  detect_docker_runtime
   if ! brew bundle --file="$DOTFILES/Brewfile"; then
     log_error "Failed to install Homebrew packages."
     exit 1

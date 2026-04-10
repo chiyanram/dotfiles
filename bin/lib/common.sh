@@ -73,6 +73,18 @@ log_success() { printf "${BRIGHT_GREEN}${BOLD}${SUCCESS_ICON}${RESET} ${GREEN}%s
 log_warning() { printf "${BRIGHT_YELLOW}${BOLD}${WARNING_ICON}${RESET} ${YELLOW}%s${RESET}\n" "$1"; }
 log_error() { printf "${BRIGHT_RED}${BOLD}${ERROR_ICON}${RESET} ${RED}%s${RESET}\n" "$1" >&2; }
 
+# Detect installed Docker runtime and export for Brewfile
+detect_docker_runtime() {
+  if [[ -n "${HOMEBREW_DOCKER_RUNTIME:-}" ]]; then
+    return 0
+  elif brew list --cask rancher &>/dev/null 2>&1; then
+    export HOMEBREW_DOCKER_RUNTIME="rancher"
+  elif brew list --cask docker-desktop &>/dev/null 2>&1; then
+    export HOMEBREW_DOCKER_RUNTIME="docker-desktop"
+  fi
+  # If neither installed, leave unset — Brewfile defaults to docker-desktop
+}
+
 # Helper for formatted output
 fmt_key() { printf "${CYAN}${BOLD}%s${RESET}" "$1"; }
 fmt_value() { printf "${BRIGHT_CYAN}%s${RESET}" "$1"; }
