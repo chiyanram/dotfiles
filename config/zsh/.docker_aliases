@@ -111,4 +111,10 @@ alias drmc=drmc-fn
 alias drmid=drmid-fn
 alias drun=drun-fn
 # alias dsp="docker system prune --all"
+
+# Rancher Desktop — point Docker CLI / Testcontainers at the rd socket.
+# Testcontainers does not read Docker contexts and /var/run/docker.sock
+# does not exist on macOS w/ Rancher; without this it fails with
+# "could not find valid docker environment".
+export DOCKER_HOST="unix://${HOME}/.rd/docker.sock"
 alias dsr=dsr-fn
