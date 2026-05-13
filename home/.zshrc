@@ -10,7 +10,7 @@ if [[ -f "$HOME/.zshrc.profiler" ]]; then
 fi
 
 # Source functions early
-source "$ZDOTDIR/.zsh_functions"
+source "$HOME/.zsh_functions"
 
 ########################################################
 # Core Configuration
@@ -30,7 +30,7 @@ zfetch zsh-users/zsh-completions
 
 # Initialize autocomplete with 24h caching
 autoload -U compinit add-zsh-hook
-if [[ -n "${ZDOTDIR:-${HOME}}"/.zcompdump(#qN.mh+24) ]]; then
+if [[ -n "$HOME"/.zcompdump(#qN.mh+24) ]]; then
     compinit
 else
     compinit -C
@@ -226,7 +226,7 @@ fi
 [[ -f ~/.localrc ]] && source ~/.localrc
 
 # Load modular config files
-for file in "$ZDOTDIR/.zsh_aliases" "$ZDOTDIR/.docker_aliases"; do
+for file in "$HOME/.zsh_aliases" "$HOME/.docker_aliases"; do
     [[ -f "$file" ]] && source "$file"
 done
 
