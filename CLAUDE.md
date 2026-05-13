@@ -22,7 +22,7 @@ Personal dotfiles managing my macOS development environment. Clean git history, 
 - `config/` directories are symlinked to `~/.config/` via `dot link`
 - `home/` files are symlinked to `~/` preserving directory structure
 - `home/.zshenv` sets XDG dirs, DOTFILES path, and is the shell entry point
-- `config/zsh/.zshrc` is the main shell config, sourced after .zshenv
+- `home/.zshrc` is the main shell config, sourced after .zshenv (no ZDOTDIR — zsh reads rc files from \$HOME so installer-added lines work)
 
 ## Key Files
 
@@ -30,10 +30,11 @@ Personal dotfiles managing my macOS development environment. Clean git history, 
 - `bin/dot` — dotfiles manager
 - `bin/dot-doctor` — health check for all tools
 - `bin/dot-update` — update brew, nvim, zsh plugins, sdkman, dotfiles
-- `config/zsh/.zshrc` — shell config (plugins, tools, completions)
-- `config/zsh/.zsh_functions` — zfetch plugin manager, git functions (gcom, grbm, gpum, gll), navigation (c, h, g, md), utilities
-- `config/zsh/.zsh_aliases` — shell aliases
-- `config/zsh/.docker_aliases` — docker/compose helpers
+- `home/.zshrc` — shell config (plugins, tools, completions)
+- `home/.zsh_functions` — zfetch plugin manager, git functions (gcom, grbm, gpum, gll), navigation (c, h, g, md), utilities
+- `home/.zsh_aliases` — shell aliases
+- `home/.docker_aliases` — docker/compose helpers
+- `home/.zprofile` — login-shell env (brew shellenv, installer-added PATHs)
 - `config/starship/starship.toml` — prompt config
 - `config/aerospace/aerospace.toml` — tiling window manager
 - `config/nvim/` — neovim config (lua, lazy.nvim)

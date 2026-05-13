@@ -159,17 +159,18 @@ Managed via `dot link`. Each directory in `config/` becomes a symlink in `~/.con
 | `sesh` | Terminal session manager |
 | `starship` | Cross-shell prompt (Java/K8s/Docker aware) |
 | `tmux` | Terminal multiplexer |
-| `zsh` | Shell configuration, aliases, functions |
+
+Zsh rc files (`.zshrc`, `.zprofile`, `.zsh_aliases`, `.zsh_functions`, `.docker_aliases`) live under `home/` and symlink directly into `$HOME`.
 
 ### Shell (ZSH)
 
-Configuration lives in `config/zsh/` and includes:
+Configuration lives in `home/` (`.zshrc`, `.zsh_functions`, `.zsh_aliases`, `.zprofile`, `.docker_aliases`) and includes:
 
 - **Starship prompt** with git status, Java version, K8s context, Docker status
 - **Plugins** via `zfetch` (custom plugin manager):
   - zsh-completions, zsh-syntax-highlighting, zsh-autosuggestions, zsh-history-substring-search, zsh-you-should-use, zsh-npm-scripts-autocomplete, fzf-tab, fzf-git.sh
 - **Tool initialization**: fnm, pyenv, pnpm, zoxide, direnv, fzf, SDKMAN, starship
-- **Docker aliases** (`config/zsh/.docker_aliases`)
+- **Docker aliases** (`home/.docker_aliases`)
 - **Custom functions**: `c` (cd to workspaces), `h` (cd to home subdir), `g` (git shortcut), `md` (mkdir + cd), `zfetch` (plugin manager)
 
 ### Neovim
