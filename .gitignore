@@ -10,14 +10,6 @@ config/nvim/shada
 .netrwhist
 lazy-lock.json
 
-# ZSH
-config/zsh/.zsh_history
-config/zsh/.zsh_sessions
-config/zsh/.zcompdump
-config/zsh/.zcompdump-*
-config/zsh/.zshrc.pre-oh-my-zsh
-config/zsh/ohmyzsh/
-
 # Ghostty
 config/ghostty/overrides
 
