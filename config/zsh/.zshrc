@@ -28,11 +28,6 @@ typeset -A plugins
 zfetch zsh-users/zsh-completions
 [[ -d "$ZPLUGDIR/zsh-users/zsh-completions/src" ]] && FPATH="$ZPLUGDIR/zsh-users/zsh-completions/src:${FPATH}"
 
-# Docker completions (before compinit)
-if [[ -d "$HOME/.docker/completions" ]]; then
-    fpath=($HOME/.docker/completions $fpath)
-fi
-
 # Initialize autocomplete with 24h caching
 autoload -U compinit add-zsh-hook
 if [[ -n "${ZDOTDIR:-${HOME}}"/.zcompdump(#qN.mh+24) ]]; then
@@ -258,3 +253,4 @@ if [[ -f "$HOME/.zshrc.profiler" ]]; then
     exec 2>&3 3>&-
     echo ".zshrc profiling complete. View with: zshrc_profiler_view"
 fi
+
