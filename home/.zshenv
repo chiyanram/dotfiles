@@ -33,3 +33,6 @@ typeset -aU path
 
 export EDITOR='nvim'
 export GIT_EDITOR='nvim'
+
+# uv
+export PATH="$HOME/.local/bin:$PATH"
