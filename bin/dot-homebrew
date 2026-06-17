@@ -33,7 +33,13 @@ homebrew_install() {
   fi
 
   # Run as a login shell (non-interactive) so that the script doesn't pause for user input
-  curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh | bash --login
+  # --connect-timeout/--retry so a proxy-blocked or flaky network fails fast
+  # instead of hanging; curl honors HTTPS_PROXY from the environment.
+  if ! curl -fsSL --connect-timeout 10 --retry 2 \
+    https://raw.githubusercontent.com/Homebrew/install/master/install.sh | bash --login; then
+    log_error "Homebrew install failed (network/proxy?). Set HTTPS_PROXY or install manually: https://brew.sh"
+    return 1
+  fi
 
   log_success "Homebrew installed successfully."
 
