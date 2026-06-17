@@ -236,9 +236,13 @@ Expected: all three install (or report "already installed").
 
 Create `tests/test_helper.bash`:
 
+No shebang (the file is `source`d by bats, never executed — a shebang here would fail pre-commit's `check-shebang-scripts-are-executable`). The `# shellcheck` directives set the dialect and silence the runtime-injected `BATS_*` vars.
+
 ```bash
-#!/usr/bin/env bash
+# shellcheck shell=bash
 # Shared helpers for dot-manager sandbox tests (core bats only — no external libs).
+# BATS_TEST_DIRNAME and other BATS_* vars are injected by the bats runtime.
+# shellcheck disable=SC2154
 
 # Build an isolated sandbox: a fake HOME plus a minimal fixture DOTFILES that
 # carries the real dot + common.sh so the manager runs exactly as in production.
@@ -476,7 +480,7 @@ test:
 - [ ] **Step 5: Run the full suite and verify it passes**
 
 Run: `bin/dot test`
-Expected: `shellcheck`, `shfmt`, `zsh syntax`, `zsh smoke`, `bats tests` each report success, then `All checks passed`.
+Expected: `shellcheck`, `shfmt`, `zsh syntax`, `zsh smoke`, `bats tests` each report success, then `All checks passed`. If the `shfmt` gate flags `bin/dot-test` itself (it is now in `bash_scripts`), run `shfmt -i 2 -ci -w bin/dot-test` and re-run until clean before committing.
 
 Run: `CI=true bin/dot test`
 Expected: same, but `zsh smoke` reports "CI: skipping interactive zsh smoke (local-only)".
