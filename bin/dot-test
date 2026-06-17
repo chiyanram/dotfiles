@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+# Description: Run all dotfiles checks — lint, format, syntax, smoke, and bats tests
+set -Eeuo pipefail
+
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
+DOTFILES="${DOTFILES:-$(cd "$script_dir/.." && pwd -P)}"
+source "$DOTFILES/bin/lib/common.sh"
+
+failed=0
+
+run_check() {
+  local name="$1"
+  shift
+  if "$@"; then
+    log_success "$name"
+  else
+    log_error "$name failed"
+    failed=1
+  fi
+}
+
+bash_scripts() {
+  printf '%s\n' \
+    "$DOTFILES/bin/dot" \
+    "$DOTFILES/bin/dot-test" \
+    "$DOTFILES/bin/lib/common.sh" \
+    "$DOTFILES/setup.sh" \
+    "$DOTFILES/bootstrap.sh"
+}
+
+check_shellcheck() {
+  command -v shellcheck >/dev/null || {
+    log_warning "shellcheck not installed, skipping"
+    return 0
+  }
+  bash_scripts | xargs shellcheck -x
+}
+
+check_shfmt() {
+  command -v shfmt >/dev/null || {
+    log_warning "shfmt not installed, skipping"
+    return 0
+  }
+  bash_scripts | xargs shfmt -i 2 -ci -d
+}
+
+check_zsh_syntax() {
+  command -v zsh >/dev/null || {
+    log_warning "zsh not installed, skipping"
+    return 0
+  }
+  local f
+  for f in "$DOTFILES"/home/.zshenv "$DOTFILES"/home/.zshrc \
+    "$DOTFILES"/home/.zsh_functions "$DOTFILES"/home/.zsh_aliases \
+    "$DOTFILES"/home/.docker_aliases "$DOTFILES"/home/.zprofile; do
+    [[ -f "$f" ]] || continue
+    zsh -n "$f" || return 1
+  done
+}
+
+check_zsh_smoke() {
+  [[ -n "${CI:-}" ]] && {
+    log_info "CI: skipping interactive zsh smoke (local-only)"
+    return 0
+  }
+  command -v zsh >/dev/null || {
+    log_warning "zsh not installed, skipping"
+    return 0
+  }
+  zsh -i -c 'echo ok' >/dev/null
+}
+
+check_bats() {
+  command -v bats >/dev/null || {
+    log_warning "bats not installed, skipping"
+    return 0
+  }
+  bats "$DOTFILES/tests"
+}
+
+main() {
+  fmt_title_underline "Running dotfiles checks"
+  run_check "shellcheck" check_shellcheck
+  run_check "shfmt" check_shfmt
+  run_check "zsh syntax" check_zsh_syntax
+  run_check "zsh smoke" check_zsh_smoke
+  run_check "bats tests" check_bats
+  echo
+  if [[ "$failed" -eq 0 ]]; then
+    log_success "All checks passed"
+  else
+    log_error "Some checks failed"
+    return 1
+  fi
+}
+
+main "$@"
