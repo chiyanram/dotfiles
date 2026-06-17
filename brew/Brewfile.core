@@ -1,14 +1,14 @@
 # vim:ft=ruby
+# Core packages — installed on every machine regardless of profile.
 
 if OS.mac?
   # macOS utilities
   brew 'noti'                          # utility to display notifications from scripts
   brew 'trash'                         # rm, but put in the trash rather than completely delete
 
-  # Applications
+  # Applications (cross-profile)
   cask 'ghostty'                       # a better terminal emulator
   cask 'nikitabobko/tap/aerospace'     # a tiling window manager
-  cask 'docker-desktop'                # Docker Desktop
 
   # Fonts
   cask 'font-symbols-only-nerd-font'   # nerd-only symbols font

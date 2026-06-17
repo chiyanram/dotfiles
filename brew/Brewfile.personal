@@ -1,0 +1,6 @@
+# vim:ft=ruby
+# Personal-profile packages.
+# The Docker runtime is installed separately by `dot homebrew bundle`
+# (defaults to docker-desktop for personal; override with:
+#   dot profile set-config docker_runtime <docker-desktop|rancher|colima>).
+# Add personal-only apps here.

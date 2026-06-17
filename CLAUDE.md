@@ -26,7 +26,7 @@ Personal dotfiles managing my macOS development environment. Clean git history, 
 
 ## Key Files
 
-- `Brewfile` — all Homebrew packages (organized by category)
+- `brew/Brewfile.core` — cross-profile Homebrew packages; `brew/Brewfile.{personal,work}` — profile-specific
 - `bin/dot` — dotfiles manager
 - `bin/dot-doctor` — health check for all tools
 - `bin/dot-update` — update brew, nvim, zsh plugins, sdkman, dotfiles
@@ -57,7 +57,7 @@ Personal dotfiles managing my macOS development environment. Clean git history, 
 - Every script must work on a fresh machine (day 0): guard tools with `command -v`, files with `[[ -f ]]`
 - `git config <key>` returns exit 1 if key missing — always use `2>/dev/null || true`
 
-### Brewfile
+### Brewfile (`brew/Brewfile.*`)
 - Organized by category with comments: macOS, core, shell, dev tools, infra
 - `cask` entries go inside `if OS.mac?` block
 - Every entry needs a trailing comment explaining what it is

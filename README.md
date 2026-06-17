@@ -48,11 +48,10 @@ dot migrate
 
 ### Docker Runtime
 
-The Brewfile defaults to Docker Desktop. For company laptops that require Rancher Desktop:
+The Docker runtime is profile-resolved: `personal` defaults to Docker Desktop, `work` defaults to Rancher Desktop. Override with:
 
 ```bash
-# Add to ~/.localrc so future brew bundle runs use Rancher
-export HOMEBREW_DOCKER_RUNTIME=rancher
+dot profile set-config docker_runtime <docker-desktop|rancher|colima>
 ```
 
 The setup script asks which runtime to use during installation.
@@ -213,10 +212,10 @@ dot update sdkman           # Update SDKMAN and all installed SDKs
 
 ### Infrastructure (via Homebrew)
 
-The Brewfile includes backend and infrastructure tools:
+The `brew/Brewfile.core` includes backend and infrastructure tools, with profile-specific additions in `brew/Brewfile.{personal,work}`:
 
 ```bash
-dot homebrew bundle         # Install everything from Brewfile
+dot homebrew bundle         # Install everything from brew/Brewfile.*
 ```
 
 Installed tools include: `kubectl`, `helm`, `k9s`, `kubectx`, `stern`, `docker`, `lazydocker`, `httpie`, `pgcli`, `dive`
@@ -231,7 +230,7 @@ dot doctor                  # Check all required and optional tools
 
 ## Homebrew Packages
 
-Full list in `Brewfile`. Key packages:
+Full list in `brew/Brewfile.core` (plus profile-specific `brew/Brewfile.{personal,work}`). Key packages:
 
 | Category | Tools |
 |----------|-------|
