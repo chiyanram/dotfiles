@@ -5,7 +5,7 @@ trap cleanup SIGINT SIGTERM ERR EXIT
 
 cleanup() {
   trap - SIGINT SIGTERM ERR EXIT
-  if [[ -t 1 ]]; then tput cnorm 2>/dev/null; fi # enable cursor only when stdout is a tty
+  if [[ -t 1 ]]; then tput cnorm 2>/dev/null || true; fi # enable cursor only when stdout is a tty
   # script cleanup here
 }
 
