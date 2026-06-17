@@ -122,15 +122,14 @@ spinner() {
   esac
 
   # Hide cursor
-  tput civis
+  [[ -t 1 ]] && tput civis
 
   # Cleanup function to restore cursor and remove spinner
   _spinner_cleanup() {
-    tput cnorm # Restore cursor
-    tput el    # Clear line
+    [[ -t 1 ]] && tput cnorm # Restore cursor
+    [[ -t 1 ]] && tput el    # Clear line
     echo -en "\r${RESET}"
   }
-  trap _spinner_cleanup EXIT SIGINT SIGTERM
 
   # Main spinner loop with rainbow effect
   local rainbow_index=0
@@ -165,6 +164,7 @@ run_with_spinner() {
 
   # clear the spinner from the line
   echo -en "\r\033[K"
+  [[ -t 1 ]] && tput cnorm
 
   if [ "$show_exit" -eq 1 ]; then
     if [ $exit_status -eq 0 ]; then
@@ -278,6 +278,60 @@ dot_docker_runtime_entries() {
     colima) printf "%s\n%s\n" "brew 'colima'" "brew 'docker'" ;;
     *) return 1 ;;
   esac
+}
+
+########################################################
+# Soft-fail step runner
+########################################################
+# Run named steps non-fatally and tally the outcomes. A step command returns
+# 0 (ok), STEP_SKIP_CODE (skipped), or anything else (failed). The runner never
+# propagates a failure, so one bad step never aborts the rest.
+
+STEP_SKIP_CODE=78
+
+step_init() {
+  _step_ok=0
+  _step_skipped=()
+  _step_failed=()
+}
+
+# step <label> <command> [args...]
+step() {
+  local label="$1"
+  shift
+  if [[ "${STEP_DRY_RUN:-0}" == "1" ]]; then
+    log_info "would run: $label"
+    _step_ok=$((_step_ok + 1))
+    return 0
+  fi
+  local rc=0
+  "$@" || rc=$?
+  if [[ "$rc" -eq 0 ]]; then
+    _step_ok=$((_step_ok + 1))
+  elif [[ "$rc" -eq "$STEP_SKIP_CODE" ]]; then
+    _step_skipped+=("$label")
+  else
+    _step_failed+=("$label")
+  fi
+  return 0
+}
+
+# step_summary — print the tally; return 1 if any step failed.
+step_summary() {
+  echo
+  fmt_title_underline "Summary"
+  printf "  %b%d ok%b  %b%d skipped%b  %b%d failed%b\n" \
+    "$GREEN" "$_step_ok" "$RESET" \
+    "$YELLOW" "${#_step_skipped[@]}" "$RESET" \
+    "$RED" "${#_step_failed[@]}" "$RESET"
+  local s
+  for s in "${_step_skipped[@]+"${_step_skipped[@]}"}"; do
+    printf "    %b⊘ %s%b\n" "$YELLOW" "$s" "$RESET"
+  done
+  for s in "${_step_failed[@]+"${_step_failed[@]}"}"; do
+    printf "    %b✗ %s%b\n" "$RED" "$s" "$RESET"
+  done
+  [[ "${#_step_failed[@]}" -eq 0 ]]
 }
 
 setup_colors
