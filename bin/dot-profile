@@ -45,14 +45,22 @@ main() {
         log_error "Usage: dot profile set <personal|work>"
         return 1
       }
-      dot_set_profile "$1" && log_success "Profile set to $1"
+      if dot_set_profile "$1"; then
+        log_success "Profile set to $1"
+      else
+        return 1
+      fi
       ;;
     set-config)
       [[ $# -ge 2 ]] || {
         log_error "Usage: dot profile set-config <key> <value>"
         return 1
       }
-      dot_set_config "$1" "$2" && log_success "Set $1=$2"
+      if dot_set_config "$1" "$2"; then
+        log_success "Set $1=$2"
+      else
+        return 1
+      fi
       ;;
     show) cmd_show ;;
     -h | --help) usage ;;
