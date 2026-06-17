@@ -52,9 +52,12 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   [ "$output" = "colima" ]
 }
 
-@test "dot_docker_runtime_entries maps docker-desktop and rancher" {
+@test "dot_docker_runtime_entries maps docker-desktop" {
   run dot_docker_runtime_entries docker-desktop
   [ "$output" = "cask 'docker-desktop'" ]
+}
+
+@test "dot_docker_runtime_entries maps rancher" {
   run dot_docker_runtime_entries rancher
   [ "$output" = "cask 'rancher'" ]
 }
