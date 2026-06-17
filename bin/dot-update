@@ -32,7 +32,7 @@ update_homebrew() {
 
   if ! command -v brew &>/dev/null; then
     log_warning "Homebrew is not installed. Skipping..."
-    return 0
+    return "$STEP_SKIP_CODE"
   fi
 
   local log_file
@@ -58,7 +58,7 @@ update_nvim_plugins() {
 
   if ! command -v nvim &>/dev/null; then
     log_warning "Neovim is not installed. Skipping..."
-    return 0
+    return "$STEP_SKIP_CODE"
   fi
 
   local log_file
@@ -86,7 +86,7 @@ update_dotfiles() {
   current_branch="$(git -C "$DOTFILES" symbolic-ref --short HEAD 2>/dev/null || true)"
   if [ "$current_branch" != "main" ]; then
     log_warning "Not on main branch (current: $current_branch). Skipping dotfiles update."
-    return 0
+    return "$STEP_SKIP_CODE"
   fi
 
   local log_file
@@ -101,7 +101,7 @@ update_dotfiles() {
   if [[ -z "$remote_rev" || "$local_rev" = "$remote_rev" ]]; then
     log_info "Dotfiles are up to date"
     rm -f "$log_file"
-    return 0
+    return "$STEP_SKIP_CODE"
   fi
 
   echo "Updates available:"
@@ -126,7 +126,7 @@ update_zsh_plugins() {
 
   if [[ ! -d "$plugin_dir" ]]; then
     log_warning "No ZSH plugins directory found. Skipping..."
-    return 0
+    return "$STEP_SKIP_CODE"
   fi
 
   local found=false
@@ -158,7 +158,7 @@ update_zsh_plugins() {
 
   if [[ "$found" == false ]]; then
     log_warning "No ZSH plugins installed yet. Open a new shell first."
-    return 0
+    return "$STEP_SKIP_CODE"
   fi
 
   echo -e
@@ -172,7 +172,7 @@ update_sdkman() {
 
   if [[ ! -s "$sdkman_dir/bin/sdkman-init.sh" ]]; then
     log_warning "SDKMAN is not installed. Skipping..."
-    return 0
+    return "$STEP_SKIP_CODE"
   fi
 
   local log_file
@@ -195,6 +195,7 @@ update_sdkman() {
 main() {
   local subcmd=""
   local verbose=false
+  export STEP_DRY_RUN=0
 
   if [ $# -lt 1 ]; then
     usage
@@ -211,6 +212,10 @@ main() {
         verbose=true
         shift
         ;;
+      -n | --dry-run)
+        STEP_DRY_RUN=1
+        shift
+        ;;
       *)
         subcmd="$1"
         shift
@@ -218,28 +223,20 @@ main() {
     esac
   done
 
+  step_init
+
   case "$subcmd" in
-    nvim | vim)
-      update_nvim_plugins
-      ;;
-    homebrew | brew)
-      update_homebrew
-      ;;
-    dotfiles)
-      update_dotfiles
-      ;;
-    zsh)
-      update_zsh_plugins
-      ;;
-    sdkman)
-      update_sdkman
-      ;;
+    nvim | vim) step "Neovim plugins" update_nvim_plugins ;;
+    homebrew | brew) step "Homebrew" update_homebrew ;;
+    dotfiles) step "dotfiles" update_dotfiles ;;
+    zsh) step "ZSH plugins" update_zsh_plugins ;;
+    sdkman) step "SDKMAN" update_sdkman ;;
     all)
-      update_nvim_plugins
-      update_homebrew
-      update_zsh_plugins
-      update_sdkman
-      update_dotfiles
+      step "Neovim plugins" update_nvim_plugins
+      step "Homebrew" update_homebrew
+      step "ZSH plugins" update_zsh_plugins
+      step "SDKMAN" update_sdkman
+      step "dotfiles" update_dotfiles
       ;;
     *)
       log_error "Unknown $command_name command: $subcmd"
@@ -248,6 +245,8 @@ main() {
       exit 1
       ;;
   esac
+
+  step_summary
 }
 
 main "$@"
