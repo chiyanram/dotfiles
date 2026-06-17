@@ -46,6 +46,9 @@ brew 'fnm'                             # Fast Node version manager
 brew 'python'                          # python (latest)
 brew 'stylua'                          # lua code formatter
 brew 'shellcheck'                      # diagnostics for shell scripts
+brew 'bats-core'                       # bash automated testing system (test harness)
+brew 'shfmt'                           # shell script formatter (lint gate)
+brew 'gitleaks'                        # secret scanner (pre-commit + CI)
 brew 'glow'                            # terminal markdown viewer
 brew 'jq'                              # work with JSON files in shell scripts
 brew 'gnupg'                           # GPG
