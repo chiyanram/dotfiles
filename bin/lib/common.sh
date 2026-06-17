@@ -212,10 +212,7 @@ dot_set_profile() {
 dot_config() {
   local key="${1:-}" file line value=""
   file="$(_dot_state_dir)/config"
-  [[ -f "$file" ]] || {
-    printf '\n'
-    return 0
-  }
+  [[ -f "$file" ]] || return 0
   while IFS= read -r line; do
     [[ "$line" == "$key="* ]] && value="${line#*=}"
   done <"$file"

@@ -60,3 +60,9 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   run dot_config work_dir
   [ "$output" = "$HOME/work" ]
 }
+
+@test "dot_config preserves a value that contains =" {
+  dot_set_config repo_url "https://example.com/a=b"
+  run dot_config repo_url
+  [ "$output" = "https://example.com/a=b" ]
+}
