@@ -72,3 +72,10 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   run dot_docker_runtime_entries frobnicate
   [ "$status" -ne 0 ]
 }
+
+@test "dot_brewfiles omits core when it is missing" {
+  rm -f "$DOTFILES/brew/Brewfile.core"
+  run dot_brewfiles personal
+  [[ "$output" != *"Brewfile.core"* ]]
+  [[ "$output" == *"Brewfile.personal" ]]
+}

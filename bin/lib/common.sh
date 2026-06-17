@@ -251,7 +251,7 @@ dot_set_config() {
 dot_brewfiles() {
   local profile="${1:-$(dot_profile)}" dir
   dir="${DOTFILES:?DOTFILES must be set}/brew"
-  printf '%s\n' "$dir/Brewfile.core"
+  [[ -f "$dir/Brewfile.core" ]] && printf '%s\n' "$dir/Brewfile.core"
   [[ -f "$dir/Brewfile.$profile" ]] && printf '%s\n' "$dir/Brewfile.$profile"
   return 0
 }

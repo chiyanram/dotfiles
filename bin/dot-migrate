@@ -39,9 +39,13 @@ main() {
   fmt_title_underline "Step 4: Install Homebrew packages"
   if command -v brew &>/dev/null; then
     local bf
+    # Migrate is soft-fail: install what it can and report. The Docker runtime
+    # is intentionally NOT installed here (use `dot homebrew bundle` for that).
     # shellcheck disable=SC2119  # dot_brewfiles takes an optional profile arg; calling with no arg is intentional
     while IFS= read -r bf; do
-      [[ -f "$bf" ]] && brew bundle --file="$bf" --no-upgrade
+      if [[ -f "$bf" ]] && ! brew bundle --file="$bf" --no-upgrade; then
+        log_warning "Failed bundling ${bf##*/} — continuing"
+      fi
     done < <(dot_brewfiles)
     log_success "Homebrew packages synced"
   else
