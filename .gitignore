@@ -36,6 +36,8 @@ npm-debug.log
 # Machine-local config (never committed — secrets / identity live here)
 *.local
 *-local
+.gitconfig-work
+.gitconfig-work-include
 
 # SSH keys / certs (defense in depth)
 id_rsa
