@@ -46,17 +46,33 @@ homebrew_install() {
 }
 
 homebrew_bundle() {
-  # Check if Homebrew is installed
   if ! command -v brew &>/dev/null; then
     log_error "Homebrew is not installed. Exiting."
-    exit 1
+    return 1
   fi
 
-  fmt_title_underline "Installing Homebrew packages"
+  fmt_title_underline "Installing Homebrew packages (profile: $(dot_profile))"
 
-  if ! brew bundle --file="$DOTFILES/Brewfile"; then
-    log_error "Failed to install Homebrew packages."
-    exit 1
+  local bf
+  while IFS= read -r bf; do
+    log_info "Bundling ${bf##*/}"
+    if ! brew bundle --file="$bf"; then
+      log_error "Failed bundling $bf"
+      return 1
+    fi
+  done < <(dot_brewfiles)
+
+  # Docker runtime — profile default, overridable via the docker_runtime config key.
+  local runtime entries
+  runtime="$(dot_docker_runtime)"
+  if entries="$(dot_docker_runtime_entries "$runtime")"; then
+    log_info "Docker runtime: $runtime"
+    if ! brew bundle --file=<(printf '%s\n' "$entries"); then
+      log_error "Failed installing Docker runtime: $runtime"
+      return 1
+    fi
+  else
+    log_warning "Unknown docker_runtime '$runtime' — skipping (set with: dot profile set-config docker_runtime <docker-desktop|rancher|colima>)"
   fi
 
   log_success "Homebrew packages installed successfully."
