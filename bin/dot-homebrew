@@ -54,6 +54,7 @@ homebrew_bundle() {
   fmt_title_underline "Installing Homebrew packages (profile: $(dot_profile))"
 
   local bf
+  # shellcheck disable=SC2119  # dot_brewfiles takes an optional profile arg; calling with no arg is intentional
   while IFS= read -r bf; do
     log_info "Bundling ${bf##*/}"
     if ! brew bundle --file="$bf"; then

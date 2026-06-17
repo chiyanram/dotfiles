@@ -218,17 +218,23 @@ main() {
   # Required tools (everything else is optional)
   local required_tools=" git neovim tmux starship fzf fd ripgrep zoxide bat eza gh lazygit git-delta jq "
 
-  local brewfile="$DOTFILES/Brewfile"
-  if [[ -f "$brewfile" ]]; then
+  local -a brewfiles=()
+  local bf
+  # shellcheck disable=SC2119  # dot_brewfiles takes an optional profile arg; calling with no arg is intentional
+  while IFS= read -r bf; do
+    [[ -f "$bf" ]] && brewfiles+=("$bf")
+  done < <(dot_brewfiles)
+
+  if [[ "${#brewfiles[@]}" -gt 0 ]]; then
     while IFS= read -r formula; do
       [[ "$brew_skip" == *" $formula "* ]] && continue
       local cmd="${brew_cmd_map[$formula]:-$formula}"
       local required="false"
       [[ "$required_tools" == *" $formula "* ]] && required="true"
       check_tool "$formula" "$cmd" "$required"
-    done < <(grep -E "^[[:space:]]*brew '" "$brewfile" | sed "s/.*brew '\\([^']*\\)'.*/\\1/")
+    done < <(grep -hE "^[[:space:]]*brew '" "${brewfiles[@]}" | sed "s/.*brew '\\([^']*\\)'.*/\\1/")
   else
-    log_warning "Brewfile not found at $brewfile"
+    log_warning "No Brewfiles found under $DOTFILES/brew/"
   fi
   echo
 
