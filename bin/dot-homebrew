@@ -13,8 +13,8 @@ usage() {
   $(fmt_key "Usage:") $(fmt_key "$command_name") $(fmt_value "[options] <command>")
 
   Setup and configure Homebrew. This script automates the installation of Homebrew on
-  macOS and Linux. It also installs Homebrew packages from the Brewfile located in the
-  dotfiles repository.
+  macOS and Linux. It also installs Homebrew packages from the brew/Brewfile.* bundles
+  in the dotfiles repository.
 
 
 Options:

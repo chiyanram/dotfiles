@@ -198,7 +198,7 @@ main() {
   check_zsh_plugins || config_issues=$((config_issues + $?))
   echo
 
-  # Homebrew packages (auto-derived from Brewfile)
+  # Homebrew packages (auto-derived from brew bundles)
   fmt_title_underline "Homebrew Packages"
   check_tool "brew" "brew"
 

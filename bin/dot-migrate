@@ -38,7 +38,11 @@ main() {
   # Step 4: Install new/updated Homebrew packages
   fmt_title_underline "Step 4: Install Homebrew packages"
   if command -v brew &>/dev/null; then
-    brew bundle --file="$DOTFILES/Brewfile" --no-upgrade
+    local bf
+    # shellcheck disable=SC2119  # dot_brewfiles takes an optional profile arg; calling with no arg is intentional
+    while IFS= read -r bf; do
+      [[ -f "$bf" ]] && brew bundle --file="$bf" --no-upgrade
+    done < <(dot_brewfiles)
     log_success "Homebrew packages synced"
   else
     log_warning "Homebrew not installed. Run: dot homebrew install"
