@@ -52,6 +52,43 @@ check_java() {
   fi
 }
 
+check_profile() {
+  local profile runtime
+  profile="$(dot_profile)"
+  runtime="$(dot_docker_runtime)"
+  printf "  %b %b%-14s%b %b%s%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "profile" "$RESET" "$DIM" "$profile" "$RESET"
+  printf "  %b %b%-14s%b %b%s%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "docker runtime" "$RESET" "$DIM" "$runtime" "$RESET"
+}
+
+check_docker_runtime() {
+  local runtime installed=false
+  runtime="$(dot_docker_runtime)"
+  case "$runtime" in
+    docker-desktop)
+      if { command -v brew &>/dev/null && brew list --cask docker-desktop &>/dev/null; } || [[ -d "/Applications/Docker.app" ]]; then
+        installed=true
+      fi
+      ;;
+    rancher)
+      if { command -v brew &>/dev/null && brew list --cask rancher &>/dev/null; } || [[ -d "/Applications/Rancher Desktop.app" ]]; then
+        installed=true
+      fi
+      ;;
+    colima)
+      if command -v colima &>/dev/null; then
+        installed=true
+      fi
+      ;;
+  esac
+
+  if [[ "$installed" == true ]]; then
+    printf "  %b %b%-14s%b %b%s%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "$runtime" "$RESET" "$DIM" "installed" "$RESET"
+  else
+    printf "  %b %b%-14s%b %b%s%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "$runtime" "$RESET" "$YELLOW" "not found (optional)" "$RESET"
+    optional_missing=$((optional_missing + 1))
+  fi
+}
+
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 
 check_config_links() {
@@ -183,6 +220,11 @@ main() {
   fmt_title_border "Dotfiles Health Check"
   echo
 
+  # Machine profile
+  fmt_title_underline "Profile"
+  check_profile
+  echo
+
   local config_issues=0
 
   # Config health
@@ -236,6 +278,7 @@ main() {
   else
     log_warning "No Brewfiles found under $DOTFILES/brew/"
   fi
+  check_docker_runtime
   echo
 
   # Java / Backend (external to Homebrew)
