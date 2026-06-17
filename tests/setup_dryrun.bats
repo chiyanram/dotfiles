@@ -28,3 +28,8 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   run env HOME="$SANDBOX" DOTFILES="$REPO" TERM=dumb "$REPO/setup.sh" --profile staging --dry-run
   [ "$status" -ne 0 ]
 }
+
+@test "setup --profile with no argument exits non-zero" {
+  run env HOME="$SANDBOX" DOTFILES="$REPO" TERM=dumb "$REPO/setup.sh" --profile
+  [ "$status" -ne 0 ]
+}

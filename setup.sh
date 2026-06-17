@@ -175,20 +175,26 @@ step_sdkman() {
   source "$SDKMAN_DIR/bin/sdkman-init.sh"
   ask_yes_no "Install latest Java?" && sdk install java
   ask_yes_no "Install latest Gradle?" && sdk install gradle
-  return 0
+  return 0 # a declined optional install (ask_yes_no -> 1) must not fail the step
 }
 
 step_doctor() {
-  # Informational — doctor's own exit code reflects post-install gaps, not a
-  # setup failure, so this step never "fails".
-  "$DOT" doctor || true
+  # Informational — doctor's exit code reflects post-install gaps, not a setup
+  # failure, so this step never "fails"; it just surfaces a warning.
+  if ! "$DOT" doctor; then
+    log_warning "Health check found gaps — review the output above (run: dot doctor)"
+  fi
 }
 
 main() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --profile)
-        PROFILE_FLAG="${2:-}"
+        [[ -z "${2:-}" ]] && {
+          log_error "--profile requires an argument (personal or work)"
+          exit 1
+        }
+        PROFILE_FLAG="$2"
         shift 2
         ;;
       --non-interactive)
