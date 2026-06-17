@@ -99,26 +99,26 @@ spinner() {
 
   # Different spinner styles
   case $style in
-  1) local chars='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏' ;;     # Braille dots
-  2) local chars='▁▂▃▄▅▆▇█▇▆▅▄▃▂' ;; # Growing bars
-  3) local chars='←↖↑↗→↘↓↙' ;;       # Arrows
-  4) local chars='▉▊▋▌▍▎▏▎▍▌▋▊▉' ;;  # Thickness varying bar
-  5) local chars='▖▘▝▗' ;;           # Box corners
-  6) local chars='┤┘┴└├┌┬┐' ;;       # Box borders
-  7) local chars='◢◣◤◥' ;;           # Diamond parts
-  8) local chars='◰◳◲◱' ;;           # Box quadrants
-  9) local chars='◴◷◶◵' ;;           # Circle quadrants
-  10) local chars='◐◓◑◒' ;;          # Circle halves
-  11) local chars='⣾⣽⣻⢿⡿⣟⣯⣷' ;;      # Complex braille
-  12) local chars='•●○' ;;           # Growing circle
-  13) local chars='✶✸✹✺✹✸' ;;        # Spiky star
-  14) local chars='⠁⠂⠄⡀⢀⠠⠐⠈' ;;      # Growing braille
-  15) local chars='≈≋≋≈≈≋≋≈' ;;      # Waves
-  16) local chars='⌜⌝⌟⌞' ;;          # Corner pieces
-  17) local chars='◜◝◞◟' ;;          # Curved corners
-  18) local chars='⬖⬘⬗⬙' ;;          # Triangles
-  19) local chars='⏳⌛' ;;            # Hourglass
-  *) local chars='/-\|' ;;           # Default simple spinner
+    1) local chars='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏' ;;     # Braille dots
+    2) local chars='▁▂▃▄▅▆▇█▇▆▅▄▃▂' ;; # Growing bars
+    3) local chars='←↖↑↗→↘↓↙' ;;       # Arrows
+    4) local chars='▉▊▋▌▍▎▏▎▍▌▋▊▉' ;;  # Thickness varying bar
+    5) local chars='▖▘▝▗' ;;           # Box corners
+    6) local chars='┤┘┴└├┌┬┐' ;;       # Box borders
+    7) local chars='◢◣◤◥' ;;           # Diamond parts
+    8) local chars='◰◳◲◱' ;;           # Box quadrants
+    9) local chars='◴◷◶◵' ;;           # Circle quadrants
+    10) local chars='◐◓◑◒' ;;          # Circle halves
+    11) local chars='⣾⣽⣻⢿⡿⣟⣯⣷' ;;      # Complex braille
+    12) local chars='•●○' ;;           # Growing circle
+    13) local chars='✶✸✹✺✹✸' ;;        # Spiky star
+    14) local chars='⠁⠂⠄⡀⢀⠠⠐⠈' ;;      # Growing braille
+    15) local chars='≈≋≋≈≈≋≋≈' ;;      # Waves
+    16) local chars='⌜⌝⌟⌞' ;;          # Corner pieces
+    17) local chars='◜◝◞◟' ;;          # Curved corners
+    18) local chars='⬖⬘⬗⬙' ;;          # Triangles
+    19) local chars='⏳⌛' ;;            # Hourglass
+    *) local chars='/-\|' ;;           # Default simple spinner
   esac
 
   # Hide cursor

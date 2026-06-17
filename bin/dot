@@ -119,23 +119,23 @@ cmd_backup() {
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-    -d | --directory)
-      if [[ -n "${2:-}" ]]; then
-        backup_dir="$2"
-        shift 2
-      else
-        log_error "Missing backup directory"
+      -d | --directory)
+        if [[ -n "${2:-}" ]]; then
+          backup_dir="$2"
+          shift 2
+        else
+          log_error "Missing backup directory"
+          exit 1
+        fi
+        ;;
+      -v | --verbose)
+        verbose=true
+        shift
+        ;;
+      *)
+        log_error "Unknown argument: $1"
         exit 1
-      fi
-      ;;
-    -v | --verbose)
-      verbose=true
-      shift
-      ;;
-    *)
-      log_error "Unknown argument: $1"
-      exit 1
-      ;;
+        ;;
     esac
   done
 
@@ -250,18 +250,18 @@ cmd_link_clean() {
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-    -v | --verbose)
-      verbose=true
-      shift
-      ;;
-    -n | --dry-run)
-      dry_run=true
-      shift
-      ;;
-    *)
-      log_error "Unknown argument: $1"
-      exit 1
-      ;;
+      -v | --verbose)
+        verbose=true
+        shift
+        ;;
+      -n | --dry-run)
+        dry_run=true
+        shift
+        ;;
+      *)
+        log_error "Unknown argument: $1"
+        exit 1
+        ;;
     esac
   done
 
@@ -361,10 +361,22 @@ link_status() {
     target="$CONFIG_HOME/$name"
     state=$(classify_link "$config" "$target")
     case "$state" in
-      ok)      printf "  %b%-22s%b %b%s%b\n" "$GREEN" "[OK]" "$RESET" "$DIM" "~/.config/$name" "$RESET"; ok=$((ok + 1)) ;;
-      wrong)   printf "  %b%-22s%b %s → %s\n" "$YELLOW" "[WRONG]" "$RESET" "~/.config/$name" "$(readlink "$target")"; wrong=$((wrong + 1)) ;;
-      real)    printf "  %b%-22s%b %s (real file/dir)\n" "$RED" "[REAL]" "$RESET" "~/.config/$name"; real=$((real + 1)) ;;
-      missing) printf "  %b%-22s%b %s\n" "$RED" "[MISSING]" "$RESET" "~/.config/$name"; missing=$((missing + 1)) ;;
+      ok)
+        printf "  %b%-22s%b %b%s%b\n" "$GREEN" "[OK]" "$RESET" "$DIM" "~/.config/$name" "$RESET"
+        ok=$((ok + 1))
+        ;;
+      wrong)
+        printf "  %b%-22s%b %s → %s\n" "$YELLOW" "[WRONG]" "$RESET" "~/.config/$name" "$(readlink "$target")"
+        wrong=$((wrong + 1))
+        ;;
+      real)
+        printf "  %b%-22s%b %s (real file/dir)\n" "$RED" "[REAL]" "$RESET" "~/.config/$name"
+        real=$((real + 1))
+        ;;
+      missing)
+        printf "  %b%-22s%b %s\n" "$RED" "[MISSING]" "$RESET" "~/.config/$name"
+        missing=$((missing + 1))
+        ;;
     esac
   done
 
@@ -376,10 +388,22 @@ link_status() {
       target_path="$HOME/$relative_path"
       state=$(classify_link "$file" "$target_path")
       case "$state" in
-        ok)      printf "  %b%-22s%b %b%s%b\n" "$GREEN" "[OK]" "$RESET" "$DIM" "~/$relative_path" "$RESET"; ok=$((ok + 1)) ;;
-        wrong)   printf "  %b%-22s%b %s → %s\n" "$YELLOW" "[WRONG]" "$RESET" "~/$relative_path" "$(readlink "$target_path")"; wrong=$((wrong + 1)) ;;
-        real)    printf "  %b%-22s%b %s (real file)\n" "$RED" "[REAL]" "$RESET" "~/$relative_path"; real=$((real + 1)) ;;
-        missing) printf "  %b%-22s%b %s\n" "$RED" "[MISSING]" "$RESET" "~/$relative_path"; missing=$((missing + 1)) ;;
+        ok)
+          printf "  %b%-22s%b %b%s%b\n" "$GREEN" "[OK]" "$RESET" "$DIM" "~/$relative_path" "$RESET"
+          ok=$((ok + 1))
+          ;;
+        wrong)
+          printf "  %b%-22s%b %s → %s\n" "$YELLOW" "[WRONG]" "$RESET" "~/$relative_path" "$(readlink "$target_path")"
+          wrong=$((wrong + 1))
+          ;;
+        real)
+          printf "  %b%-22s%b %s (real file)\n" "$RED" "[REAL]" "$RESET" "~/$relative_path"
+          real=$((real + 1))
+          ;;
+        missing)
+          printf "  %b%-22s%b %s\n" "$RED" "[MISSING]" "$RESET" "~/$relative_path"
+          missing=$((missing + 1))
+          ;;
       esac
     done < <(find "$DOTFILES/home" -type f -print0)
   fi
@@ -432,22 +456,22 @@ cmd_link() {
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-    -v | --verbose)
-      verbose=true
-      shift
-      ;;
-    -f | --force)
-      force=true
-      shift
-      ;;
-    --status)
-      link_status
-      return
-      ;;
-    *)
-      log_error "Unknown argument: $1"
-      exit 1
-      ;;
+      -v | --verbose)
+        verbose=true
+        shift
+        ;;
+      -f | --force)
+        force=true
+        shift
+        ;;
+      --status)
+        link_status
+        return
+        ;;
+      *)
+        log_error "Unknown argument: $1"
+        exit 1
+        ;;
     esac
   done
 
@@ -514,32 +538,32 @@ main() {
   subcmd="${1:-all}"
 
   case "$cmd" in
-  help)
-    usage
-    ;;
-  clean)
-    cmd_clean "$@"
-    ;;
-  backup)
-    cmd_backup "$@"
-    ;;
-  link)
-    cmd_link "link" "$@"
-    ;;
-  unlink)
-    cmd_link "unlink" "$@"
-    ;;
-  *)
-    if command -v "dot-$cmd" >/dev/null 2>&1; then
-      "dot-$cmd" "$@"
-    elif [[ -x "$script_dir/dot-$cmd" ]]; then
-      "$script_dir/dot-$cmd" "$@"
-    else
-      log_error "Unknown command: $cmd"
+    help)
       usage
-      exit 1
-    fi
-    ;;
+      ;;
+    clean)
+      cmd_clean "$@"
+      ;;
+    backup)
+      cmd_backup "$@"
+      ;;
+    link)
+      cmd_link "link" "$@"
+      ;;
+    unlink)
+      cmd_link "unlink" "$@"
+      ;;
+    *)
+      if command -v "dot-$cmd" >/dev/null 2>&1; then
+        "dot-$cmd" "$@"
+      elif [[ -x "$script_dir/dot-$cmd" ]]; then
+        "$script_dir/dot-$cmd" "$@"
+      else
+        log_error "Unknown command: $cmd"
+        usage
+        exit 1
+      fi
+      ;;
   esac
 }
 

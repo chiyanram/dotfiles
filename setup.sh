@@ -75,7 +75,7 @@ else
     cat "$HOME/.ssh/id_ed25519.pub"
     echo
     if command -v pbcopy &>/dev/null; then
-      pbcopy < "$HOME/.ssh/id_ed25519.pub"
+      pbcopy <"$HOME/.ssh/id_ed25519.pub"
       log_info "Public key copied to clipboard"
     fi
 
