@@ -7,7 +7,9 @@ export XDG_DATA_HOME="$HOME/.local/share"
 export XDG_CACHE_HOME="$HOME/.cache"
 export XDG_STATE_HOME="$HOME/.local/state"
 
-HISTFILE="$HOME/.zsh_history"
+# History lives in XDG state, never $HOME root or the repo tree
+export HISTFILE="$XDG_STATE_HOME/zsh/history"
+[[ -d "${HISTFILE:h}" ]] || mkdir -p "${HISTFILE:h}"
 HISTSIZE=1000000
 SAVEHIST=1000000
 

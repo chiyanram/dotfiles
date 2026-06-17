@@ -30,10 +30,13 @@ zfetch zsh-users/zsh-completions
 
 # Initialize autocomplete with 24h caching
 autoload -U compinit add-zsh-hook
-if [[ -n "$HOME"/.zcompdump(#qN.mh+24) ]]; then
-    compinit
+ZCOMPDUMP="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/zcompdump"
+[[ -d "${ZCOMPDUMP:h}" ]] || mkdir -p "${ZCOMPDUMP:h}"
+# Rebuild fully if the dump is stale (>24h), otherwise use the cache (-C)
+if [[ -n $ZCOMPDUMP(#qN.mh+24) ]]; then
+    compinit -d "$ZCOMPDUMP"
 else
-    compinit -C
+    compinit -C -d "$ZCOMPDUMP"
 fi
 
 # Register completions for functions defined in .zsh_functions (compdef requires compinit)
