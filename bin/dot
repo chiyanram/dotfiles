@@ -5,7 +5,7 @@ trap cleanup SIGINT SIGTERM ERR EXIT
 
 cleanup() {
   trap - SIGINT SIGTERM ERR EXIT
-  tput cnorm 2>/dev/null || true # enable cursor (guard: tput exits non-zero when TERM lacks the capability)
+  [[ -t 1 ]] && tput cnorm 2>/dev/null || true # enable cursor only when stdout is a tty
   # script cleanup here
 }
 
@@ -126,7 +126,7 @@ cmd_backup() {
           shift 2
         else
           log_error "Missing backup directory"
-          exit 1
+          return 1
         fi
         ;;
       -v | --verbose)
@@ -135,7 +135,7 @@ cmd_backup() {
         ;;
       *)
         log_error "Unknown argument: $1"
-        exit 1
+        return 1
         ;;
     esac
   done
@@ -165,7 +165,6 @@ cmd_backup() {
   fi
 
   tmpfile=$(mktemp)
-  trap 'rm -f "$tmpfile"' EXIT
 
   for file in "${files_to_backup[@]}"; do
     src_path="${HOME}/${file}"
@@ -182,10 +181,11 @@ cmd_backup() {
 
   if [[ -s "$tmpfile" ]]; then
     mkdir -p "$backup_dir"
-    tar -czf "${backup_path}.tar.gz" -C "$HOME" -T "$tmpfile" || {
+    if ! tar -czf "${backup_path}.tar.gz" -C "$HOME" -T "$tmpfile"; then
       log_error "Failed to create backup archive"
-      exit 1
-    }
+      rm -f "$tmpfile"
+      return 1
+    fi
 
     if [[ "$verbose" == true ]]; then
       log_info "Archive contents:"
@@ -198,6 +198,8 @@ cmd_backup() {
   else
     log_warning "No files to backup"
   fi
+
+  rm -f "$tmpfile"
 }
 
 link_home_files() {
