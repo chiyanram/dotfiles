@@ -79,7 +79,7 @@ vec3 stars(vec2 uv, float offset) {
 
     // Get position
     vec2 ipos = floor(uv);
-    
+
     // Return uv as 0 to 1
     uv = fract(uv);
 
@@ -101,9 +101,9 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
     // Normalized pixel coordinates (from 0 to 1)
     vec2 uv = fragCoord/iResolution.xy;
-    
+
     vec3 col = vec3(0.);
-	
+
     for (float i = 0.; i < layers; i++ ){
     	col += stars(uv, i);
     }
@@ -111,7 +111,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 
     // Output to screen
     // fragColor = vec4(col,1.0);
-    
+
     // Sample the terminal screen texture including alpha channel
     vec4 terminalColor = texture(iChannel0, uv);
 

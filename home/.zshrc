@@ -256,4 +256,3 @@ if [[ -f "$HOME/.zshrc.profiler" ]]; then
     exec 2>&3 3>&-
     echo ".zshrc profiling complete. View with: zshrc_profiler_view"
 fi
-

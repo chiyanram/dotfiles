@@ -17,7 +17,7 @@ Follow these steps:
     - Include a link to the issue in the scratchpad
 6. Ensure code passes linting and type checking
 
-# CREATE 
+# CREATE
 
 - Create a new branch for the issue
 - Solve the issue in small, manageable steps, according to your plan

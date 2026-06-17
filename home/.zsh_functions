@@ -316,4 +316,3 @@ zfetch() {
     cd $cwd
   fi
 }
-

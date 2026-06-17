@@ -22,4 +22,9 @@ repos:
       - id: shellcheck
         exclude: ^config/zsh/ohmyzsh/
 
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
 default_install_hook_types: [pre-commit]
