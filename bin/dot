@@ -5,7 +5,7 @@ trap cleanup SIGINT SIGTERM ERR EXIT
 
 cleanup() {
   trap - SIGINT SIGTERM ERR EXIT
-  tput cnorm # enable cursor
+  tput cnorm 2>/dev/null || true # enable cursor (guard: tput exits non-zero when TERM lacks the capability)
   # script cleanup here
 }
 
