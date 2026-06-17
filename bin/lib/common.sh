@@ -288,6 +288,10 @@ dot_docker_runtime_entries() {
 # propagates a failure, so one bad step never aborts the rest.
 
 STEP_SKIP_CODE=78
+# Initialized at source time so `step` is safe even before an explicit step_init.
+_step_ok=0
+_step_skipped=()
+_step_failed=()
 
 step_init() {
   _step_ok=0
@@ -299,6 +303,7 @@ step_init() {
 step() {
   local label="$1"
   shift
+  # Dry-run: list the step as "would run" and tally it ok — skip guards are NOT evaluated.
   if [[ "${STEP_DRY_RUN:-0}" == "1" ]]; then
     log_info "would run: $label"
     _step_ok=$((_step_ok + 1))

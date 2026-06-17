@@ -195,7 +195,7 @@ update_sdkman() {
 main() {
   local subcmd=""
   local verbose=false
-  export STEP_DRY_RUN=0
+  STEP_DRY_RUN=0
 
   if [ $# -lt 1 ]; then
     usage

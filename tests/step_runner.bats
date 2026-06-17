@@ -62,3 +62,9 @@ setup() {
   [ "$status" -eq 0 ]
   unset STEP_DRY_RUN
 }
+
+@test "step works without an explicit step_init (globals safe under set -u)" {
+  # No step_init here — relies on the source-time initialization.
+  run step_summary
+  [ "$status" -eq 0 ]
+}
