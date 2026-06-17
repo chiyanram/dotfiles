@@ -75,30 +75,30 @@ main() {
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-    -h | --help)
-      usage
-      exit 0
-      ;;
-    *)
-      subcmd="$1"
-      shift
-      ;;
+      -h | --help)
+        usage
+        exit 0
+        ;;
+      *)
+        subcmd="$1"
+        shift
+        ;;
     esac
   done
 
   case "$subcmd" in
-  change)
-    cmd_change
-    ;;
-  terminfo)
-    cmd_terminfo
-    ;;
-  *)
-    log_error "Unknown $command_name command: $subcmd"
-    echo -e
-    usage
-    exit 1
-    ;;
+    change)
+      cmd_change
+      ;;
+    terminfo)
+      cmd_terminfo
+      ;;
+    *)
+      log_error "Unknown $command_name command: $subcmd"
+      echo -e
+      usage
+      exit 1
+      ;;
   esac
 }
 

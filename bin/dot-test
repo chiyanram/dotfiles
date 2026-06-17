@@ -21,11 +21,11 @@ run_check() {
 
 bash_scripts() {
   printf '%s\n' \
-    "$DOTFILES/bin/dot" \
-    "$DOTFILES/bin/dot-test" \
-    "$DOTFILES/bin/lib/common.sh" \
-    "$DOTFILES/setup.sh" \
-    "$DOTFILES/bootstrap.sh"
+    "$DOTFILES"/bin/dot \
+    "$DOTFILES"/bin/dot-* \
+    "$DOTFILES"/bin/lib/*.sh \
+    "$DOTFILES"/setup.sh \
+    "$DOTFILES"/bootstrap.sh
 }
 
 check_shellcheck() {

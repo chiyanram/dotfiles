@@ -62,7 +62,8 @@ homebrew_bundle() {
   log_success "Homebrew packages installed successfully."
 
   # install fzf key bindings (only on first run)
-  local fzf_install="$(brew --prefix)/opt/fzf/install"
+  local fzf_install
+  fzf_install="$(brew --prefix)/opt/fzf/install"
   if [[ -x "$fzf_install" ]] && [[ ! -f "$HOME/.fzf.zsh" ]]; then
     echo -e
     log_info "Installing fzf key bindings"
@@ -80,30 +81,30 @@ main() {
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-    -h | --help)
-      usage
-      exit 0
-      ;;
-    *)
-      subcmd="$1"
-      shift
-      ;;
+      -h | --help)
+        usage
+        exit 0
+        ;;
+      *)
+        subcmd="$1"
+        shift
+        ;;
     esac
   done
 
   case "$subcmd" in
-  install)
-    homebrew_install
-    ;;
-  bundle)
-    homebrew_bundle
-    ;;
-  *)
-    log_error "Unknown legacy command: $subcmd"
-    echo -e
-    usage
-    exit 1
-    ;;
+    install)
+      homebrew_install
+      ;;
+    bundle)
+      homebrew_bundle
+      ;;
+    *)
+      log_error "Unknown legacy command: $subcmd"
+      echo -e
+      usage
+      exit 1
+      ;;
   esac
 }
 

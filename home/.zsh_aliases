@@ -1,5 +1,5 @@
 # reload zsh config
-alias reload!="RELOAD=1 source $XDG_CONFIG_HOME/zsh/.zshrc"
+alias reload!="RELOAD=1 source $HOME/.zshrc"
 
 # Filesystem aliases
 alias ..='cd ..'
