@@ -104,8 +104,8 @@ id_ed25519
 
 - [ ] **Step 4: Verify the new ignore rules match**
 
-Run: `git check-ignore -v .zcompdump ~/.zsh_history foo.local config/x/ohmyzsh/y .zshrc.local 2>/dev/null | wc -l`
-Expected: a count of `5` (every sample path is matched by a rule).
+Run: `git check-ignore -v .zcompdump .zsh_history foo.local bar-local config/x/ohmyzsh/y | wc -l`
+Expected: a count of `5` (every sample path is matched by a rule). Use in-repo relative paths only — `git check-ignore` fatal-exits on absolute paths outside the working tree.
 
 - [ ] **Step 5: Commit**
 
