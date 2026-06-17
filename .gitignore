@@ -24,3 +24,20 @@ npm-debug.log
 
 # OS
 .DS_Store
+
+# Generated shell state (must never live in the repo tree)
+.zcompdump*
+*.zwc
+.zsh_history
+**/ohmyzsh/
+.zshrc.pre-oh-my-zsh
+
+# Machine-local config (never committed — secrets / identity live here)
+*.local
+*-local
+
+# SSH keys / certs (defense in depth)
+id_rsa
+id_ed25519
+*.pem
+*.p12

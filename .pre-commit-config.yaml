@@ -20,6 +20,11 @@ repos:
     rev: v0.10.0.1
     hooks:
       - id: shellcheck
-        exclude: ^config/zsh/ohmyzsh/
+        files: '^(bin/dot|bin/dot-[^/]+|bin/lib/[^/]+\.sh|setup\.sh|bootstrap\.sh)$'
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
 
 default_install_hook_types: [pre-commit]

@@ -75,7 +75,7 @@ else
     cat "$HOME/.ssh/id_ed25519.pub"
     echo
     if command -v pbcopy &>/dev/null; then
-      pbcopy < "$HOME/.ssh/id_ed25519.pub"
+      pbcopy <"$HOME/.ssh/id_ed25519.pub"
       log_info "Public key copied to clipboard"
     fi
 
@@ -165,6 +165,7 @@ else
     log_info "Installing SDKMAN..."
     curl -s "https://get.sdkman.io" | bash
     export SDKMAN_DIR="$HOME/.sdkman"
+    # shellcheck source=/dev/null
     source "$SDKMAN_DIR/bin/sdkman-init.sh"
     log_success "SDKMAN installed"
 

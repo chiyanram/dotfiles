@@ -27,7 +27,7 @@ vec3 spectrum(vec2 pos){
     if( pos.x > 3.){
         outCol = mix(yellow, red, fract(pos.x));
     }
-    
+
     return 1.-(pos.y * (1.-outCol));
 }
 
@@ -103,7 +103,7 @@ vec3 stars(vec2 uv, float offset) {
 
     // Get position
     vec2 ipos = floor(uv);
-    
+
     // Return uv as 0 to 1
     uv = fract(uv);
 
@@ -125,9 +125,9 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
     // Normalized pixel coordinates (from 0 to 1)
     vec2 uv = fragCoord/iResolution.xy;
-    
+
     vec3 col = vec3(0.);
-	
+
     for (float i = 0.; i < layers; i++ ){
     	col += stars(uv, i);
     }

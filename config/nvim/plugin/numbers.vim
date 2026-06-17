@@ -81,4 +81,3 @@ endfunction
 " 'around number' (next number on line and possible surrounding white-space)
 xnoremap <silent> an :<c-u>call <sid>AroundNumber()<cr>
 onoremap <silent> an :<c-u>call <sid>AroundNumber()<cr>
-

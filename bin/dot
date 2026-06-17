@@ -5,7 +5,7 @@ trap cleanup SIGINT SIGTERM ERR EXIT
 
 cleanup() {
   trap - SIGINT SIGTERM ERR EXIT
-  tput cnorm # enable cursor
+  tput cnorm 2>/dev/null || true # enable cursor (guard: tput exits non-zero when TERM lacks the capability)
   # script cleanup here
 }
 
@@ -76,7 +76,8 @@ cmd_clean() {
   # Clean broken config symlinks (derived from config/ directory)
   for config in "$DOTFILES/config"/*; do
     [[ -d "$config" ]] || continue
-    local target="$CONFIG_HOME/$(basename "$config")"
+    local target
+    target="$CONFIG_HOME/$(basename "$config")"
     if [ -L "$target" ] && [ ! -e "$target" ]; then
       log_info "Removing broken symbolic link: ~${target#"$HOME"}"
       rm "$target"
@@ -119,30 +120,31 @@ cmd_backup() {
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-    -d | --directory)
-      if [[ -n "${2:-}" ]]; then
-        backup_dir="$2"
-        shift 2
-      else
-        log_error "Missing backup directory"
+      -d | --directory)
+        if [[ -n "${2:-}" ]]; then
+          backup_dir="$2"
+          shift 2
+        else
+          log_error "Missing backup directory"
+          exit 1
+        fi
+        ;;
+      -v | --verbose)
+        verbose=true
+        shift
+        ;;
+      *)
+        log_error "Unknown argument: $1"
         exit 1
-      fi
-      ;;
-    -v | --verbose)
-      verbose=true
-      shift
-      ;;
-    *)
-      log_error "Unknown argument: $1"
-      exit 1
-      ;;
+        ;;
     esac
   done
 
   # Expand ~ in backup_dir
   backup_dir="${backup_dir/#\~/$HOME}"
 
-  local timestamp=$(date +%Y%m%d_%H%M%S)
+  local timestamp
+  timestamp=$(date +%Y%m%d_%H%M%S)
   local backup_path="${backup_dir}/dotfiles_backup_${timestamp}"
 
   log_info "Creating backup in: $backup_path"
@@ -210,7 +212,8 @@ link_home_files() {
   while IFS= read -r -d '' file; do
     local relative_path="${file#"$DOTFILES"/home/}"
     local target_path="$HOME/$relative_path"
-    local target_dir="$(dirname "$target_path")"
+    local target_dir
+    target_dir="$(dirname "$target_path")"
 
     if [ "$operation" = "link" ]; then
       # Create parent directories if needed
@@ -250,18 +253,18 @@ cmd_link_clean() {
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-    -v | --verbose)
-      verbose=true
-      shift
-      ;;
-    -n | --dry-run)
-      dry_run=true
-      shift
-      ;;
-    *)
-      log_error "Unknown argument: $1"
-      exit 1
-      ;;
+      -v | --verbose)
+        verbose=true
+        shift
+        ;;
+      -n | --dry-run)
+        dry_run=true
+        shift
+        ;;
+      *)
+        log_error "Unknown argument: $1"
+        exit 1
+        ;;
     esac
   done
 
@@ -289,11 +292,15 @@ cmd_link_clean() {
     # Get all directories that contain files in $DOTFILES/home
     local home_dirs=()
     while IFS= read -r -d '' file; do
-      local dir_path="$HOME/$(dirname "${file#"$DOTFILES"/home/}")"
+      local dir_path
+      dir_path="$HOME/$(dirname "${file#"$DOTFILES"/home/}")"
       # Add to array if not already present
-      if [[ ! " ${home_dirs[@]} " =~ " ${dir_path} " ]]; then
-        home_dirs+=("$dir_path")
-      fi
+      local found=0
+      local d
+      for d in "${home_dirs[@]+"${home_dirs[@]}"}"; do
+        [[ "$d" == "$dir_path" ]] && found=1 && break
+      done
+      [[ "$found" -eq 0 ]] && home_dirs+=("$dir_path")
     done < <(find "$DOTFILES/home" -type f -print0)
 
     # Now check for broken symlinks only in those directories
@@ -302,7 +309,8 @@ cmd_link_clean() {
         while IFS= read -r -d '' link; do
           if [ -L "$link" ] && [ ! -e "$link" ]; then
             # Check if this broken symlink points to our dotfiles directory
-            local link_target=$(readlink "$link")
+            local link_target
+            link_target=$(readlink "$link")
             if [[ "$link_target" == "$DOTFILES"* ]]; then
               broken_count=$((broken_count + 1))
               if [ "$dry_run" = true ]; then
@@ -360,11 +368,24 @@ link_status() {
     name=$(basename "$config")
     target="$CONFIG_HOME/$name"
     state=$(classify_link "$config" "$target")
+    # shellcheck disable=SC2088  # tilde is intentional display label, not expansion
     case "$state" in
-      ok)      printf "  %b%-22s%b %b%s%b\n" "$GREEN" "[OK]" "$RESET" "$DIM" "~/.config/$name" "$RESET"; ok=$((ok + 1)) ;;
-      wrong)   printf "  %b%-22s%b %s → %s\n" "$YELLOW" "[WRONG]" "$RESET" "~/.config/$name" "$(readlink "$target")"; wrong=$((wrong + 1)) ;;
-      real)    printf "  %b%-22s%b %s (real file/dir)\n" "$RED" "[REAL]" "$RESET" "~/.config/$name"; real=$((real + 1)) ;;
-      missing) printf "  %b%-22s%b %s\n" "$RED" "[MISSING]" "$RESET" "~/.config/$name"; missing=$((missing + 1)) ;;
+      ok)
+        printf "  %b%-22s%b %b%s%b\n" "$GREEN" "[OK]" "$RESET" "$DIM" "~/.config/$name" "$RESET"
+        ok=$((ok + 1))
+        ;;
+      wrong)
+        printf "  %b%-22s%b %s → %s\n" "$YELLOW" "[WRONG]" "$RESET" "~/.config/$name" "$(readlink "$target")"
+        wrong=$((wrong + 1))
+        ;;
+      real)
+        printf "  %b%-22s%b %s (real file/dir)\n" "$RED" "[REAL]" "$RESET" "~/.config/$name"
+        real=$((real + 1))
+        ;;
+      missing)
+        printf "  %b%-22s%b %s\n" "$RED" "[MISSING]" "$RESET" "~/.config/$name"
+        missing=$((missing + 1))
+        ;;
     esac
   done
 
@@ -375,11 +396,24 @@ link_status() {
       relative_path="${file#"$DOTFILES"/home/}"
       target_path="$HOME/$relative_path"
       state=$(classify_link "$file" "$target_path")
+      # shellcheck disable=SC2088  # tilde is intentional display label, not expansion
       case "$state" in
-        ok)      printf "  %b%-22s%b %b%s%b\n" "$GREEN" "[OK]" "$RESET" "$DIM" "~/$relative_path" "$RESET"; ok=$((ok + 1)) ;;
-        wrong)   printf "  %b%-22s%b %s → %s\n" "$YELLOW" "[WRONG]" "$RESET" "~/$relative_path" "$(readlink "$target_path")"; wrong=$((wrong + 1)) ;;
-        real)    printf "  %b%-22s%b %s (real file)\n" "$RED" "[REAL]" "$RESET" "~/$relative_path"; real=$((real + 1)) ;;
-        missing) printf "  %b%-22s%b %s\n" "$RED" "[MISSING]" "$RESET" "~/$relative_path"; missing=$((missing + 1)) ;;
+        ok)
+          printf "  %b%-22s%b %b%s%b\n" "$GREEN" "[OK]" "$RESET" "$DIM" "~/$relative_path" "$RESET"
+          ok=$((ok + 1))
+          ;;
+        wrong)
+          printf "  %b%-22s%b %s → %s\n" "$YELLOW" "[WRONG]" "$RESET" "~/$relative_path" "$(readlink "$target_path")"
+          wrong=$((wrong + 1))
+          ;;
+        real)
+          printf "  %b%-22s%b %s (real file)\n" "$RED" "[REAL]" "$RESET" "~/$relative_path"
+          real=$((real + 1))
+          ;;
+        missing)
+          printf "  %b%-22s%b %s\n" "$RED" "[MISSING]" "$RESET" "~/$relative_path"
+          missing=$((missing + 1))
+          ;;
       esac
     done < <(find "$DOTFILES/home" -type f -print0)
   fi
@@ -432,29 +466,30 @@ cmd_link() {
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-    -v | --verbose)
-      verbose=true
-      shift
-      ;;
-    -f | --force)
-      force=true
-      shift
-      ;;
-    --status)
-      link_status
-      return
-      ;;
-    *)
-      log_error "Unknown argument: $1"
-      exit 1
-      ;;
+      -v | --verbose)
+        verbose=true
+        shift
+        ;;
+      -f | --force)
+        force=true
+        shift
+        ;;
+      --status)
+        link_status
+        return
+        ;;
+      *)
+        log_error "Unknown argument: $1"
+        exit 1
+        ;;
     esac
   done
 
+  local title_text
   if [ "$pkg" = "all" ]; then
-    local title_text="$operation"ing" all packages"
+    title_text="${operation}ing all packages"
   else
-    local title_text="$operation"ing" package: $pkg"
+    title_text="${operation}ing package: $pkg"
   fi
 
   fmt_title_underline "$title_text"
@@ -463,7 +498,8 @@ cmd_link() {
     # Handle all packages in config directory
     for config in "$DOTFILES/config"/*; do
       if [ -d "$config" ]; then
-        local target="$CONFIG_HOME/$(basename "$config")"
+        local target
+        target="$CONFIG_HOME/$(basename "$config")"
         if [ "$operation" = "link" ]; then
           link_config "$config" "$target" "$verbose" "$force"
         else # unlink
@@ -511,35 +547,34 @@ main() {
 
   cmd="$1"
   shift || true
-  subcmd="${1:-all}"
 
   case "$cmd" in
-  help)
-    usage
-    ;;
-  clean)
-    cmd_clean "$@"
-    ;;
-  backup)
-    cmd_backup "$@"
-    ;;
-  link)
-    cmd_link "link" "$@"
-    ;;
-  unlink)
-    cmd_link "unlink" "$@"
-    ;;
-  *)
-    if command -v "dot-$cmd" >/dev/null 2>&1; then
-      "dot-$cmd" "$@"
-    elif [[ -x "$script_dir/dot-$cmd" ]]; then
-      "$script_dir/dot-$cmd" "$@"
-    else
-      log_error "Unknown command: $cmd"
+    help)
       usage
-      exit 1
-    fi
-    ;;
+      ;;
+    clean)
+      cmd_clean "$@"
+      ;;
+    backup)
+      cmd_backup "$@"
+      ;;
+    link)
+      cmd_link "link" "$@"
+      ;;
+    unlink)
+      cmd_link "unlink" "$@"
+      ;;
+    *)
+      if command -v "dot-$cmd" >/dev/null 2>&1; then
+        "dot-$cmd" "$@"
+      elif [[ -x "$script_dir/dot-$cmd" ]]; then
+        "$script_dir/dot-$cmd" "$@"
+      else
+        log_error "Unknown command: $cmd"
+        usage
+        exit 1
+      fi
+      ;;
   esac
 }
 

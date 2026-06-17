@@ -97,15 +97,19 @@ check_home_links() {
       local actual
       actual=$(readlink "$target_path")
       if [ "$actual" = "$file" ]; then
+        # shellcheck disable=SC2088  # tilde is intentional display label
         printf "  %b %b%-22s%b %blinked%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "~/$relative_path" "$RESET" "$DIM" "$RESET"
       else
+        # shellcheck disable=SC2088  # tilde is intentional display label
         printf "  %b %b%-22s%b %bwrong target%b\n" "${RED}${ERROR_ICON}" "$BOLD" "~/$relative_path" "$RESET" "$RED" "$RESET"
         issues=$((issues + 1))
       fi
     elif [ -e "$target_path" ]; then
+      # shellcheck disable=SC2088  # tilde is intentional display label
       printf "  %b %b%-22s%b %breal file (not a symlink)%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "~/$relative_path" "$RESET" "$YELLOW" "$RESET"
       issues=$((issues + 1))
     else
+      # shellcheck disable=SC2088  # tilde is intentional display label
       printf "  %b %b%-22s%b %bnot linked%b\n" "${RED}${ERROR_ICON}" "$BOLD" "~/$relative_path" "$RESET" "$RED" "$RESET"
       issues=$((issues + 1))
     fi
@@ -200,8 +204,12 @@ main() {
 
   # Formula name → binary name for mismatched entries
   declare -A brew_cmd_map=(
-    [neovim]="nvim" [ripgrep]="rg" [git-delta]="delta"
-    [httpie]="http" [gnupg]="gpg" [python]="python3"
+    [neovim]="nvim"
+    [ripgrep]="rg"
+    ["git-delta"]="delta"
+    [httpie]="http"
+    [gnupg]="gpg"
+    [python]="python3"
   )
 
   # Formulas to skip (system-provided or no user-facing binary)

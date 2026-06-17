@@ -74,7 +74,7 @@ die() {
 }
 
 function spinner() {
-  # make sure we use non-unicode character type locale 
+  # make sure we use non-unicode character type locale
   # (that way it works for any locale as long as the font supports the characters)
   local LC_CTYPE=C
   local pid=$1 # Process Id of the previous running command
