@@ -67,12 +67,17 @@ step_homebrew() {
 }
 
 step_profile() {
+  if [[ -z "$PROFILE_FLAG" && -f "$(profile_file)" ]]; then
+    log_success "Profile already set: $(dot_profile)"
+    if [[ -z "$(dot_config docker_runtime)" ]]; then
+      "$DOT" profile set-config docker_runtime "$(dot_docker_runtime)" || return 1
+    fi
+    return "$STEP_SKIP_CODE"
+  fi
+
   local profile
   if [[ -n "$PROFILE_FLAG" ]]; then
     profile="$PROFILE_FLAG"
-  elif [[ -f "$(profile_file)" ]]; then
-    profile="$(dot_profile)"
-    log_success "Profile already set: $profile"
   elif [[ "$NON_INTERACTIVE" -eq 1 ]]; then
     profile="personal"
   else
@@ -84,6 +89,7 @@ step_profile() {
       *) profile="personal" ;;
     esac
   fi
+
   "$DOT" profile set "$profile" || return 1
   if [[ -z "$(dot_config docker_runtime)" ]]; then
     "$DOT" profile set-config docker_runtime "$(dot_docker_runtime)" || return 1
@@ -106,7 +112,7 @@ step_ssh() {
   mkdir -p "$HOME/.ssh"
   ssh-keygen -t ed25519 -C "$ssh_email" -f "$HOME/.ssh/id_ed25519" || return 1
   eval "$(ssh-agent -s)" >/dev/null
-  ssh-add "$HOME/.ssh/id_ed25519"
+  ssh-add "$HOME/.ssh/id_ed25519" || log_warning "ssh-add failed — start the agent, then: ssh-add ~/.ssh/id_ed25519"
   log_info "Add this public key to GitHub → Settings → SSH Keys:"
   cat "$HOME/.ssh/id_ed25519.pub"
   if command -v pbcopy &>/dev/null; then
