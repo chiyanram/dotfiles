@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Description: Manage the machine profile (personal|work) and per-machine config
+set -Eeuo pipefail
+
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
+DOTFILES="${DOTFILES:-$(cd "$script_dir/.." && pwd -P)}"
+source "$DOTFILES/bin/lib/common.sh"
+
+usage() {
+  cat <<EOF
+  $(fmt_key "Usage:") $(fmt_cmd "dot profile") $(fmt_value "<subcommand>")
+
+Manage the machine profile and per-machine config.
+
+$(fmt_key "Subcommands:")
+    get                       Print the active profile (personal|work)
+    set <personal|work>       Set the active profile
+    set-config <key> <value>  Set a per-machine config value (e.g. work_dir, docker_runtime)
+    show                      Show the profile and all config values
+    -h, --help                Show this help
+EOF
+}
+
+cmd_show() {
+  printf "%b %s\n" "$(fmt_key 'profile:')" "$(dot_profile)"
+  local file line
+  file="$(_dot_state_dir)/config"
+  if [[ -f "$file" ]]; then
+    printf "%b\n" "$(fmt_key 'config:')"
+    while IFS= read -r line; do
+      [[ -n "$line" ]] && printf "  %s\n" "$line"
+    done <"$file"
+  else
+    printf "%b (none)\n" "$(fmt_key 'config:')"
+  fi
+}
+
+main() {
+  local sub="${1:-show}"
+  shift || true
+  case "$sub" in
+    get) dot_profile ;;
+    set)
+      [[ $# -ge 1 ]] || {
+        log_error "Usage: dot profile set <personal|work>"
+        return 1
+      }
+      if dot_set_profile "$1"; then
+        log_success "Profile set to $1"
+      else
+        return 1
+      fi
+      ;;
+    set-config)
+      [[ $# -ge 2 ]] || {
+        log_error "Usage: dot profile set-config <key> <value>"
+        return 1
+      }
+      if dot_set_config "$1" "$2"; then
+        log_success "Set $1=$2"
+      else
+        return 1
+      fi
+      ;;
+    show) cmd_show ;;
+    -h | --help) usage ;;
+    *)
+      log_error "Unknown subcommand: $sub"
+      usage
+      return 1
+      ;;
+  esac
+}
+
+main "$@"
