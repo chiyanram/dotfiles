@@ -90,7 +90,8 @@ profiles with strict fail-fast (re-introduces the work-laptop abort problem).
 - `~/.config/dotfiles/profile` — single line: `personal` | `work`.
 - `~/.config/dotfiles/config` — per-machine key=value settings that **differ between machines even within the same
   profile** (the workspace root is not the same on every laptop). Notably `work_dir` (the root under which work repos
-  live, e.g. `~/work`, `~/src/company`, `~/Developer/acme`). Never committed; written during setup or via
+  live, e.g. `~/work`, `~/src/company`, `~/Developer/acme`) and `docker_runtime` (`docker-desktop` | `rancher` |
+  `colima`, overriding the profile default — see §5.2). Never committed; written during setup or via
   `dot profile set-config <key> <value>`.
 - New `dot_profile()` and `dot_config <key>` helpers in `bin/lib/common.sh` read these (prompt once if unset in
   interactive setup; in `--non-interactive`, profile defaults to `personal` and missing config keys are treated as
@@ -105,12 +106,17 @@ Currently one 69-line `Brewfile` mixing core CLI + casks + infra. Restructure in
 ```
 brew/
   Brewfile.core       # cross-profile CLI: git, zsh, fzf, ripgrep, nvim, k8s tools, …
-  Brewfile.personal   # personal casks: docker-desktop, personal apps
-  Brewfile.work       # corp: colima/rancher (no Docker Desktop license), VPN, Slack, company CLIs
+  Brewfile.personal   # personal casks: docker-desktop (default runtime), personal apps
+  Brewfile.work       # corp: rancher (default runtime — Docker Desktop usually unlicensed), VPN, Slack, company CLIs
 ```
 
 - `dot homebrew bundle` reads the profile and runs **core + matching profile bundle**, each independently, so a blocked
   work cask never stops core CLI installs.
+- **Docker runtime is profile-defaulted but per-machine overridable.** Personal defaults to **Docker Desktop**; work
+  defaults to **Rancher Desktop** (the common case) but "it depends" — so the runtime is a config key
+  (`docker_runtime` in `~/.config/dotfiles/config`, values `docker-desktop` | `rancher` | `colima`) that overrides the
+  profile default. This replaces the current `HOMEBREW_DOCKER_RUNTIME` env var; the matching cask is selected at bundle
+  time and `DOCKER_HOST`/socket wiring follows the chosen runtime.
 - Every entry keeps its trailing explanatory comment (existing rule).
 
 > **Explicit restructure flag:** this moves `Brewfile` into `brew/` and splits it. Called out per the "don't move files
