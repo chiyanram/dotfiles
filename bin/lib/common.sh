@@ -208,7 +208,9 @@ dot_set_profile() {
   printf '%s\n' "$name" >"$dir/profile"
 }
 
-# Print the value for a config key (empty if the file or key is absent).
+# Print the value for a config key. Prints one (possibly empty) line when the
+# file exists; prints nothing when the file is absent. Command-substitution
+# callers (`$(dot_config key)`) see "" in all absent cases. Always exits 0.
 dot_config() {
   local key="${1:-}" file line value=""
   file="$(_dot_state_dir)/config"

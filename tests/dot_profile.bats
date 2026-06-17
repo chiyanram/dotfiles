@@ -36,10 +36,16 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   [[ "$output" == *"work"* ]]
   [[ "$output" == *"work_dir="* ]]
   [[ "$output" == *"$HOME/work"* ]]
+  [[ "$output" == *"work_dir=$HOME/work"* ]]
 }
 
 @test "set-config requires both key and value" {
   run "$DOT_PROFILE" set-config work_dir
+  [ "$status" -ne 0 ]
+}
+
+@test "set with no argument exits non-zero" {
+  run "$DOT_PROFILE" set
   [ "$status" -ne 0 ]
 }
 

@@ -24,7 +24,7 @@ EOF
 cmd_show() {
   printf "%b %s\n" "$(fmt_key 'profile:')" "$(dot_profile)"
   local file line
-  file="${XDG_CONFIG_HOME:-$HOME/.config}/dotfiles/config"
+  file="$(_dot_state_dir)/config"
   if [[ -f "$file" ]]; then
     printf "%b\n" "$(fmt_key 'config:')"
     while IFS= read -r line; do
