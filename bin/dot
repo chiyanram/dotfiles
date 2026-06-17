@@ -76,7 +76,8 @@ cmd_clean() {
   # Clean broken config symlinks (derived from config/ directory)
   for config in "$DOTFILES/config"/*; do
     [[ -d "$config" ]] || continue
-    local target="$CONFIG_HOME/$(basename "$config")"
+    local target
+    target="$CONFIG_HOME/$(basename "$config")"
     if [ -L "$target" ] && [ ! -e "$target" ]; then
       log_info "Removing broken symbolic link: ~${target#"$HOME"}"
       rm "$target"
@@ -142,7 +143,8 @@ cmd_backup() {
   # Expand ~ in backup_dir
   backup_dir="${backup_dir/#\~/$HOME}"
 
-  local timestamp=$(date +%Y%m%d_%H%M%S)
+  local timestamp
+  timestamp=$(date +%Y%m%d_%H%M%S)
   local backup_path="${backup_dir}/dotfiles_backup_${timestamp}"
 
   log_info "Creating backup in: $backup_path"
@@ -210,7 +212,8 @@ link_home_files() {
   while IFS= read -r -d '' file; do
     local relative_path="${file#"$DOTFILES"/home/}"
     local target_path="$HOME/$relative_path"
-    local target_dir="$(dirname "$target_path")"
+    local target_dir
+    target_dir="$(dirname "$target_path")"
 
     if [ "$operation" = "link" ]; then
       # Create parent directories if needed
@@ -289,11 +292,15 @@ cmd_link_clean() {
     # Get all directories that contain files in $DOTFILES/home
     local home_dirs=()
     while IFS= read -r -d '' file; do
-      local dir_path="$HOME/$(dirname "${file#"$DOTFILES"/home/}")"
+      local dir_path
+      dir_path="$HOME/$(dirname "${file#"$DOTFILES"/home/}")"
       # Add to array if not already present
-      if [[ ! " ${home_dirs[@]} " =~ " ${dir_path} " ]]; then
-        home_dirs+=("$dir_path")
-      fi
+      local found=0
+      local d
+      for d in "${home_dirs[@]+"${home_dirs[@]}"}"; do
+        [[ "$d" == "$dir_path" ]] && found=1 && break
+      done
+      [[ "$found" -eq 0 ]] && home_dirs+=("$dir_path")
     done < <(find "$DOTFILES/home" -type f -print0)
 
     # Now check for broken symlinks only in those directories
@@ -302,7 +309,8 @@ cmd_link_clean() {
         while IFS= read -r -d '' link; do
           if [ -L "$link" ] && [ ! -e "$link" ]; then
             # Check if this broken symlink points to our dotfiles directory
-            local link_target=$(readlink "$link")
+            local link_target
+            link_target=$(readlink "$link")
             if [[ "$link_target" == "$DOTFILES"* ]]; then
               broken_count=$((broken_count + 1))
               if [ "$dry_run" = true ]; then
@@ -360,6 +368,7 @@ link_status() {
     name=$(basename "$config")
     target="$CONFIG_HOME/$name"
     state=$(classify_link "$config" "$target")
+    # shellcheck disable=SC2088  # tilde is intentional display label, not expansion
     case "$state" in
       ok)
         printf "  %b%-22s%b %b%s%b\n" "$GREEN" "[OK]" "$RESET" "$DIM" "~/.config/$name" "$RESET"
@@ -387,6 +396,7 @@ link_status() {
       relative_path="${file#"$DOTFILES"/home/}"
       target_path="$HOME/$relative_path"
       state=$(classify_link "$file" "$target_path")
+      # shellcheck disable=SC2088  # tilde is intentional display label, not expansion
       case "$state" in
         ok)
           printf "  %b%-22s%b %b%s%b\n" "$GREEN" "[OK]" "$RESET" "$DIM" "~/$relative_path" "$RESET"
@@ -475,10 +485,11 @@ cmd_link() {
     esac
   done
 
+  local title_text
   if [ "$pkg" = "all" ]; then
-    local title_text="$operation"ing" all packages"
+    title_text="${operation}ing all packages"
   else
-    local title_text="$operation"ing" package: $pkg"
+    title_text="${operation}ing package: $pkg"
   fi
 
   fmt_title_underline "$title_text"
@@ -487,7 +498,8 @@ cmd_link() {
     # Handle all packages in config directory
     for config in "$DOTFILES/config"/*; do
       if [ -d "$config" ]; then
-        local target="$CONFIG_HOME/$(basename "$config")"
+        local target
+        target="$CONFIG_HOME/$(basename "$config")"
         if [ "$operation" = "link" ]; then
           link_config "$config" "$target" "$verbose" "$force"
         else # unlink
@@ -535,7 +547,6 @@ main() {
 
   cmd="$1"
   shift || true
-  subcmd="${1:-all}"
 
   case "$cmd" in
     help)

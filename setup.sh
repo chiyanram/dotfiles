@@ -165,6 +165,7 @@ else
     log_info "Installing SDKMAN..."
     curl -s "https://get.sdkman.io" | bash
     export SDKMAN_DIR="$HOME/.sdkman"
+    # shellcheck source=/dev/null
     source "$SDKMAN_DIR/bin/sdkman-init.sh"
     log_success "SDKMAN installed"
 
