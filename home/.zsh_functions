@@ -52,6 +52,21 @@ fs() {
   fi
 }
 
+# Upgrade all installed SDKMAN candidates.
+# Usage: sdkup [-h|--help]
+sdkup() {
+  if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    echo "Usage: sdkup"
+    echo "  Upgrade all installed SDKMAN candidates (runs: sdk upgrade)."
+    return 0
+  fi
+  if ! command -v sdk >/dev/null 2>&1; then
+    echo "SDKMAN not available. Open a new shell, or install: curl -s https://get.sdkman.io | bash"
+    return 1
+  fi
+  sdk upgrade
+}
+
 # Zsh startup profiler viewer
 zshrc_profiler_view() {
   local logfile="$TMPDIR/zshrc_profiler.$$.log"
