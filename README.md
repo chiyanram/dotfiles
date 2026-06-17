@@ -132,6 +132,9 @@ dot unlink [package]        # Unlink all or specific package
 | `dot shell change` | Change default shell to zsh |
 | `dot homebrew install` | Install Homebrew |
 | `dot homebrew bundle` | Install packages from Brewfile |
+| `dot profile show` | Show the active profile (personal\|work) and per-machine config |
+| `dot profile set work` | Switch the machine profile |
+| `dot profile set-config <key> <value>` | Set a per-machine value (e.g. `work_dir`, `docker_runtime`) |
 
 ### Extending with Custom Commands
 
