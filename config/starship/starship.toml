@@ -1,16 +1,18 @@
 # Bracketed Segments — Catppuccin Macchiato palette, Nerd Font glyphs
-# Tailored for Java / Spring Boot / Kubernetes / Docker
+# Tailored for Java / Spring Boot / Kubernetes / Terraform / Docker
 
 add_newline = true
-command_timeout = 1000
+command_timeout = 2000
 
 format = """
+$username\
+$hostname\
 $directory\
 $git_branch\
 $git_status\
 $java\
-$kotlin\
 $gradle\
+$terraform\
 $docker_context\
 $kubernetes\
 $cmd_duration\
@@ -59,15 +61,18 @@ style = "bold #ed8796"
 detect_files = ["pom.xml", "build.gradle", "build.gradle.kts", "build.sbt", ".java-version"]
 detect_extensions = ["java", "class", "jar"]
 
-# ─── Kotlin ───────────────────────────────────────
+# ─── Kotlin (disabled — no Kotlin in stack; lights up on Gradle-Kotlin projects) ──
 [kotlin]
-format = '\[[ $version]($style)\] '
-style = "bold #c6a0f6"
+disabled = true
 
-# ─── Gradle ───────────────────────────────────────
+# ─── Gradle (disabled — redundant with [java]; java module already detects build.gradle) ──
 [gradle]
-format = '\[[ $version]($style)\] '
-style = "bold #8bd5ca"
+disabled = true
+
+# ─── Terraform ────────────────────────────────────
+[terraform]
+format = '\[[ $workspace]($style)\] '
+style = "bold #f5a97f"
 
 # ─── Docker ───────────────────────────────────────
 [docker_context]
@@ -77,11 +82,14 @@ only_with_files = true
 detect_files = ["docker-compose.yml", "docker-compose.yaml", "Dockerfile"]
 
 # ─── Kubernetes ───────────────────────────────────
+# always-on (disabled=false, no detect_files/folders): context is always
+# relevant when working with EKS/K8s, and there is no reliable file trigger
+# for infra work (old detect_files ["k8s","kubernetes"] matched files not
+# dirs and were no-ops). context_from_config not supported in starship 1.25.x.
 [kubernetes]
 disabled = false
 format = '\[[󱃾 $context($namespace)]($style)\] '
 style = "bold #91d7e3"
-detect_files = ["k8s", "kubernetes", "kustomization.yaml"]
 
 [kubernetes.context_aliases]
 "arn:aws:eks:.*:.*:cluster/(.+)" = "$1"
@@ -135,4 +143,14 @@ disabled = true
 disabled = true
 
 [php]
+disabled = true
+
+# AWS: disabled to prevent unexpected appearance when AWS_PROFILE/AWS_REGION env
+# vars are set (e.g. from ~/.aws/config or shell exports). Enable and style
+# if you want compact profile/region on the prompt.
+[aws]
+disabled = true
+
+# GCloud: disabled — primary cloud provider is AWS/EKS, not GCP.
+[gcloud]
 disabled = true
