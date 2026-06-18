@@ -178,6 +178,10 @@ return {
         "jdtls",
         "java-debug-adapter",
         "java-test",
+        -- Terraform linter (not an lspconfig server)
+        "tflint",
+        -- YAML formatter
+        "yamlfmt",
       },
       auto_update = false,
       run_on_start = true,

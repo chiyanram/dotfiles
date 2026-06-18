@@ -1,11 +1,14 @@
 local formatters = {
   json = { "prettier" },
   jsonc = { "prettier" },
-  yaml = { "prettier" },
+  yaml = { "yamlfmt" },
   sh = { "shellcheck", "shfmt" },
   python = { "black", "isort" },
   go = { "gofmt" },
   lua = { "stylua" },
+  terraform = { "terraform_fmt" },
+  ["terraform-vars"] = { "terraform_fmt" },
+  hcl = { "terraform_fmt" },
 }
 
 return {
@@ -27,6 +30,8 @@ return {
       { "williamboman/mason.nvim", version = "^1.0.0" },
       { "williamboman/mason-lspconfig.nvim", version = "^1.0.0" },
       "saghen/blink.cmp",
+      -- Schema catalog for JSON and YAML language servers
+      "b0o/schemastore.nvim",
     },
     config = function()
       require("nisi.plugins.lsp.config").setup()

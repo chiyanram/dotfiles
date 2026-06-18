@@ -22,6 +22,9 @@ local servers = {
   "jsonls",
   "pylsp",
   "vimls",
+  "terraformls",
+  "yamlls",
+  "helm_ls",
 }
 
 local M = {}
@@ -207,6 +210,43 @@ function M.setup()
     handlers["vimls"] = function()
       lspconfig.vimls.setup(make_conf({
         init_options = { isNeovim = true },
+      }))
+    end
+  end
+
+  if utils.exists_in_table(servers, "terraformls") then
+    handlers["terraformls"] = function()
+      lspconfig.terraformls.setup(make_conf({
+        filetypes = { "terraform", "terraform-vars", "hcl" },
+      }))
+    end
+  end
+
+  if utils.exists_in_table(servers, "yamlls") then
+    handlers["yamlls"] = function()
+      local has_schemastore, schemastore = pcall(require, "schemastore")
+      local yaml_schemas = {}
+      if has_schemastore then
+        yaml_schemas = schemastore.yaml.schemas()
+      end
+      -- Kubernetes manifests: match common k8s file globs
+      yaml_schemas["https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.29.0-standalone-strict/all.json"] =
+        { "*.k8s.yaml", "*.k8s.yml", "*-deployment.yaml", "*-service.yaml", "*-configmap.yaml", "kustomization.yaml" }
+
+      lspconfig.yamlls.setup(make_conf({
+        settings = {
+          yaml = {
+            schemaStore = {
+              -- disable built-in so schemastore.nvim can manage it
+              enable = false,
+              url = "",
+            },
+            schemas = yaml_schemas,
+            validate = true,
+            hover = true,
+            completion = true,
+          },
+        },
       }))
     end
   end

@@ -40,6 +40,11 @@ return {
         "rust",
         "vim",
         "yaml",
+        -- Infrastructure & data
+        "java",
+        "hcl",
+        "dockerfile",
+        "sql",
       },
       incremental_selection = {
         enable = true,
