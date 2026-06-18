@@ -16,6 +16,8 @@ elsif OS.linux?
   brew 'xclip'                         # access to clipboard (similar to pbcopy/pbpaste)
 end
 
+tap 'tflint-ruby/tflint'               # tap for tflint (not in homebrew-core)
+
 # Latest versions of some core utilities
 brew 'git'                             # Git version control
 brew 'bash'                            # bash shell
@@ -79,4 +81,5 @@ brew 'pgcli'                           # PostgreSQL CLI with autocomplete
 brew 'kustomize'                       # Kubernetes config overlays (non-Helm)
 brew 'kubeconform'                     # validate K8s manifests against API schemas
 brew 'tenv'                            # Terraform/OpenTofu/Terragrunt version manager
+brew 'tflint-ruby/tflint/tflint'       # Terraform linter (catches provider mistakes)
 brew 'trivy'                           # security scanner: images, IaC, SBOMs

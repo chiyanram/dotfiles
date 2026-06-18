@@ -257,6 +257,7 @@ main() {
     [httpie]="http"
     [gnupg]="gpg"
     [python]="python3"
+    ["tflint-ruby/tflint/tflint"]="tflint"
   )
 
   # Formulas to skip (system-provided or no user-facing binary)
@@ -276,9 +277,12 @@ main() {
     while IFS= read -r formula; do
       [[ "$brew_skip" == *" $formula "* ]] && continue
       local cmd="${brew_cmd_map[$formula]:-$formula}"
+      # Tap-qualified formulas (containing '/') use the binary as display name
+      local name="$formula"
+      [[ "$formula" == */* ]] && name="$cmd"
       local required="false"
       [[ "$required_tools" == *" $formula "* ]] && required="true"
-      check_tool "$formula" "$cmd" "$required"
+      check_tool "$name" "$cmd" "$required"
     done < <(grep -hE "^[[:space:]]*brew '" "${brewfiles[@]}" | sed "s/.*brew '\\([^']*\\)'.*/\\1/")
   else
     log_warning "No Brewfiles found under $DOTFILES/brew/"

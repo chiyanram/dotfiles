@@ -40,7 +40,7 @@ Curated tool recommendations for a senior Java / Spring Boot / Gradle / PostgreS
 ### Data / API
 - **grpcurl** (core) — see top-8.
 - **fx** (core) — see top-8.
-- **usql** (personal) — universal SQL CLI (Postgres/MySQL/SQLite/…); complements `pgcli` for ad-hoc other-DB work.
+- **usql** (personal) — universal SQL CLI (Postgres/MySQL/SQLite/…); complements `pgcli` for ad-hoc other-DB work. (needs the xo/xo tap: brew tap xo/xo; not added by default)
 
 ### Shell / productivity
 - **atuin** (core) — see top-8.
