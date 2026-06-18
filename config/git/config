@@ -15,9 +15,6 @@
     # diff = diff --ignore-space-at-eol -b -w --ignore-blank-lines
     d = "!git diff --ignore-space-at-eol -b -w --ignore-blank-lines -- ':!**/package-lock.json' ':!**/yarn.lock'"
 
-    # push new branch - push a branch to origin and set upstream
-    pnb = "!git push --set-upstream origin $(git rev-parse --abbrev-ref HEAD)"
-
     # force push - use force-with-lease to avoid overwriting other people's work
     fp = push --force-with-lease
 
@@ -27,7 +24,7 @@
     addnw = "!sh -c 'git diff -U0 -w --no-color \"$@\" | git apply --cached --ignore-whitespace --unidiff-zero -'"
     cane = commit --amend --no-edit
 
-    separator = "commit --allow-empty -m \"--------SEPERATOR--------\""
+    separator = "commit --allow-empty -m \"--------SEPARATOR--------\""
 
     # gh commands
     browse = "!gh repo view --web"
@@ -83,7 +80,7 @@
     cleanup = "!git remote prune origin && git gc"
 
     # rebase the current branch with changes from upstream remote
-    update = !git fetch upstream && git rebase upstream/`git rev-parse --abbrev-ref HEAD`
+    update = !git fetch upstream && git rebase "upstream/$(git rev-parse --abbrev-ref HEAD)"
 
     # tag aliases
     # show the last tag
@@ -117,10 +114,6 @@
 
     remotes = remote -v
 [color]
-    diff = auto
-    status = auto
-    branch = auto
-    interactive = auto
     ui = auto
 [color "branch"]
     current = green bold
@@ -135,8 +128,6 @@
     added = green bold
     changed = yellow bold
     untracked = red
-[color "sh"]
-    branch = yellow
 [push]
     default = current
     autoSetupRemote = true
@@ -145,7 +136,6 @@
     prune = true
     pruneTags = true
 [branch]
-    autosetuprebase = always
     sort = -committerdate
 [pull]
     rebase = true

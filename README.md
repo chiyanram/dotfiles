@@ -56,7 +56,7 @@ dot profile set-config docker_runtime <docker-desktop|rancher|colima>
 
 The setup script asks which runtime to use during installation.
 
-### Manual Setup
+### Running Steps Individually
 
 If you prefer to run steps individually:
 
