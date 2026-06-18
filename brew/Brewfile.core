@@ -9,6 +9,7 @@ if OS.mac?
   # Applications (cross-profile)
   cask 'ghostty'                       # a better terminal emulator
   cask 'nikitabobko/tap/aerospace'     # a tiling window manager
+  cask 'jdk-mission-control'           # GUI to analyze JFR recordings (pairs with jfr)
 
   # Fonts
   cask 'font-symbols-only-nerd-font'   # nerd-only symbols font
@@ -67,6 +68,8 @@ brew 'sd'                              # simpler find/replace than sed (not a PO
 
 # Java / backend
 brew 'jbang'                           # run Java source files as scripts without a project
+brew 'ktlint'                          # Kotlin linter/formatter (complements detekt)
+brew 'async-profiler'                  # low-overhead JVM sampling profiler (flame graphs)
 
 # Infrastructure
 brew 'yq'                              # jq for YAML — essential for K8s/Helm work
