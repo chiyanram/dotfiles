@@ -1,11 +1,6 @@
 ## Type additions
-
-# add new types to search by
---type-add
-gradle:*.{gradle,gradle.kts}
-
---type-add
-tf:*.{tf,tfvars}
+# Note: gradle, tf, java, kotlin, yaml are already built-in ripgrep types
+# (the built-ins are broader), so no --type-add is needed for them.
 
 # ignore case
 --smart-case
