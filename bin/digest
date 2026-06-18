@@ -86,6 +86,7 @@ is_excluded() {
   # Check each exclusion pattern
   for pattern in "${EXCLUDE_PATTERNS[@]}"; do
     # Simple glob matching using case statement
+    # shellcheck disable=SC2254  # intentional: $pattern may contain glob chars (e.g. '*.json')
     case "$file" in
     $pattern)
       return 0 # File matches exclusion pattern
@@ -131,14 +132,9 @@ generate_summary() {
   echo '```'
 
   # Count files
-  local all_files=$(get_file_list | wc -l | tr -d ' ')
+  local all_files
+  all_files=$(get_file_list | wc -l | tr -d ' ')
   echo "Total files: $all_files"
-
-  # Setting scope text
-  local scope_text="repository"
-  if [[ -n "$TARGET_DIR" ]]; then
-    scope_text="directory '$TARGET_DIR'"
-  fi
 
   # Count only non-binary files for lines of code
   local loc=0
@@ -191,7 +187,8 @@ generate_directory_structure() {
   # Generate tree with file sizes
   get_file_list | sort | while read -r file; do
     if [[ -f "$file" ]]; then
-      local size=$(stat -f %z "$file" 2>/dev/null)
+      local size
+      size=$(stat -f %z "$file" 2>/dev/null)
       if [[ $size -le $MAX_FILE_SIZE ]]; then
         hr_size=$(format_file_size "$size")
         if is_binary "$file"; then
@@ -211,7 +208,7 @@ generate_directory_structure() {
   echo '```'
   # Use our file list to get directories that actually exist
   get_file_list | xargs -n1 dirname 2>/dev/null | sort | uniq -c | sort -nr | head -20 |
-    while read count dir; do
+    while read -r count dir; do
       echo "${dir} (${count} files)"
     done
   echo '```'
@@ -301,7 +298,8 @@ create_digest() {
     fi
 
     if [[ -f "$file" ]]; then
-      local file_size=$(stat -f %z "$file" 2>/dev/null)
+      local file_size
+      file_size=$(stat -f %z "$file" 2>/dev/null)
 
       # Skip large files
       if [[ $file_size -gt $MAX_FILE_SIZE ]]; then
@@ -312,12 +310,15 @@ create_digest() {
         digest+="\n### $file\n"
         digest+='```\n'
         # Add file size and last modified date
-        local mod_date=$(stat -f "%Sm" "$file")
-        local est_tokens=$(estimate_tokens "$file_size")
+        local mod_date
+        mod_date=$(stat -f "%Sm" "$file")
+        local est_tokens
+        est_tokens=$(estimate_tokens "$file_size")
         digest+="Size: $(format_file_size "$file_size"), Est. tokens: $est_tokens, Last modified: $mod_date\n\n"
 
         # Get file contents and append to digest
-        local content=$(cat "$file")
+        local content
+        content=$(cat "$file")
         digest+="$content\n"
         digest+='```\n'
 
