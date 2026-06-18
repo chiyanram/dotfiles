@@ -39,3 +39,23 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   run bash -c "grep -c includeIf '$HOME/.gitconfig-work-include'"
   [ "$output" -eq 1 ]
 }
+
+@test "work-identity with no work_dir errors clearly under EOF stdin" {
+  run bash -c "'$REPO/bin/dot-git' work-identity --name N --email e@work.test </dev/null"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"work directory is required"* ]]
+}
+
+@test "work-identity expands a leading ~ in --work-dir" {
+  "$REPO/bin/dot-git" work-identity --work-dir "~/work" --name N --email e@work.test
+  run cat "$HOME/.gitconfig-work-include"
+  [[ "$output" == *"gitdir:$HOME/work/"* ]]
+}
+
+@test "work-identity reuses the persisted work_dir when --work-dir is omitted" {
+  "$REPO/bin/dot-git" work-identity --work-dir "$SANDBOX/work" --name N --email e@work.test
+  # second run with NO --work-dir should reuse the persisted value
+  "$REPO/bin/dot-git" work-identity --name N2 --email e2@work.test
+  run cat "$HOME/.gitconfig-work-include"
+  [[ "$output" == *"gitdir:$SANDBOX/work/"* ]]
+}

@@ -89,7 +89,7 @@ git_work_identity() {
 
   [[ -z "$work_dir" ]] && work_dir="$(dot_config work_dir)"
   if [[ -z "$work_dir" ]]; then
-    read -rp "Work repos directory (e.g. ~/work): " work_dir
+    read -rp "Work repos directory (e.g. ~/work): " work_dir || true
   fi
   if [[ -z "$work_dir" ]]; then
     log_error "A work directory is required"
@@ -98,8 +98,8 @@ git_work_identity() {
   work_dir="${work_dir/#\~/$HOME}" # expand leading ~ to an absolute path
   dot_set_config work_dir "$work_dir"
 
-  [[ -z "$name" ]] && read -rp "Work name: " name
-  [[ -z "$email" ]] && read -rp "Work email: " email
+  if [[ -z "$name" ]]; then read -rp "Work name: " name || true; fi
+  if [[ -z "$email" ]]; then read -rp "Work email: " email || true; fi
   if [[ -z "$name" || -z "$email" ]]; then
     log_error "Work name and email are required"
     return 1
