@@ -4,3 +4,7 @@
 # (defaults to rancher for work; override with:
 #   dot profile set-config docker_runtime <docker-desktop|rancher|colima>).
 # Add corp-only tools here (VPN, Slack, company CLIs) as they are approved.
+brew 'dive'                            # Docker image layer analyzer
+brew 'lazydocker'                      # Docker TUI
+brew 'terraform-docs'                  # generate Terraform module README tables
+brew 'argocd'                          # ArgoCD GitOps CLI

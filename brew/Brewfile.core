@@ -54,6 +54,14 @@ brew 'glow'                            # terminal markdown viewer
 brew 'jq'                              # work with JSON files in shell scripts
 brew 'gnupg'                           # GPG
 brew 'btop'                            # a top alternative
+brew 'google-java-format'              # opinionated zero-config Java formatter
+brew 'hyperfine'                       # CLI benchmarking (Gradle tasks, scripts)
+brew 'grpcurl'                         # curl for gRPC services
+brew 'fx'                              # interactive JSON browser (vs jq for scripting)
+brew 'atuin'                           # searchable, synced shell history
+brew 'git-absorb'                      # auto fixup! commits into the right prior commit
+brew 'difftastic'                      # AST-aware structural diffs (alongside delta)
+brew 'sd'                              # simpler find/replace than sed (not a POSIX alias)
 
 # Java / backend
 brew 'jbang'                           # run Java source files as scripts without a project
@@ -68,5 +76,7 @@ brew 'kubectx'                         # fast Kubernetes context and namespace s
 brew 'stern'                           # multi-pod log tailing for Kubernetes
 brew 'httpie'                          # better HTTP client
 brew 'pgcli'                           # PostgreSQL CLI with autocomplete
-brew 'dive'                            # Docker image layer analyzer
-brew 'lazydocker'                      # Docker TUI (containers, images, volumes, logs)
+brew 'kustomize'                       # Kubernetes config overlays (non-Helm)
+brew 'kubeconform'                     # validate K8s manifests against API schemas
+brew 'tenv'                            # Terraform/OpenTofu/Terragrunt version manager
+brew 'trivy'                           # security scanner: images, IaC, SBOMs

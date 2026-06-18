@@ -4,3 +4,9 @@
 # (defaults to docker-desktop for personal; override with:
 #   dot profile set-config docker_runtime <docker-desktop|rancher|colima>).
 # Add personal-only apps here.
+brew 'dive'                            # Docker image layer analyzer
+brew 'lazydocker'                      # Docker TUI
+brew 'navi'                            # interactive cheatsheet browser
+brew 'miller'                          # awk/sed for CSV/TSV/JSON (stock/MF exports)
+brew 'presenterm'                      # markdown terminal slideshows
+brew 'gradle-profiler'                 # benchmark/profile slow Gradle builds
