@@ -130,12 +130,13 @@ update_zsh_plugins() {
   fi
 
   local found=false
-  for dir in "$plugin_dir"/*/; do
+  # zfetch clones to $ZPLUGDIR/<org>/<repo>, so plugins live two levels deep
+  for dir in "$plugin_dir"/*/*/; do
     [[ -d "$dir/.git" ]] || continue
     found=true
 
     local name
-    name=$(basename "$dir")
+    name="$(basename "$(dirname "$dir")")/$(basename "$dir")"
 
     local before
     before=$(git -C "$dir" rev-parse HEAD)
