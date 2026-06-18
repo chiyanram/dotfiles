@@ -11,3 +11,8 @@ startup_command = ""
 # name = "dotfiles ⚙️"
 # path = "~/tools-repo/dotfiles"
 # startup_command = "nvim"
+
+[[session]]
+name = "dotfiles ⚙️"
+path = "~/tools-repo/dotfiles"
+startup_command = "nvim"

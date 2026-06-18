@@ -197,6 +197,13 @@ Custom keybindings with `⌃-a` prefix (remapped from `⌃-b`). Session manageme
 
 Set `TMUX_MINIMAL=1` in `~/.localrc` to auto-hide the status bar with a single window.
 
+### Ghostty quick-terminal
+
+A quake-style dropdown toggles from any app with `Ctrl`+`` ` ``. macOS requires a one-time
+Accessibility grant for the global hotkey: **System Settings → Privacy & Security →
+Accessibility → enable Ghostty.** If `Ctrl`+`` ` `` collides on a machine, override it in
+`~/.config/ghostty/overrides` with `keybind = global:cmd+ctrl+grave=toggle_quick_terminal`.
+
 ## Development Tooling
 
 ### Java / Backend (via SDKMAN)

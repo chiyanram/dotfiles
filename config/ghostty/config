@@ -74,5 +74,10 @@ keybind = cmd+s>e=equalize_splits
 copy-on-select = clipboard
 shell-integration-features = cursor,sudo,no-title
 
+# Quick-terminal: quake-style dropdown from any app (needs macOS Accessibility grant once)
+quick-terminal-position = top
+quick-terminal-animation-duration = 0.15
+keybind = global:ctrl+grave=toggle_quick_terminal
+
 config-file = ?./overrides
 keybind = shift+enter=text:\n
