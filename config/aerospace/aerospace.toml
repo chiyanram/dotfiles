@@ -111,7 +111,7 @@ esc = ['reload-config', 'mode main']
 r = ['flatten-workspace-tree', 'mode main'] # reset layout
 f = ['layout floating tiling', 'mode main'] # toggle floating
 backspace = ['close-all-windows-but-current', 'mode main']
-q = ['enable toggle'] # disable/enable window management
+q = ['enable toggle', 'mode main'] # disable/enable window management, then exit service mode
 
 alt-shift-h = ['join-with left', 'mode main']
 alt-shift-j = ['join-with down', 'mode main']

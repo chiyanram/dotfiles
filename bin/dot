@@ -76,6 +76,8 @@ cmd_clean() {
   # Clean broken config symlinks (derived from config/ directory)
   for config in "$DOTFILES/config"/*; do
     [[ -d "$config" ]] || continue
+    # skip empty config packages (nothing to link)
+    [[ -n "$(ls -A "$config" 2>/dev/null)" ]] || continue
     local target
     target="$CONFIG_HOME/$(basename "$config")"
     if [ -L "$target" ] && [ ! -e "$target" ]; then
@@ -153,6 +155,8 @@ cmd_backup() {
   files_to_backup=()
   for config in "$DOTFILES/config"/*; do
     [[ -d "$config" ]] || continue
+    # skip empty config packages (nothing to link)
+    [[ -n "$(ls -A "$config" 2>/dev/null)" ]] || continue
     files_to_backup+=(".config/$(basename "$config")")
   done
 
@@ -366,6 +370,8 @@ link_status() {
   # Config packages
   for config in "$DOTFILES/config"/*; do
     [[ -d "$config" ]] || continue
+    # skip empty config packages (nothing to link)
+    [[ -n "$(ls -A "$config" 2>/dev/null)" ]] || continue
     local name target state
     name=$(basename "$config")
     target="$CONFIG_HOME/$name"
@@ -500,6 +506,8 @@ cmd_link() {
     # Handle all packages in config directory
     for config in "$DOTFILES/config"/*; do
       if [ -d "$config" ]; then
+        # skip empty config packages (nothing to link)
+        [[ -n "$(ls -A "$config" 2>/dev/null)" ]] || continue
         local target
         target="$CONFIG_HOME/$(basename "$config")"
         if [ "$operation" = "link" ]; then
@@ -521,6 +529,11 @@ cmd_link() {
     # Handle specific package
     local target="$CONFIG_HOME/$pkg"
     if [ -d "$DOTFILES/config/$pkg" ]; then
+      # skip empty config packages (nothing to link)
+      if [[ -z "$(ls -A "$DOTFILES/config/$pkg" 2>/dev/null)" ]]; then
+        log_warning "Package $pkg is empty, skipping"
+        return 0
+      fi
       if [ "$operation" = "link" ]; then
         link_config "$DOTFILES/config/$pkg" "$target" "$verbose" "$force"
       else # unlink

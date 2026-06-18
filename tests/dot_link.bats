@@ -35,3 +35,10 @@ teardown() { teardown_sandbox; }
   [ ! -e "$XDG_CONFIG_HOME/demo" ]
   [ ! -e "$HOME/.demorc" ]
 }
+
+@test "link all skips an empty config package (no symlink created)" {
+  mkdir -p "$DOTFILES/config/emptypkg"
+  run "$DOT" link all
+  [ "$status" -eq 0 ]
+  [ ! -e "$XDG_CONFIG_HOME/emptypkg" ]
+}

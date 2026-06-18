@@ -80,7 +80,7 @@
     whoami = "!git config user.name && git config user.email"
     branches = branch --sort=-committerdate --format='%(color:green)%(committerdate:relative)%(color:reset) %(color:yellow)%(refname:short)%(color:reset)'
 
-    cleanup = "!git remote prune origin && git gc && git clean -df && git stash clear"
+    cleanup = "!git remote prune origin && git gc"
 
     # rebase the current branch with changes from upstream remote
     update = !git fetch upstream && git rebase upstream/`git rev-parse --abbrev-ref HEAD`
