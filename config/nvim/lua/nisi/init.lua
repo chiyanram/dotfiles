@@ -12,6 +12,7 @@ local utils = require("nisi.utils")
 ---@field python boolean|nil Whether python is enabled
 ---@field avante boolean|nil Whether avante is enabled
 ---@field fzf boolean|nil Whether too configure fzf for tooling like telescope
+---@field java boolean|nil Whether Java LSP (nvim-jdtls) and DAP are enabled
 ---@field prefer_git boolean|nil Whether to prefer using git for dependencies over other options like curl
 ---@field proxy string|nil A proxy URL to use for certain network functions
 ---@field colorscheme string|fun()|nil What to set the colorscheme to and/or how
@@ -24,6 +25,7 @@ local config = {
   copilot = true,
   avante = true,
   fzf = true,
+  java = true,
   proxy = nil,
   prefer_git = false,
   colorscheme = function()
@@ -104,6 +106,11 @@ local function init_plugins()
   if config.fzf then
     M.add_plugin({ import = "nisi.plugins.extras.fzf" })
   end
+
+  if config.java then
+    M.add_plugin({ import = "nisi.plugins.extras.java" })
+  end
+
   require("lazy").setup(plugins)
 
   lazy_loaded = true
