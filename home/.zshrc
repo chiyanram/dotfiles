@@ -194,6 +194,14 @@ if [[ -x "$(command -v fzf)" ]]; then
 fi
 
 ########################################################
+# atuin — searchable shell history
+########################################################
+# After fzf so atuin owns Ctrl-R; before SDKMAN/starship per ordering rules.
+if [[ -x "$(command -v atuin)" ]]; then
+    eval "$(atuin init zsh)"
+fi
+
+########################################################
 # Visual Enhancements
 ########################################################
 

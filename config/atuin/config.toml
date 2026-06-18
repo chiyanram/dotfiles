@@ -1,0 +1,18 @@
+## atuin — magical shell history. https://docs.atuin.sh
+## LOCAL-ONLY: history never syncs off this machine or across work/personal profiles.
+auto_sync = false
+update_check = false
+
+## UI
+style = "compact"
+inline_height = 25
+show_preview = true
+show_help = true
+
+## Behaviour
+search_mode = "fuzzy"
+filter_mode = "global"
+## Up-arrow scopes results to the current directory (Ctrl-R stays global).
+filter_mode_shell_up_key_binding = "directory"
+## Fill the command line on Enter instead of auto-running it (avoids accidental re-runs).
+enter_accept = false
