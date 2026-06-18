@@ -229,8 +229,8 @@ function M.setup()
       if has_schemastore then
         yaml_schemas = schemastore.yaml.schemas()
       end
-      -- Kubernetes manifests: match common k8s file globs
-      yaml_schemas["https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.29.0-standalone-strict/all.json"] =
+      -- Kubernetes manifests: always-current schema (master) so new APIs validate
+      yaml_schemas["https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/master-standalone-strict/all.json"] =
         { "*.k8s.yaml", "*.k8s.yml", "*-deployment.yaml", "*-service.yaml", "*-configmap.yaml", "kustomization.yaml" }
 
       lspconfig.yamlls.setup(make_conf({
