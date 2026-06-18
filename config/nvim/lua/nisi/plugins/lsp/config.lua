@@ -17,17 +17,9 @@ local border = {
 }
 
 local servers = {
-  "eslint",
-  "ts_ls",
   "lua_ls",
-  "denols",
-  "astro",
   "gopls",
-  "intelephense",
-  "tailwindcss",
   "jsonls",
-  "pylsp",
-  "ruby_lsp",
   "pylsp",
   "vimls",
 }
@@ -101,67 +93,6 @@ function M.setup()
     end,
   }
 
-  if utils.exists_in_table(servers, "eslint_d") then
-    handlers["eslint"] = function()
-      lspconfig.eslint.setup({
-        root_dir = require("lspconfig/util").root_pattern(
-          "eslint.config.js",
-          "eslint.config.mjs",
-          ".eslintrc.js",
-          ".eslintrc.json",
-          ".eslintrc"
-        ),
-      })
-    end
-  end
-
-  if utils.exists_in_table(servers, "tailwindcss") then
-    handlers["tailwindcss"] = function()
-      lspconfig.tailwindcss.setup(make_conf({
-        root_dir = require("lspconfig/util").root_pattern(
-          "tailwind.config.js",
-          "tailwind.config.ts",
-          "tailwind.config.cjs"
-        ),
-        settings = {
-          tailwindCSS = {
-            lint = {
-              cssConflict = "warning",
-              invalidApply = "error",
-              invalidConfigPath = "error",
-              invalidScreen = "error",
-              invalidTailwindDirective = "error",
-              recommendedVariantOrder = "warning",
-              unusedClass = "warning",
-            },
-            experimental = {
-              -- classRegex = {
-              --   "tw`([^`]*)",
-              --   'tw="([^"]*)',
-              --   'tw={"([^"}]*)',
-              --   "tw\\.\\w+`([^`]*)",
-              --   "tw\\(.*?\\)`([^`]*)",
-
-              --   "cn`([^`]*)",
-              --   'cn="([^"]*)',
-              --   'cn={"([^"}]*)',
-              --   "cn\\.\\w+`([^`]*)",
-              --   "cn\\(.*?\\)`([^`]*)",
-
-              --   { "clsx\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)" },
-              --   { "classnames\\(([^)]*)\\)", "'([^']*)'" },
-              --   { "cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]" },
-              --   "cva\\(([^)(]*(?:\\([^)(]*(?:\\([^)(]*(?:\\([^)(]*\\)[^)(]*)*\\)[^)(]*)*\\)[^)(]*)*)\\)",
-              --   "'([^']*)'",
-              -- },
-            },
-            validate = true,
-          },
-        },
-      }))
-    end
-  end
-
   if utils.exists_in_table(servers, "pylsp") then
     handlers["pylsp"] = function()
       lspconfig.pylsp.setup(make_conf({
@@ -184,48 +115,6 @@ function M.setup()
               black = { enabled = true },
               mypy = { enabled = true },
               isort = { enabled = true },
-            },
-          },
-        },
-      }))
-    end
-  end
-
-  if utils.exists_in_table(servers, "ts_ls") then
-    handlers["ts_ls"] = function()
-      lspconfig.ts_ls.setup(make_conf({
-        handlers = {
-          ["textDocument/definition"] = function(err, result, ctx, ...)
-            if #result > 1 then
-              result = { result[1] }
-            end
-            vim.lsp.handlers["textDocument/definition"](err, result, ctx, ...)
-          end,
-        },
-        root_dir = require("lspconfig/util").root_pattern("tsconfig.json"),
-        settings = {
-          typescript = {
-            inlayHints = {
-              includeInlayEnumMemberValueHints = true,
-              includeInlayFunctionLikeReturnTypeHints = true,
-              includeInlayFunctionParameterTypeHints = true,
-              includeInlayParameterNameHints = "all",
-              includeInlayParameterNameHintsWhenArgumentMatchesName = true, -- false
-              includeInlayPropertyDeclarationTypeHints = true,
-              includeInlayVariableTypeHints = true,
-              includeInlayVariableTypeHintsWhenTypeMatchesName = true, -- false
-            },
-          },
-          javascript = {
-            inlayHints = {
-              includeInlayEnumMemberValueHints = true,
-              includeInlayFunctionLikeReturnTypeHints = true,
-              includeInlayFunctionParameterTypeHints = true,
-              includeInlayParameterNameHints = "all",
-              includeInlayParameterNameHintsWhenArgumentMatchesName = true,
-              includeInlayPropertyDeclarationTypeHints = true,
-              includeInlayVariableTypeHints = true,
-              includeInlayVariableTypeHintsWhenTypeMatchesName = true,
             },
           },
         },
@@ -292,24 +181,6 @@ function M.setup()
     end
   end
 
-  if utils.exists_in_table(servers, "denols") then
-    handlers["denols"] = function()
-      lspconfig.denols.setup(make_conf({
-        handlers = {
-          ["textDocument/definition"] = function(err, result, ctx, ...)
-            vim.notify("Using new definition handler")
-            if #result > 1 then
-              result = { result[1] }
-            end
-            vim.lsp.handlers["textDocument/definition"](err, result, ctx, ...)
-          end,
-        },
-        root_dir = require("lspconfig/util").root_pattern("deno.json", "deno.jsonc"),
-        init_options = { lint = true },
-      }))
-    end
-  end
-
   if utils.exists_in_table(servers, "lua_ls") then
     handlers["lua_ls"] = function()
       lspconfig.lua_ls.setup(make_conf({
@@ -335,17 +206,6 @@ function M.setup()
             },
           },
         },
-      }))
-    end
-  end
-
-  if utils.exists_in_table(servers, "intelephense") then
-    handlers["intelephense"] = function()
-      lspconfig.intelephense.setup(make_conf({
-        cmd = { "intelephense", "--stdio" },
-        filetypes = { "php" },
-        single_file_support = true,
-        root_dir = require("lspconfig/util").root_pattern("composer.json", ".git"),
       }))
     end
   end

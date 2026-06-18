@@ -6,7 +6,6 @@ return {
       filetypes = { "*" },
       user_default_options = {
         mode = "background",
-        tailwind = true,
         RGB = true,
         RRGGBB = true,
         names = true,

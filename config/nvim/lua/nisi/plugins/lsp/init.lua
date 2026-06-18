@@ -1,20 +1,11 @@
 local formatters = {
-  javascript = { "prettier" },
-  javascriptreact = { "prettier" },
-  typescript = { "prettier" },
-  typescriptreact = { "prettier" },
-  astro = { "prettier" },
   json = { "prettier" },
   jsonc = { "prettier" },
-  html = { "prettier" },
   yaml = { "prettier" },
-  css = { "stylelint", "prettier" },
   sh = { "shellcheck", "shfmt" },
   python = { "black", "isort" },
   go = { "gofmt" },
   lua = { "stylua" },
-  ruby = { "rubocop" },
-  php = { "pint" },
 }
 
 return {
@@ -88,9 +79,5 @@ return {
         desc = "Quickfix List (Trouble)",
       },
     },
-  },
-  {
-    "vuki656/package-info.nvim",
-    config = true,
   },
 }

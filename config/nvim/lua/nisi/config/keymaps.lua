@@ -56,7 +56,6 @@ nmap("<D-s>", "<cmd>w<cr><esc>", { desc = "Save File" })
 nmap("<space>", ":silent set hlsearch! hlsearch?<cr>", { desc = "Toggle search results" })
 nmap("<leader>l", ":set list!<cr>", { desc = "Toggle invisible characters" })
 nmap("<leader>.", "<c-^>", { desc = "Go to last buffer" })
-nmap("<leader>z", "<Plug>Zoom", { desc = "Toggle zoom" })
 
 -- helpers for dealing with other people's code
 nmap([[\t]], ":set ts=4 sts=4 sw=4 noet<cr>", { desc = "Set tabs" })
@@ -68,11 +67,11 @@ vmap(">", ">gv")
 
 vmap(".", ":normal .<cr>") -- run `.` command in visual mode
 
--- Move between panes or create new panes
-nmap("<C-h>", "<Plug>WinMoveLeft")
-nmap("<C-j>", "<Plug>WinMoveDown")
-nmap("<C-k>", "<Plug>WinMoveUp")
-nmap("<C-l>", "<Plug>WinMoveRight")
+-- Move between panes
+nmap("<C-h>", "<C-w>h", { desc = "Move to left window" })
+nmap("<C-j>", "<C-w>j", { desc = "Move to window below" })
+nmap("<C-k>", "<C-w>k", { desc = "Move to window above" })
+nmap("<C-l>", "<C-w>l", { desc = "Move to right window" })
 
 -- move line mappings
 local opt_h = "˙"
@@ -119,15 +118,6 @@ omap("il", ":<c-u>normal! g_v^<cr>")
 -- around line
 vmap("al", ":<c-u>normal! $v0<cr>")
 omap("al", ":<c-u>normal! $v0<cr>")
-
--- interesting word mappings
-nmap("<leader>0", "<Plug>ClearInterestingWord")
-nmap("<leader>1", "<Plug>HiInterestingWord1")
-nmap("<leader>2", "<Plug>HiInterestingWord2")
-nmap("<leader>3", "<Plug>HiInterestingWord3")
-nmap("<leader>4", "<Plug>HiInterestingWord4")
-nmap("<leader>5", "<Plug>HiInterestingWord5")
-nmap("<leader>6", "<Plug>HiInterestingWord6")
 
 -- copy and normalize text
 vmap("<leader>y", utils.copy_normalized_block, { desc = "Copy and normalized" })

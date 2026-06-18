@@ -5,7 +5,6 @@ return {
     build = ":TSUpdate",
     version = false,
     dependencies = {
-      "nvim-treesitter/playground",
       "nvim-treesitter/nvim-treesitter-textobjects",
       "JoosepAlviste/nvim-ts-context-commentstring",
     },
@@ -15,21 +14,6 @@ return {
       end
       require("lazy.core.loader").add_to_rtp(plugin)
       require("nvim-treesitter.query_predicates")
-      local parser_config = require("nvim-treesitter.parsers").get_parser_configs()
-      parser_config.blade = {
-        install_info = {
-          url = "https://github.com/EmranMR/tree-sitter-blade",
-          files = { "src/parser.c" },
-          branch = "main",
-        },
-        filetype = "blade",
-      }
-
-      vim.filetype.add({
-        pattern = {
-          [".*%.blade%.php"] = "blade",
-        },
-      })
     end,
     config = function(_, opts)
       require("nvim-treesitter.configs").setup(opts)
@@ -37,34 +21,23 @@ return {
     end,
     opts = {
       ensure_installed = {
-        "astro",
         "bash",
-        "blade",
         "c",
         "comment",
         "cpp",
-        "css",
         "diff",
         "git_rebase",
         "gitcommit",
         "gitignore",
         "html",
-        "javascript",
-        "jsdoc",
         "json",
-        "json",
-        "json5",
         "jsonc",
         "lua",
         "markdown",
         "markdown_inline",
-        "pug",
         "python",
         "regex",
-        "ruby",
         "rust",
-        "tsx",
-        "typescript",
         "vim",
         "yaml",
       },
@@ -95,24 +68,6 @@ return {
           enable = false,
           swap_next = { ["<leader>a"] = "@parameter.inner" },
           swap_previous = { ["<leader>A"] = "@parameter.inner" },
-        },
-      },
-      playground = {
-        enable = true,
-        disable = {},
-        updatetime = 25,
-        persist_queries = false,
-        keybindings = {
-          toggle_query_editor = "o",
-          toggle_hl_groups = "i",
-          toggle_injected_languages = "t",
-          toggle_anonymous_nodes = "a",
-          toggle_language_display = "I",
-          focus_language = "f",
-          unfocus_language = "F",
-          update = "R",
-          goto_node = "<cr>",
-          show_help = "?",
         },
       },
     },

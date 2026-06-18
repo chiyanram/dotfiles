@@ -1,6 +1,5 @@
 return {
   "tpope/vim-unimpaired",
-  "tpope/vim-ragtag",
   "tpope/vim-abolish",
   "tpope/vim-repeat",
   "tpope/vim-sleuth",

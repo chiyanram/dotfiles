@@ -245,13 +245,11 @@ return {
     dependencies = {
       "nvim-lua/plenary.nvim", -- Power telescope with FZF
       "nvim-telescope/telescope-rg.nvim",
-      "nvim-telescope/telescope-node-modules.nvim",
     },
     keys = function()
       local keys = {
         { "<leader>ff", "<cmd>Telescope find_files<cr>", desc = "Find Files" },
         { "<leader>fo", "<cmd>Telescope oldfiles<cr>", desc = "Find MRU files" },
-        { "<leader>fn", "<cmd>Telescope node_modules list<cr>", desc = "List node_modules" },
         { "<leader>fg", "<cmd>Telescope live_grep<cr>", desc = "Find using live grep" },
         {
           "<leader>fr",
