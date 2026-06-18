@@ -11,6 +11,8 @@ $directory\
 $git_branch\
 $git_status\
 $java\
+$kotlin\
+$scala\
 $terraform\
 $docker_context\
 $kubernetes\
@@ -57,12 +59,18 @@ up_to_date = "✓"
 [java]
 format = '\[[ $version]($style)\] '
 style = "bold #ed8796"
-detect_files = ["pom.xml", "build.gradle", "build.gradle.kts", "build.sbt", ".java-version"]
+detect_files = ["pom.xml", "build.gradle", "build.gradle.kts", ".java-version"]
 detect_extensions = ["java", "class", "jar"]
 
-# ─── Kotlin (disabled — no Kotlin in stack; lights up on Gradle-Kotlin projects) ──
+# ─── Kotlin ───────────────────────────────────────
 [kotlin]
-disabled = true
+format = '\[[ $version]($style)\] '
+style = "bold #c6a0f6"
+
+# ─── Scala ────────────────────────────────────────
+[scala]
+format = '\[[ $version]($style)\] '
+style = "bold #ee99a0"
 
 # ─── Gradle (disabled — redundant with [java]; java module already detects build.gradle) ──
 [gradle]
