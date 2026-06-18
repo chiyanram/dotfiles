@@ -193,6 +193,10 @@ if [[ -x "$(command -v fzf)" ]]; then
     source <(fzf --zsh)
 fi
 
+# Keymap — fuzzy everything:
+#   Ctrl-R  atuin (history)      Ctrl-T  fzf (files)      Alt-C  fzf (cd dir)
+#   Ctrl-G  fzf-git (branches/commits/stashes/files — see fzf-git.sh)
+
 ########################################################
 # atuin — searchable shell history
 ########################################################

@@ -42,11 +42,7 @@ clipboard-read = allow
 clipboard-write = allow
 clipboard-trim-trailing-spaces = true
 
-# Split keybindings
-# These are similar to tmux, but with the prefix being cmd+s
-keybind = cmd+s>\=new_split:right
-keybind = cmd+s>-=new_split:down
-
+# Tab keybindings (cmd+s leader). Splits are owned by tmux, not Ghostty.
 keybind = cmd+s>c=new_tab
 keybind = cmd+s>shift+l=next_tab
 keybind = cmd+s>shift+h=previous_tab
@@ -62,14 +58,6 @@ keybind = cmd+s>6=goto_tab:6
 keybind = cmd+s>7=goto_tab:7
 keybind = cmd+s>8=goto_tab:8
 keybind = cmd+s>9=goto_tab:9
-
-keybind = cmd+s>j=goto_split:bottom
-keybind = cmd+s>k=goto_split:top
-keybind = cmd+s>h=goto_split:left
-keybind = cmd+s>l=goto_split:right
-
-keybind = cmd+s>z=toggle_split_zoom
-keybind = cmd+s>e=equalize_splits
 
 copy-on-select = clipboard
 shell-integration-features = cursor,sudo,no-title
