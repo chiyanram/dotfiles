@@ -63,11 +63,11 @@ fi
 
 # Utilities
 alias afk='pmset displaysleepnow'
-alias pubkey='cat ~/.ssh/id_ed25519.pub | pbcopy && echo "Public key copied to clipboard"'
+alias pubkey='pbcopy < ~/.ssh/id_ed25519.pub && echo "Public key copied to clipboard"'
 alias flush='sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder'
 alias ip='curl -s https://ifconfig.me'
 alias localip='ipconfig getifaddr en0'
 alias gr='cd $(git rev-parse --show-toplevel 2>/dev/null || echo ".")'
 
 # Claude Code — load BEK plugin globally across all projects
-alias claude='claude --plugin-dir /Users/chiyanram/claude/backend-engineer-kit'
+alias claude='claude --plugin-dir $HOME/claude/backend-engineer-kit'

@@ -22,7 +22,7 @@ if type brew &>/dev/null; then
 fi
 
 # Plugin setup (before compinit for zsh-completions)
-export ZPLUGDIR="${CACHEDIR:-$HOME/.local/share}/zsh/plugins"
+export ZPLUGDIR="${XDG_DATA_HOME:-$HOME/.local/share}/zsh/plugins"
 [[ -d "$ZPLUGDIR" ]] || mkdir -p "$ZPLUGDIR"
 typeset -A plugins
 zfetch zsh-users/zsh-completions
@@ -65,14 +65,14 @@ export KEYTIMEOUT=1
 setopt NO_BG_NICE
 setopt NO_HUP
 setopt NO_LIST_BEEP
-setopt LOCAL_OPTIONS
-setopt LOCAL_TRAPS
 setopt PROMPT_SUBST
 setopt COMPLETE_ALIASES
 setopt AUTO_CD
+# CORRECT: offer to fix a mistyped command name (e.g. "correct 'gti' to 'git'?")
 setopt CORRECT
 setopt COMPLETE_IN_WORD
 setopt ALWAYS_TO_END
+# IGNORE_EOF: a stray Ctrl-D won't close the shell; type `exit` instead
 setopt IGNORE_EOF
 setopt AUTO_PUSHD
 setopt PUSHD_IGNORE_DUPS
@@ -141,7 +141,6 @@ zfetch zsh-users/zsh-syntax-highlighting
 zfetch zsh-users/zsh-autosuggestions
 zfetch zsh-users/zsh-history-substring-search
 zfetch MichaelAquilina/zsh-you-should-use you-should-use.plugin.zsh
-zfetch grigorii-zander/zsh-npm-scripts-autocomplete
 zfetch Aloxaf/fzf-tab
 # fzf-git: clone only, source manually (requires zle)
 zfetch junegunn/fzf-git.sh __skip__
@@ -157,7 +156,7 @@ bindkey '^[[B' history-substring-search-down
 
 # Node Version Manager
 if [[ -x "$(command -v fnm)" ]]; then
-    eval "$(fnm env --use-on-cd)"
+    eval "$(fnm env)"
 fi
 
 # Python
@@ -199,7 +198,6 @@ fi
 ########################################################
 
 # Colored man pages
-export MANROFFOPT='-c'
 export LESS_TERMCAP_mb=$(tput bold; tput setaf 2)
 export LESS_TERMCAP_md=$(tput bold; tput setaf 6)
 export LESS_TERMCAP_me=$(tput sgr0)

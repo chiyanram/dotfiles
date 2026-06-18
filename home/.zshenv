@@ -15,22 +15,15 @@ SAVEHIST=1000000
 
 export DOTFILES="${${(%):-%N}:A:h:h}"
 
-export CACHEDIR="$HOME/.local/share"
-export VIM_TMP="$HOME/.vim-tmp"
 # add a config file for ripgrep
 export RIPGREP_CONFIG_PATH="$HOME/.config/ripgrep/config"
 
-[[ -d "$CACHEDIR" ]] || mkdir -p "$CACHEDIR"
-[[ -d "$VIM_TMP" ]] || mkdir -p "$VIM_TMP"
+[[ -d "$XDG_DATA_HOME" ]] || mkdir -p "$XDG_DATA_HOME"
 
 [[ -f ~/.zshenv.local ]] && source ~/.zshenv.local
 
-fpath=(
-    /usr/local/share/zsh/site-functions
-    $fpath
-)
-
-typeset -aU path
+# Intel Homebrew zsh site-functions (skipped on Apple Silicon /opt/homebrew)
+[[ -d /usr/local/share/zsh/site-functions ]] && fpath=(/usr/local/share/zsh/site-functions $fpath)
 
 export EDITOR='nvim'
 export GIT_EDITOR='nvim'
