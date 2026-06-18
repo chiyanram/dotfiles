@@ -160,9 +160,23 @@ step_macos() {
   "$DOT" macos defaults || return 1
 }
 
+configure_sdkman_auto_env() {
+  local cfg="${SDKMAN_CONFIG:-$HOME/.sdkman/etc/config}"
+  [[ -f "$cfg" ]] || return 0
+  if grep -q '^sdkman_auto_env=true$' "$cfg"; then
+    return 0
+  elif grep -q '^sdkman_auto_env=' "$cfg"; then
+    sed -i '' 's/^sdkman_auto_env=.*/sdkman_auto_env=true/' "$cfg"
+  else
+    printf 'sdkman_auto_env=true\n' >>"$cfg"
+  fi
+  log_success "SDKMAN auto-env enabled (.sdkmanrc auto-applies on cd)"
+}
+
 step_sdkman() {
   if [[ -d "$HOME/.sdkman" ]]; then
     log_success "SDKMAN already installed"
+    configure_sdkman_auto_env
     return "$STEP_SKIP_CODE"
   fi
   if ! ask_yes_no "Install SDKMAN (Java, Gradle, Maven manager)?"; then
@@ -175,6 +189,7 @@ step_sdkman() {
   source "$SDKMAN_DIR/bin/sdkman-init.sh"
   ask_yes_no "Install latest Java?" && sdk install java
   ask_yes_no "Install latest Gradle?" && sdk install gradle
+  configure_sdkman_auto_env
   return 0 # a declined optional install (ask_yes_no -> 1) must not fail the step
 }
 
@@ -247,4 +262,5 @@ main() {
   return "$rc"
 }
 
-main "$@"
+# Only run main when executed directly (sourcing for tests must not install anything).
+if [[ "${BASH_SOURCE[0]:-$0}" == "${0}" ]]; then main "$@"; fi

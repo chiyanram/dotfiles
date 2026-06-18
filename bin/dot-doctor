@@ -41,6 +41,17 @@ check_sdkman() {
   fi
 }
 
+check_sdkman_env() {
+  local cfg="${SDKMAN_DIR:-$HOME/.sdkman}/etc/config"
+  [[ -f "$cfg" ]] || return 0
+  if grep -q '^sdkman_auto_env=true$' "$cfg"; then
+    printf "  %b %b%-14s%b %b%s%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "sdkman env" "$RESET" "$DIM" "auto-env on" "$RESET"
+  else
+    printf "  %b %b%-14s%b %b%s%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "sdkman env" "$RESET" "$YELLOW" "auto-env off — run ./setup.sh to enable .sdkmanrc on cd" "$RESET"
+    optional_missing=$((optional_missing + 1))
+  fi
+}
+
 check_java() {
   if command -v java &>/dev/null; then
     local version
@@ -293,6 +304,7 @@ main() {
   # Java / Backend (external to Homebrew)
   fmt_title_underline "Java / Backend"
   check_sdkman
+  check_sdkman_env
   check_java
   check_tool "gradle" "gradle" "false"
   check_tool "maven" "mvn" "false"
