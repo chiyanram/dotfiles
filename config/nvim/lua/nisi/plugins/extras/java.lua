@@ -20,10 +20,7 @@ local function get_dap_bundles()
 
   local debug_path = get_mason_pkg_path("java-debug-adapter")
   if debug_path then
-    local jar = vim.fn.glob(debug_path .. "/extension/server/com.microsoft.java.debug.plugin-*.jar", true)
-    if jar ~= "" then
-      table.insert(bundles, jar)
-    end
+    vim.list_extend(bundles, vim.fn.globpath(debug_path .. "/extension/server", "com.microsoft.java.debug.plugin-*.jar", true, true))
   end
 
   local test_path = get_mason_pkg_path("java-test")
@@ -36,9 +33,25 @@ local function get_dap_bundles()
   return bundles
 end
 
+--- Detect the project root for Gradle/Maven/git projects.
+---@return string|nil
+local function find_root()
+  return require("jdtls.setup").find_root({
+    "gradlew",
+    "mvnw",
+    "settings.gradle",
+    "settings.gradle.kts",
+    "pom.xml",
+    ".git",
+  })
+end
+
 --- Build the jdtls launcher command from the mason-installed jdtls package.
+--- Workspace is keyed off the resolved project root so two projects opened from
+--- the same cwd never share a jdtls workspace (which corrupts jdtls state).
+---@param root string|nil resolved project root (nil → loose .java file, fall back to cwd)
 ---@return string[]|nil
-local function get_jdtls_cmd()
+local function get_jdtls_cmd(root)
   local jdtls_path = get_mason_pkg_path("jdtls")
   if not jdtls_path then
     return nil
@@ -51,28 +64,20 @@ local function get_jdtls_cmd()
   end
 
   -- Per-project workspace isolates caches so multiple projects don't collide.
-  local project_name = vim.fn.fnamemodify(vim.fn.getcwd(), ":p:h:t")
+  -- Use the resolved root when available; fall back to cwd for loose .java files.
+  local base = root or vim.fn.getcwd()
+  local project_name = vim.fn.fnamemodify(base, ":p:h:t")
   local workspace_dir = vim.fn.stdpath("cache") .. "/jdtls/" .. project_name
 
   return { launcher, "-data", workspace_dir }
 end
 
---- Detect the project root for Gradle/Maven/git projects.
----@return string
-local function get_root_dir()
-  return require("jdtls.setup").find_root({
-    "gradlew",
-    "mvnw",
-    "settings.gradle",
-    "settings.gradle.kts",
-    "pom.xml",
-    ".git",
-  }) or vim.fn.getcwd()
-end
-
 --- Start or re-attach jdtls for the current buffer.
 local function start_jdtls()
-  local cmd = get_jdtls_cmd()
+  -- Resolve root once so both the workspace name and root_dir are consistent.
+  local root = find_root()
+
+  local cmd = get_jdtls_cmd(root)
   if not cmd then
     vim.notify("jdtls not installed — run :MasonInstall jdtls", vim.log.levels.WARN)
     return
@@ -85,7 +90,7 @@ local function start_jdtls()
 
   local config = {
     cmd = cmd,
-    root_dir = get_root_dir(),
+    root_dir = root or vim.fn.getcwd(),
     capabilities = capabilities,
     settings = {
       java = {
