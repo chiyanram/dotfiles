@@ -8,15 +8,14 @@ alias ....="cd ../../.."
 alias .....="cd ../../../.."
 
 # Helpers
-alias grep='grep --color=auto'
 alias df='df -h'
 alias sudo='sudo '
 alias lpath='echo $PATH | tr ":" "\n"'
 
-# Modern tool replacements
-[[ -x "$(command -v bat)" ]] && alias cat='bat'
-[[ -x "$(command -v dust)" ]] && alias du='dust' || alias du='du -h -c'
-[[ -x "$(command -v procs)" ]] && alias ps='procs'
+# Modern tool replacements — non-shadowing (never alias POSIX core commands).
+[[ -x "$(command -v bat)" ]] && alias catt='bat'
+[[ -x "$(command -v dust)" ]] && alias duu='dust'
+[[ -x "$(command -v procs)" ]] && alias pss='procs'
 
 # Hide/show all desktop icons (useful when presenting)
 alias hidedesktop="defaults write com.apple.finder CreateDesktop -bool false && killall Finder"

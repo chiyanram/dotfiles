@@ -44,10 +44,10 @@ compdef _c c
 compdef _h h
 
 # PATH setup (consolidated)
-export PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:$PATH"
+[[ -d "/opt/homebrew/opt/coreutils/libexec/gnubin" ]] && export PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:$PATH"
 export PATH="/opt/homebrew/bin:$PATH"
-export PATH="/usr/local/opt/grep/libexec/gnubin:$PATH"
-export PATH="/usr/local/sbin:$PATH"
+[[ -d "/usr/local/opt/grep/libexec/gnubin" ]] && export PATH="/usr/local/opt/grep/libexec/gnubin:$PATH"
+[[ -d "/usr/local/sbin" ]] && export PATH="/usr/local/sbin:$PATH"
 export PATH="$DOTFILES/bin:$PATH"
 export PATH="$HOME/bin:$PATH"
 export PATH="/Applications/IntelliJ IDEA.app/Contents/MacOS:$PATH"
