@@ -281,7 +281,7 @@ main() {
       local name="$formula"
       [[ "$formula" == */* ]] && name="$cmd"
       local required="false"
-      [[ "$required_tools" == *" $formula "* ]] && required="true"
+      [[ "$required_tools" == *" $name "* ]] && required="true"
       check_tool "$name" "$cmd" "$required"
     done < <(grep -hE "^[[:space:]]*brew '" "${brewfiles[@]}" | sed "s/.*brew '\\([^']*\\)'.*/\\1/")
   else
