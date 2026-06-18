@@ -33,13 +33,13 @@ function dnames-fn {
 
 function dip-fn {
   echo "IP addresses of all named running containers"
+  local OUT=""
 
   for DOC in $(dnames-fn); do
     IP=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' "$DOC")
     OUT+=$DOC'\t'$IP'\n'
   done
   echo -e "$OUT" | column -t
-  unset OUT
 }
 
 function dex-fn {
@@ -55,7 +55,7 @@ function dl-fn {
 }
 
 function drun-fn {
-  docker run -it "$1" "$2"
+  docker run -it "$@"
 }
 
 function dcr-fn {
@@ -90,7 +90,49 @@ function d-aws-cli-fn {
     -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
     -e AWS_DEFAULT_REGION="$AWS_DEFAULT_REGION" \
     -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
-    amazon/aws-cli:latest "$1" "$2" "$3"
+    amazon/aws-cli:latest "$@"
+}
+
+# Testcontainers: list leftover containers (label-scoped)
+tc-ls() {
+  command -v docker >/dev/null 2>&1 || { echo "docker not found"; return 1; }
+  docker ps -a --filter "label=org.testcontainers=true" \
+    --format 'table {{.ID}}\t{{.Image}}\t{{.Names}}\t{{.Status}}'
+}
+
+# Testcontainers: remove ALL leftover containers/volumes/networks.
+# Strictly label-scoped to org.testcontainers — never touches other resources.
+tc-clean() {
+  command -v docker >/dev/null 2>&1 || { echo "docker not found"; return 1; }
+  local ids
+  ids=$(docker ps -aq --filter "label=org.testcontainers=true")
+  if [[ -n "$ids" ]]; then
+    echo "$ids" | xargs docker rm -f
+  else
+    echo "no Testcontainers containers"
+  fi
+  docker volume prune -f --filter "label=org.testcontainers=true" >/dev/null
+  docker network prune -f --filter "label=org.testcontainers=true" >/dev/null
+}
+
+# Docker context switch. No arg: show configured runtime + current + available.
+# Arg: rancher|desktop|<context-name> → docker context use.
+dctx() {
+  command -v docker >/dev/null 2>&1 || { echo "docker not found"; return 1; }
+  local target="${1:-}"
+  if [[ -z "$target" ]]; then
+    local cfg="${XDG_CONFIG_HOME:-$HOME/.config}/dotfiles/config" configured=""
+    [[ -f "$cfg" ]] && configured=$(grep -E '^docker_runtime=' "$cfg" 2>/dev/null | head -1 | cut -d= -f2)
+    echo "configured runtime: ${configured:-<unset>}"
+    echo "current context:    $(docker context show 2>/dev/null)"
+    docker context ls
+    return 0
+  fi
+  case "$target" in
+    rancher|rancher-desktop) target="rancher-desktop" ;;
+    desktop|docker-desktop)  target="desktop-linux" ;;
+  esac
+  docker context use "$target"
 }
 
 # Disabled aliases have equivalent zsh & fish abbreviations
