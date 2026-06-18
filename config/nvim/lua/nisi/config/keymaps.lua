@@ -40,17 +40,7 @@ imap("jk", "<Esc>", { desc = "Exit insert mode" })
 
 -- save file keybindings
 nmap("<leader>,", ":silent w<cr>", { desc = "Save File" })
--- ctrl-s bindings
 nmap("<C-s>", "<cmd>w<cr><esc>", { desc = "Save File" })
-nmap("<C-s>", "<cmd>w<cr><esc>", { desc = "Save File" })
-nmap("<C-s>", "<cmd>w<cr><esc>", { desc = "Save File" })
-nmap("<C-s>", "<cmd>w<cr><esc>", { desc = "Save File" })
-nmap("<C-s>", "<cmd>w<cr><esc>", { desc = "Save File" })
--- cmd-s bindings
-nmap("<D-s>", "<cmd>w<cr><esc>", { desc = "Save File" })
-nmap("<D-s>", "<cmd>w<cr><esc>", { desc = "Save File" })
-nmap("<D-s>", "<cmd>w<cr><esc>", { desc = "Save File" })
-nmap("<D-s>", "<cmd>w<cr><esc>", { desc = "Save File" })
 nmap("<D-s>", "<cmd>w<cr><esc>", { desc = "Save File" })
 
 nmap("<space>", ":silent set hlsearch! hlsearch?<cr>", { desc = "Toggle search results" })

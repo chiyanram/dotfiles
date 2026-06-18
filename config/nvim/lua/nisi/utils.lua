@@ -72,7 +72,7 @@ end
 
 ---@return boolean is_macos Returns true if the operating system is macos
 function M.is_macos()
-  return vim.loop.os_uname().sysname == "Darwin"
+  return vim.uv.os_uname().sysname == "Darwin"
 end
 
 ---Determine whether dark mode is enabled by the system
@@ -102,7 +102,7 @@ end
 ---@param servername string The LSP client to check
 ---@return boolean has_active_lsp_client Whether the provided LSP is enabled
 function M.has_active_lsp_client(servername)
-  for _, client in pairs(vim.lsp.get_active_clients()) do
+  for _, client in pairs(vim.lsp.get_clients()) do
     if client.name == servername then
       return true
     end
@@ -121,7 +121,7 @@ end
 ---Check if a directory exists at the provided path
 ---@param path string The path to check
 function M.is_dir(path)
-  local stat = vim.loop.fs_stat(path)
+  local stat = vim.uv.fs_stat(path)
   return (stat and stat.type) == "directory"
 end
 

@@ -11,12 +11,6 @@ local border = {
   { "▏", "FloatBorder" },
 }
 
----Trigger the LSP's provided organizeImports helper (for TypeScript)
-function M.lsp_organize_imports()
-  local params = { command = "_typescript.organizeImports", arguments = { vim.api.nvim_buf_get_name(0) }, title = "" }
-  vim.lsp.buf.execute_command(params)
-end
-
 ---Show LSP diagnostics
 function M.lsp_show_diagnostics()
   vim.diagnostic.open_float({ border = border })
@@ -39,11 +33,17 @@ function M.make_conf(...)
 
   return vim.tbl_deep_extend("force", {
     handlers = {
-      ["textDocument/hover"] = vim.lsp.with(vim.lsp.handlers.hover, { border = border }),
-      ["textDocument/signatureHelp"] = vim.lsp.with(vim.lsp.handlers.signature_help, { border = border }),
-      ["textDocument/publishDiagnostics"] = vim.lsp.with(vim.lsp.diagnostic.on_publish_diagnostics, {
-        virtual_text = true,
-      }),
+      ["textDocument/hover"] = function(err, result, ctx, config)
+        return vim.lsp.handlers.hover(err, result, ctx, vim.tbl_deep_extend("force", config or {}, { border = border }))
+      end,
+      ["textDocument/signatureHelp"] = function(err, result, ctx, config)
+        return vim.lsp.handlers.signature_help(
+          err,
+          result,
+          ctx,
+          vim.tbl_deep_extend("force", config or {}, { border = border })
+        )
+      end,
     },
     capabilities = capabilities,
   }, ...)

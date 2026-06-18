@@ -23,12 +23,4 @@ return {
       },
     },
   },
-  {
-    "zbirenbaum/copilot-cmp",
-    cond = not vim.g.vscode,
-    dependencies = {
-      "hrsh7th/nvim-cmp",
-    },
-    config = true,
-  },
 }

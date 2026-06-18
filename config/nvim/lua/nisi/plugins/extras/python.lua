@@ -85,7 +85,7 @@ return {
     end,
     keys = {
       {
-        "<leader>sr",
+        "<leader>pr",
         function()
           require("sniprun").run()
         end,
@@ -93,7 +93,7 @@ return {
         mode = { "n", "v" },
       },
       {
-        "<leader>sc",
+        "<leader>px",
         function()
           require("sniprun").clear()
         end,

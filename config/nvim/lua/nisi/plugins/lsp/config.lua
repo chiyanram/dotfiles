@@ -26,15 +26,9 @@ local servers = {
 
 local M = {}
 
--- _G makes this function available to vimscript lua calls
-_G.lsp_organize_imports = lsp_utils.lsp_organize_imports
-
 vim.api.nvim_create_autocmd("LspAttach", {
   group = vim.api.nvim_create_augroup("UserLspConfig", {}),
   callback = function(ev)
-    -- TODO: move this to typescript
-    vim.cmd([[command! OR lua lsp_organize_imports()]])
-
     local function keymap(key, action, buf, desc)
       local opts = { noremap = true, silent = true, desc = desc }
       if buf then
@@ -48,7 +42,6 @@ vim.api.nvim_create_autocmd("LspAttach", {
     keymap("]d", fn(vim.diagnostic.jump, { count = 1 }), false, "Go to next diagnostic")
     keymap("<leader>aq", vim.diagnostic.setloclist, false, "Send diagnostics to loclist")
 
-    keymap("gO", lsp_utils.lsp_organize_imports, true, "Organize imports")
     keymap("gd", vim.lsp.buf.definition, true, "Go to definition")
     keymap("gD", vim.lsp.buf.declaration, true, "Go to declaration")
     keymap("go", vim.lsp.buf.type_definition, true, "Go to type definition")
@@ -214,35 +207,6 @@ function M.setup()
     handlers["vimls"] = function()
       lspconfig.vimls.setup(make_conf({
         init_options = { isNeovim = true },
-      }))
-    end
-  end
-
-  if utils.exists_in_table(servers, "diagnosticls") then
-    handlers["diagnosticls"] = function()
-      lspconfig.diagnosticls.setup(make_conf({
-        settings = {
-          filetypes = { "sh" },
-          init_options = {
-            linters = {
-              shellcheck = {
-                sourceName = "shellcheck",
-                command = "shellcheck",
-                debounce = 100,
-                args = { "--format=gcc", "-" },
-                offsetLine = 0,
-                offsetColumn = 0,
-                formatLines = 1,
-                formatPattern = {
-                  "^[^:]+:(\\d+):(\\d+):\\s+([^:]+):\\s+(.*)$",
-                  { line = 1, column = 2, message = 4, security = 3 },
-                },
-                securities = { error = "error", warning = "warning", note = "info" },
-              },
-            },
-            filetypes = { sh = "shellcheck" },
-          },
-        },
       }))
     end
   end

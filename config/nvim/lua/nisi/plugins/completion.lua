@@ -67,6 +67,11 @@ return {
       sources = {
         default = { "lsp", "path", "snippets", "buffer" },
       },
+
+      snippets = {
+        -- include dotfiles-local snippets alongside friendly-snippets
+        paths = { vim.fn.stdpath("config") .. "/snippets" },
+      },
     },
     opts_extend = { "sources.default" },
   },

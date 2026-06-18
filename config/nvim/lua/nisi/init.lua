@@ -18,7 +18,7 @@ local utils = require("nisi.utils")
 ---@field transparent boolean|nil Whether to use a transparent background for the colorscheme
 local config = {
   lazypath = vim.fn.stdpath("data") .. "lazy/lazy.nvim",
-  startup_art = "nicknisi",
+  startup_art = "neovim",
   startup_color = "#653CAD",
   zen = false,
   copilot = true,

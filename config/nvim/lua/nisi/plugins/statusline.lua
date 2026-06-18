@@ -6,11 +6,7 @@ return {
     "nvim-lualine/lualine.nvim",
     cond = not vim.g.vscode,
     event = "VeryLazy",
-    opts = function(plugin)
-      if plugin.override then
-        require("lazyvim.util").deprecate("lualine.override", "lualine.opts")
-      end
-
+    opts = function()
       local diagnostics = {
         "diagnostics",
         sources = { "nvim_diagnostic" },
