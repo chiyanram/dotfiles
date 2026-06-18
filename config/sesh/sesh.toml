@@ -1,2 +1,13 @@
-# don't show these directories in the sesh
-blacklist = ['~/.local/share/*']
+# sesh — smart tmux session manager (zoxide-ranked). https://github.com/joshmedeski/sesh
+
+# Hide noise directories from the picker (** = recursive).
+blacklist = ['~/.local/share/**', '~/.cache/**', '~/.Trash/**']
+
+[default_session]
+startup_command = ""
+
+# Add frequent projects here for one-keystroke startup, e.g.:
+# [[session]]
+# name = "dotfiles ⚙️"
+# path = "~/tools-repo/dotfiles"
+# startup_command = "nvim"
