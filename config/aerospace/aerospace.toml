@@ -1,9 +1,6 @@
 # Aerospace - Tiling Window Manager for macOS
 # Docs: https://nikitabobko.github.io/AeroSpace/commands
 
-after-login-command = []
-after-startup-command = []
-
 start-at-login = true
 
 # Normalizations
@@ -56,17 +53,6 @@ alt-shift-equal = 'resize smart +100'
 # Fullscreen
 alt-shift-f = 'fullscreen'
 
-# Workspaces (numbered)
-alt-1 = 'workspace 1'
-alt-2 = 'workspace 2'
-alt-3 = 'workspace 3'
-alt-4 = 'workspace 4'
-alt-5 = 'workspace 5'
-alt-6 = 'workspace 6'
-alt-7 = 'workspace 7'
-alt-8 = 'workspace 8'
-alt-9 = 'workspace 9'
-
 # Workspaces (named)
 alt-d = 'workspace D' # Development (terminals, IDE)
 alt-w = 'workspace W' # Web (browsers)
@@ -75,17 +61,6 @@ alt-m = 'workspace M' # Mail (Outlook, Apple Mail)
 alt-n = 'workspace N' # Notes (Notion, Apple Notes)
 alt-s = 'workspace S' # Productivity (Calendar, misc)
 alt-z = 'workspace Z' # Zoom / Video calls
-
-# Move window to workspace (numbered)
-alt-shift-1 = 'move-node-to-workspace 1'
-alt-shift-2 = 'move-node-to-workspace 2'
-alt-shift-3 = 'move-node-to-workspace 3'
-alt-shift-4 = 'move-node-to-workspace 4'
-alt-shift-5 = 'move-node-to-workspace 5'
-alt-shift-6 = 'move-node-to-workspace 6'
-alt-shift-7 = 'move-node-to-workspace 7'
-alt-shift-8 = 'move-node-to-workspace 8'
-alt-shift-9 = 'move-node-to-workspace 9'
 
 # Move window to workspace (named)
 alt-shift-d = 'move-node-to-workspace D'
@@ -212,6 +187,14 @@ run = 'layout floating'
 
 [[on-window-detected]]
 if.app-id = 'com.apple.calculator'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.ActivityMonitor'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.Console'
 run = 'layout floating'
 
 [[on-window-detected]]

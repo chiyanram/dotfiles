@@ -9,17 +9,13 @@ bold-is-bright = true
 
 # window settings
 macos-titlebar-style = hidden
-window-decoration = true
 window-theme = auto
 window-padding-color = background
-window-padding-x = 0
-window-padding-y = 0
 window-padding-balance = false
 window-colorspace = "display-p3"
 adjust-cell-height = 10%
 cursor-invert-fg-bg = true
 
-shell-integration-features = no-cursor,sudo
 confirm-close-surface = false
 
 macos-icon = "custom-style"
