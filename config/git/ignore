@@ -12,9 +12,22 @@ Thumbs.db
 .Spotlight-V100
 .Trashes
 
-# project-specific vim configurations
-.vimrc.local
-.vim/coc-settings.json
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Java / Gradle / Maven build output
+target/
+build/
+.gradle/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
 
 # typescript command garbage
 tscommand*.txt
