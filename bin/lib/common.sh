@@ -145,24 +145,27 @@ spinner() {
   _spinner_cleanup
 }
 
-# Example of how to use in a real script
+# Run <cmd> in the background with stdout+stderr captured to a fresh temp file
+# exposed as the global RUN_LOG, while a spinner animates and live-tails it.
+# Callers read $RUN_LOG afterwards (e.g. to grep for errors) and `rm -f` it.
+# Returns <cmd>'s exit code.
 run_with_spinner() {
   local cmd="$1"            # Command to run
   local style="$2"          # Spinner style
   local msg="$3"            # Custom message
-  local show_exit="${4:-0}" # Verbose mode
+  local show_exit="${4:-0}" # Print Success!/Failed! when 1
 
-  # Run the command in background
-  eval "$cmd" &
+  # RUN_LOG is global on purpose: callers in dot-update read it after we return.
+  # shellcheck disable=SC2034  # read by callers in a separate file
+  RUN_LOG="$(mktemp)" # owned by this runner, removed by the caller
+  eval "$cmd" >"$RUN_LOG" 2>&1 &
+  local pid=$!
 
-  # Start spinner
-  spinner $! "${style:-0}" "${msg:-Working...}"
+  spinner "$pid" "${style:-0}" "${msg:-Working...}" "$RUN_LOG"
 
-  # Wait for command to finish and get its exit status
-  wait $!
+  wait "$pid"
   local exit_status=$?
 
-  # clear the spinner from the line
   echo -en "\r\033[K"
   [[ -t 1 ]] && tput cnorm
 

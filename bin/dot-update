@@ -35,21 +35,18 @@ update_homebrew() {
     return "$STEP_SKIP_CODE"
   fi
 
-  local log_file
-  log_file=$(mktemp)
-
-  run_with_spinner "brew update > '$log_file' 2>&1 && brew upgrade >> '$log_file' 2>&1" 11 "Updating Homebrew"
+  run_with_spinner "brew update && brew upgrade" 11 "Updating Homebrew"
   local exit_status=$?
 
-  if [[ $exit_status -ne 0 ]] || grep -q "Error\|fatal\|Failed" "$log_file"; then
+  if [[ $exit_status -ne 0 ]] || grep -q "Error\|fatal\|Failed" "$RUN_LOG"; then
     log_error "Error occurred during update"
-    [[ "$verbose" == true ]] && cat "$log_file"
-    rm -f "$log_file"
+    [[ "$verbose" == true ]] && cat "$RUN_LOG"
+    rm -f "$RUN_LOG"
     return 1
   fi
 
-  grep -A1 "=>" "$log_file" | grep -v "^--$" || log_info "No updates found"
-  rm -f "$log_file"
+  grep -A1 "=>" "$RUN_LOG" | grep -v "^--$" || log_info "No updates found"
+  rm -f "$RUN_LOG"
   echo -e
 }
 
@@ -61,21 +58,18 @@ update_nvim_plugins() {
     return "$STEP_SKIP_CODE"
   fi
 
-  local log_file
-  log_file=$(mktemp)
-
-  run_with_spinner "nvim --headless '+Lazy! sync' +qa > '$log_file' 2>&1" 11 "Updating Neovim plugins"
+  run_with_spinner "nvim --headless '+Lazy! sync' +qa" 11 "Updating Neovim plugins"
   local exit_status=$?
 
-  if [[ $exit_status -ne 0 ]] || grep -q "Error\|ERROR\|Could not\|not installed" "$log_file"; then
+  if [[ $exit_status -ne 0 ]] || grep -q "Error\|ERROR\|Could not\|not installed" "$RUN_LOG"; then
     log_error "Error occurred during Neovim plugin update"
-    [[ "$verbose" == true ]] && cat "$log_file"
-    rm -f "$log_file"
+    [[ "$verbose" == true ]] && cat "$RUN_LOG"
+    rm -f "$RUN_LOG"
     return 1
   fi
 
-  grep -i "updated\|installed\|removed" "$log_file" || log_info "No updates found"
-  rm -f "$log_file"
+  grep -i "updated\|installed\|removed" "$RUN_LOG" || log_info "No updates found"
+  rm -f "$RUN_LOG"
   echo -e
 }
 
@@ -89,10 +83,8 @@ update_dotfiles() {
     return "$STEP_SKIP_CODE"
   fi
 
-  local log_file
-  log_file=$(mktemp)
-
-  run_with_spinner "git -C '$DOTFILES' fetch --quiet origin main > '$log_file' 2>&1" 11 "Checking for dotfiles updates"
+  run_with_spinner "git -C '$DOTFILES' fetch --quiet origin main" 11 "Checking for dotfiles updates"
+  rm -f "$RUN_LOG"
 
   local local_rev remote_rev
   local_rev=$(git -C "$DOTFILES" rev-parse HEAD)
@@ -100,23 +92,22 @@ update_dotfiles() {
 
   if [[ -z "$remote_rev" || "$local_rev" = "$remote_rev" ]]; then
     log_info "Dotfiles are up to date"
-    rm -f "$log_file"
     return "$STEP_SKIP_CODE"
   fi
 
   echo "Updates available:"
   git -C "$DOTFILES" --no-pager log --oneline --graph --decorate --color=always HEAD.."@{u}"
 
-  if run_with_spinner "git -C '$DOTFILES' pull --ff-only origin main > '$log_file' 2>&1" 11 "Updating dotfiles"; then
+  if run_with_spinner "git -C '$DOTFILES' pull --ff-only origin main" 11 "Updating dotfiles"; then
     log_info "Dotfiles updated successfully"
   else
     log_error "Failed to update dotfiles"
-    [[ "$verbose" == true ]] && cat "$log_file"
-    rm -f "$log_file"
+    [[ "$verbose" == true ]] && cat "$RUN_LOG"
+    rm -f "$RUN_LOG"
     return 1
   fi
 
-  rm -f "$log_file"
+  rm -f "$RUN_LOG"
 }
 
 update_zsh_plugins() {
@@ -142,6 +133,7 @@ update_zsh_plugins() {
     before=$(git -C "$dir" rev-parse HEAD)
 
     run_with_spinner "git -C '$dir' pull --quiet --recurse-submodules 2>/dev/null" 11 "Updating $name"
+    rm -f "$RUN_LOG"
 
     local after
     after=$(git -C "$dir" rev-parse HEAD)
@@ -176,20 +168,17 @@ update_sdkman() {
     return "$STEP_SKIP_CODE"
   fi
 
-  local log_file
-  log_file=$(mktemp)
+  run_with_spinner "bash -c 'export sdkman_auto_answer=true && source \"$sdkman_dir/bin/sdkman-init.sh\" && sdk update 2>&1 && sdk upgrade 2>&1'" 11 "Updating SDKMAN"
 
-  run_with_spinner "bash -c 'export sdkman_auto_answer=true && source \"$sdkman_dir/bin/sdkman-init.sh\" && sdk update 2>&1 && sdk upgrade 2>&1' > '$log_file' 2>&1" 11 "Updating SDKMAN"
-
-  if grep -q "Error\|fatal\|Failed" "$log_file"; then
+  if grep -q "Error\|fatal\|Failed" "$RUN_LOG"; then
     log_error "Error occurred during SDKMAN update"
-    [[ "$verbose" == true ]] && cat "$log_file"
-    rm -f "$log_file"
+    [[ "$verbose" == true ]] && cat "$RUN_LOG"
+    rm -f "$RUN_LOG"
     return 1
   fi
 
-  grep -i "updated\|upgraded\|installed" "$log_file" || log_info "All SDKs are up to date"
-  rm -f "$log_file"
+  grep -i "updated\|upgraded\|installed" "$RUN_LOG" || log_info "All SDKs are up to date"
+  rm -f "$RUN_LOG"
   echo -e
 }
 
