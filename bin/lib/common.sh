@@ -178,6 +178,28 @@ run_with_spinner() {
 }
 
 ########################################################
+# Spinner helpers
+########################################################
+
+# Clean a raw log line for inline display: strip ANSI CSI sequences, turn
+# tabs/CRs into spaces, drop other control bytes, squeeze spaces, trim ends, and
+# truncate to <maxlen> columns. Pure: same input -> same output, no side effects.
+_sanitize_log_line() {
+  local text="$1" maxlen="${2:-80}" esc
+  esc=$(printf '\033')
+  text=$(printf '%s' "$text" |
+    sed "s/${esc}\[[0-9;]*[a-zA-Z]//g" |
+    tr '\r\t' '  ' |
+    tr -d '\a' |
+    tr -s ' ')
+  # trim leading/trailing whitespace left by the squeeze
+  text="${text#"${text%%[![:space:]]*}"}"
+  text="${text%"${text##*[![:space:]]}"}"
+  [[ ${#text} -gt $maxlen ]] && text="${text:0:maxlen}"
+  printf '%s' "$text"
+}
+
+########################################################
 # Profile / machine config
 ########################################################
 # State lives under $XDG_CONFIG_HOME/dotfiles/ — never committed.
