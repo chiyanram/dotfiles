@@ -30,3 +30,17 @@ setup() {
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
 }
+
+@test "_has_descendant_named finds a named descendant" {
+  local me=$BASHPID
+  sleep 30 &
+  local child=$!
+  run _has_descendant_named "$me" sleep
+  kill "$child" 2>/dev/null || true
+  [ "$status" -eq 0 ]
+}
+
+@test "_has_descendant_named returns nonzero when no match" {
+  run _has_descendant_named "$BASHPID" no_such_proc_xyz
+  [ "$status" -ne 0 ]
+}

@@ -199,6 +199,29 @@ _sanitize_log_line() {
   printf '%s' "$text"
 }
 
+# Print every descendant PID of <pid>, depth-first. Used to detect helpers
+# (e.g. sudo) that a backgrounded command spawns.
+_descendant_pids() {
+  local pid="$1" child
+  for child in $(pgrep -P "$pid" 2>/dev/null); do
+    printf '%s\n' "$child"
+    _descendant_pids "$child"
+  done
+}
+
+# Exit 0 if any descendant of <pid> has a command name ending in <name>.
+_has_descendant_named() {
+  local pid="$1" name="$2" d comm
+  while IFS= read -r d; do
+    [[ -n "$d" ]] || continue
+    comm="$(ps -o comm= -p "$d" 2>/dev/null)"
+    case "$comm" in
+      *"$name") return 0 ;;
+    esac
+  done < <(_descendant_pids "$pid")
+  return 1
+}
+
 ########################################################
 # Profile / machine config
 ########################################################
