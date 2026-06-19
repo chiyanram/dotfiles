@@ -215,18 +215,21 @@ main() {
 
   step_init
 
+  local -a steps=()
   case "$subcmd" in
-    nvim | vim) step "Neovim plugins" update_nvim_plugins ;;
-    homebrew | brew) step "Homebrew" update_homebrew ;;
-    dotfiles) step "dotfiles" update_dotfiles ;;
-    zsh) step "ZSH plugins" update_zsh_plugins ;;
-    sdkman) step "SDKMAN" update_sdkman ;;
+    nvim | vim) steps=("Neovim plugins:update_nvim_plugins") ;;
+    homebrew | brew) steps=("Homebrew:update_homebrew") ;;
+    dotfiles) steps=("dotfiles:update_dotfiles") ;;
+    zsh) steps=("ZSH plugins:update_zsh_plugins") ;;
+    sdkman) steps=("SDKMAN:update_sdkman") ;;
     all)
-      step "Neovim plugins" update_nvim_plugins
-      step "Homebrew" update_homebrew
-      step "ZSH plugins" update_zsh_plugins
-      step "SDKMAN" update_sdkman
-      step "dotfiles" update_dotfiles
+      steps=(
+        "Neovim plugins:update_nvim_plugins"
+        "Homebrew:update_homebrew"
+        "ZSH plugins:update_zsh_plugins"
+        "SDKMAN:update_sdkman"
+        "dotfiles:update_dotfiles"
+      )
       ;;
     *)
       log_error "Unknown $command_name command: $subcmd"
@@ -235,6 +238,15 @@ main() {
       exit 1
       ;;
   esac
+
+  local total="${#steps[@]}" idx=0 entry label fn
+  for entry in "${steps[@]}"; do
+    idx=$((idx + 1))
+    label="${entry%%:*}"
+    fn="${entry#*:}"
+    fmt_step_header "$idx" "$total" "$label"
+    step "$label" "$fn"
+  done
 
   step_summary
 }
