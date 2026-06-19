@@ -212,6 +212,3 @@
 [status]
     # show stash count in `git status` so stashes aren't forgotten
     showStash = true
-[url "git@github.com:"]
-    # auto-rewrite HTTPS GitHub URLs to SSH so copied URLs use your key
-    insteadOf = https://github.com/
