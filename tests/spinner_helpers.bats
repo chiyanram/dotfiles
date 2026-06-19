@@ -51,3 +51,13 @@ setup() {
   [[ "$output" == *"[2/5]"* ]]
   [[ "$output" == *"Homebrew packages"* ]]
 }
+
+@test "_spinner_start_sudo_keepalive returns a live background pid" {
+  sleep 5 &
+  local target=$!
+  local ka
+  ka="$(_spinner_start_sudo_keepalive "$target")"
+  [[ "$ka" =~ ^[0-9]+$ ]]
+  kill -0 "$ka" 2>/dev/null
+  kill "$ka" "$target" 2>/dev/null || true
+}

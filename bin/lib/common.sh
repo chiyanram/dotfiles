@@ -132,9 +132,13 @@ spinner() {
     echo -en "\r${RESET}"
   }
 
-  # Main spinner loop with rainbow effect + live last-log line
-  local rainbow_index=0
+  # Main spinner loop with rainbow effect, live last-log line, and sudo detection
+  local rainbow_index=0 tick=0 keepalive_pid=""
   while ps -p "$pid" &>/dev/null; do
+    if [[ -z "$keepalive_pid" ]] && ((tick % 5 == 0)) && _has_descendant_named "$pid" sudo; then
+      _spinner_pause_for_sudo "$pid" "$msg"
+      keepalive_pid="$(_spinner_start_sudo_keepalive "$pid")"
+    fi
     local cols max
     if [[ -t 1 && -n "$logfile" ]]; then
       cols=$(tput cols 2>/dev/null || echo 80)
@@ -153,8 +157,10 @@ spinner() {
       sleep $delay
       rainbow_index=$(((rainbow_index + 1) % ${#RAINBOW[@]}))
     done
+    tick=$((tick + 1))
   done
 
+  [[ -n "$keepalive_pid" ]] && kill "$keepalive_pid" 2>/dev/null
   _spinner_cleanup
 }
 
@@ -236,6 +242,34 @@ _has_descendant_named() {
     esac
   done < <(_descendant_pids "$pid")
   return 1
+}
+
+# Pause the spinner and surface a clear prompt while a sudo child waits for the
+# password. sudo writes its own "Password:" line to the tty beneath this banner.
+# Blocks until the sudo descendant exits or the command finishes.
+_spinner_pause_for_sudo() {
+  local pid="$1" msg="$2"
+  [[ -t 1 ]] && tput cnorm
+  echo -en "\r\033[K"
+  printf "  %b🔒 %s needs your password%b\n" "${BOLD}${YELLOW}" "$msg" "$RESET"
+  while ps -p "$pid" &>/dev/null && _has_descendant_named "$pid" sudo; do
+    sleep 0.3
+  done
+  [[ -t 1 ]] && tput civis
+}
+
+# After the first sudo succeeds, refresh the timestamp every 30s while <pid> runs
+# so further sudo calls in the same run don't re-prompt. `sudo -n` never prompts.
+# Prints the background refresher PID for the caller to kill on cleanup. The
+# >/dev/null redirect detaches the loop's stdout so the $() caller gets EOF and
+# does not block on the long-lived background job.
+_spinner_start_sudo_keepalive() {
+  local pid="$1"
+  { while kill -0 "$pid" 2>/dev/null; do
+    sudo -n -v 2>/dev/null || true
+    sleep 30
+  done; } </dev/null >/dev/null 2>&1 &
+  printf '%s' "$!"
 }
 
 # Print a "[n/total] label" step header: dim counter, bold label.
