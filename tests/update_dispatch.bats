@@ -7,8 +7,15 @@ setup() {
   run bash "$REPO/bin/dot-update" -n all
   [ "$status" -eq 0 ]
   [[ "$output" == *"[1/5]"* ]]
+  [[ "$output" == *"[2/5]"* ]]
+  [[ "$output" == *"[3/5]"* ]]
+  [[ "$output" == *"[4/5]"* ]]
   [[ "$output" == *"[5/5]"* ]]
+  [[ "$output" == *"Neovim plugins"* ]]
   [[ "$output" == *"Homebrew"* ]]
+  [[ "$output" == *"ZSH plugins"* ]]
+  [[ "$output" == *"SDKMAN"* ]]
+  [[ "$output" == *"dotfiles"* ]]
 }
 
 @test "dot-update -n brew prints a single [1/1] header" {
