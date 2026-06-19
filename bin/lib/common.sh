@@ -94,6 +94,7 @@ spinner() {
   local style=${2:-1}          # Spinner style (default: 0)
   local delay=0.1              # Animation delay
   local msg="${3:-Working...}" # Custom message
+  local logfile="${4:-}"       # Optional log to live-tail
 
   local RAINBOW=("$RED" "$YELLOW" "$GREEN" "$CYAN" "$BLUE" "$MAGENTA")
 
@@ -131,12 +132,24 @@ spinner() {
     echo -en "\r${RESET}"
   }
 
-  # Main spinner loop with rainbow effect
+  # Main spinner loop with rainbow effect + live last-log line
   local rainbow_index=0
   while ps -p "$pid" &>/dev/null; do
+    local cols max
+    if [[ -t 1 && -n "$logfile" ]]; then
+      cols=$(tput cols 2>/dev/null || echo 80)
+      max=$((cols - ${#msg} - 6))
+      ((max < 10)) && max=10
+    fi
     for ((i = 0; i < ${#chars}; i++)); do
       local color=${RAINBOW[$rainbow_index]}
-      echo -en "\r${color}${chars:$i:1}${RESET} ${msg}"
+      local line="\r${color}${chars:$i:1}${RESET} ${msg}"
+      if [[ -t 1 && -n "$logfile" ]]; then
+        local last
+        last="$(_sanitize_log_line "$(tail -n 1 "$logfile" 2>/dev/null)" "$max")"
+        [[ -n "$last" ]] && line="\r\033[K${color}${chars:$i:1}${RESET} ${msg} ${DIM}— ${last}${RESET}"
+      fi
+      echo -en "$line"
       sleep $delay
       rainbow_index=$(((rainbow_index + 1) % ${#RAINBOW[@]}))
     done

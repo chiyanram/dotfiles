@@ -22,3 +22,9 @@ setup() {
   run run_with_spinner "exit 3" 0 "test"
   [ "$status" -eq 3 ]
 }
+
+@test "run_with_spinner with multi-line output keeps the full log" {
+  run_with_spinner "printf 'line one\nline two\nline three\n'" 0 "test"
+  grep -q "line three" "$RUN_LOG"
+  rm -f "$RUN_LOG"
+}
