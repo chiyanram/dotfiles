@@ -222,6 +222,12 @@ _has_descendant_named() {
   return 1
 }
 
+# Print a "[n/total] label" step header: dim counter, bold label.
+fmt_step_header() {
+  local n="$1" total="$2" label="$3"
+  printf "\n%b[%s/%s]%b %b%s%b\n" "$DIM" "$n" "$total" "$RESET" "$BOLD" "$label" "$RESET"
+}
+
 ########################################################
 # Profile / machine config
 ########################################################

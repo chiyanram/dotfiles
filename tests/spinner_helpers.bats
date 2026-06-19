@@ -44,3 +44,10 @@ setup() {
   run _has_descendant_named "$BASHPID" no_such_proc_xyz
   [ "$status" -ne 0 ]
 }
+
+@test "fmt_step_header renders [n/N] and label" {
+  run fmt_step_header 2 5 "Homebrew packages"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[2/5]"* ]]
+  [[ "$output" == *"Homebrew packages"* ]]
+}
