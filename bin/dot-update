@@ -168,7 +168,9 @@ update_sdkman() {
     return "$STEP_SKIP_CODE"
   fi
 
-  run_with_spinner "bash -c 'export sdkman_auto_answer=true && source \"$sdkman_dir/bin/sdkman-init.sh\" && sdk update 2>&1 && sdk upgrade 2>&1'" 11 "Updating SDKMAN"
+  # set auto_answer AFTER sourcing: the init re-sources etc/config (which ships
+  # sdkman_auto_answer=false), so an export beforehand gets clobbered back to false
+  run_with_spinner "bash -c 'source \"$sdkman_dir/bin/sdkman-init.sh\" && export sdkman_auto_answer=true && sdk update 2>&1 && sdk upgrade 2>&1'" 11 "Updating SDKMAN"
 
   if grep -q "Error\|fatal\|Failed" "$RUN_LOG"; then
     log_error "Error occurred during SDKMAN update"
