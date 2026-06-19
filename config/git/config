@@ -79,8 +79,9 @@
 
     cleanup = "!git remote prune origin && git gc"
 
-    # rebase the current branch with changes from upstream remote
-    update = !git fetch upstream && git rebase "upstream/$(git rev-parse --abbrev-ref HEAD)"
+    # rebase current branch onto its same-named branch on the canonical remote
+    # (upstream if it exists, else origin) -- works in fork and origin-only repos
+    update = "!f() { r=upstream; git remote | grep -qx upstream || r=origin; git fetch \"$r\" && git rebase \"$r/$(git rev-parse --abbrev-ref HEAD)\"; }; f"
 
     # tag aliases
     # show the last tag
@@ -135,6 +136,8 @@
 [fetch]
     prune = true
     pruneTags = true
+    # write/refresh the commit-graph on every fetch -> faster log --graph, merge-base
+    writeCommitGraph = true
 [branch]
     sort = -committerdate
 [pull]
@@ -144,6 +147,8 @@
     mnemonicprefix = true
     algorithm = histogram
     colorMoved = plain
+    # flag whitespace errors on context + added + removed lines, not just added
+    wsErrorHighlight = all
 [difftool]
     prompt = false
 [apply]
@@ -153,6 +158,9 @@
     pager = delta
     editor = nvim
     whitespace = cr-at-eol
+    # background FS watcher + untracked cache -> faster status on large repos
+    fsmonitor = true
+    untrackedCache = true
 [delta]
     features = unobtrusive-line-numbers decorations
     whitespace-error-style = 22 reverse
@@ -175,6 +183,8 @@
     diffFilter = delta --color-only
 [rerere]
     enabled = true
+    # auto-stage conflict resolutions that rerere replays
+    autoUpdate = true
 [grep]
     extendRegexp = true
     lineNumber = true
@@ -185,6 +195,8 @@
     autoStash = true
     autoSquash = true
     updateRefs = true
+    # warn if an interactive rebase would silently drop a commit
+    missingCommitsCheck = warn
 [merge]
     conflictstyle = zdiff3
 [commit]
@@ -197,3 +209,9 @@
     ui = auto
 [tag]
     sort = version:refname
+[status]
+    # show stash count in `git status` so stashes aren't forgotten
+    showStash = true
+[url "git@github.com:"]
+    # auto-rewrite HTTPS GitHub URLs to SSH so copied URLs use your key
+    insteadOf = https://github.com/
