@@ -174,7 +174,11 @@ configure_sdkman_auto_env() {
   if grep -q '^sdkman_auto_env=true$' "$cfg"; then
     return 0
   elif grep -q '^sdkman_auto_env=' "$cfg"; then
-    sed -i '' 's/^sdkman_auto_env=.*/sdkman_auto_env=true/' "$cfg"
+    # Portable in-place edit: BSD sed wants `-i ''`, GNU sed wants `-i` with no
+    # arg. Sidestep the divergence with a temp file so this works under both.
+    local tmp
+    tmp="$(mktemp)"
+    sed 's/^sdkman_auto_env=.*/sdkman_auto_env=true/' "$cfg" >"$tmp" && mv "$tmp" "$cfg"
   else
     printf 'sdkman_auto_env=true\n' >>"$cfg"
   fi
