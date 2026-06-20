@@ -32,7 +32,10 @@ setup() {
 }
 
 @test "_has_descendant_named finds a named descendant" {
-  local me=$BASHPID
+  # Use $$ not $BASHPID: macOS ships bash 3.2, where $BASHPID is empty. The
+  # backgrounded sleep is a descendant of $$, so the recursive walk still finds
+  # it under both bash 3.2 (CI) and 5.x (local).
+  local me=$$
   sleep 30 &
   local child=$!
   run _has_descendant_named "$me" sleep
@@ -41,7 +44,7 @@ setup() {
 }
 
 @test "_has_descendant_named returns nonzero when no match" {
-  run _has_descendant_named "$BASHPID" no_such_proc_xyz
+  run _has_descendant_named "$$" no_such_proc_xyz
   [ "$status" -ne 0 ]
 }
 
