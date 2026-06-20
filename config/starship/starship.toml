@@ -89,12 +89,12 @@ only_with_files = true
 detect_files = ["docker-compose.yml", "docker-compose.yaml", "Dockerfile"]
 
 # ─── Kubernetes ───────────────────────────────────
-# always-on (disabled=false, no detect_files/folders): context is always
-# relevant when working with EKS/K8s, and there is no reliable file trigger
-# for infra work (old detect_files ["k8s","kubernetes"] matched files not
-# dirs and were no-ops). context_from_config not supported in starship 1.25.x.
+# Shown only when KUBECONFIG is set (detect_env_vars), so the per-prompt
+# `kubectl config current-context` is skipped in non-k8s shells. Export
+# KUBECONFIG (e.g. via kubectx/direnv) to make the context visible.
 [kubernetes]
 disabled = false
+detect_env_vars = ['KUBECONFIG']
 format = '\[[󱃾 $context($namespace)]($style)\] '
 style = "bold #91d7e3"
 

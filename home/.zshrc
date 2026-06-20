@@ -16,9 +16,14 @@ source "$HOME/.zsh_functions"
 # Core Configuration
 ########################################################
 
-# Homebrew completions (before compinit)
+# Homebrew completions (before compinit). HOMEBREW_PREFIX is exported by
+# `brew shellenv` in .zprofile, eliminating a per-shell subprocess. Fall back to
+# the well-known prefixes (arm64 then Intel) if the env var is somehow unset.
 if type brew &>/dev/null; then
-    FPATH="$(brew --prefix)/share/zsh/site-functions:${FPATH}"
+    _brew_prefix="${HOMEBREW_PREFIX:-/opt/homebrew}"
+    [[ -d "$_brew_prefix" ]] || _brew_prefix="/usr/local"
+    FPATH="$_brew_prefix/share/zsh/site-functions:${FPATH}"
+    unset _brew_prefix
 fi
 
 # Plugin setup (before compinit for zsh-completions)
