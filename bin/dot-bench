@@ -44,7 +44,10 @@ main() {
   local i start end ms
   for ((i = 1; i <= RUNS; i++)); do
     start=$(python3 -c 'import time; print(int(time.time()*1000))')
-    zsh -i -c exit >/dev/null 2>&1
+    # `exit` (no arg) returns the status of the last startup command, which is
+    # often non-zero in a bare environment (e.g. CI). `exit 0` forces a clean
+    # status so a noisy rc file can't abort the benchmark under set -e.
+    zsh -i -c 'exit 0' >/dev/null 2>&1
     end=$(python3 -c 'import time; print(int(time.time()*1000))')
     ms=$((end - start))
     samples+=("$ms")
