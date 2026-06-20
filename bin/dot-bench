@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Description: Benchmark interactive zsh startup — median of 5 `zsh -i -c exit` runs
+set -Eeuo pipefail
+
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
+DOTFILES="${DOTFILES:-$(cd "$script_dir/.." && pwd -P)}"
+source "$DOTFILES/bin/lib/common.sh"
+
+RUNS=5
+
+usage() {
+  cat <<EOF
+  $(fmt_key "Usage:") $(fmt_cmd "dot bench") $(fmt_value "[-h|--help]")
+
+  Times an interactive zsh startup ($(fmt_cmd "zsh -i -c exit")) $RUNS times and
+  prints the median in milliseconds. Use it to capture before/after startup cost.
+EOF
+}
+
+# Print the median of the integers passed as args (sorted, middle element).
+median() {
+  local sorted mid
+  sorted=$(printf '%s\n' "$@" | sort -n)
+  mid=$((($# + 1) / 2))
+  printf '%s\n' "$sorted" | sed -n "${mid}p"
+}
+
+main() {
+  case "${1:-}" in
+    -h | --help)
+      usage
+      return 0
+      ;;
+  esac
+
+  if ! command -v zsh >/dev/null; then
+    log_error "zsh not installed"
+    return 1
+  fi
+
+  log_info "Benchmarking interactive zsh startup ($RUNS runs)..."
+  local -a samples=()
+  local i start end ms
+  for ((i = 1; i <= RUNS; i++)); do
+    start=$(python3 -c 'import time; print(int(time.time()*1000))')
+    zsh -i -c exit >/dev/null 2>&1
+    end=$(python3 -c 'import time; print(int(time.time()*1000))')
+    ms=$((end - start))
+    samples+=("$ms")
+    log_info "  run $i: ${ms} ms"
+  done
+
+  local med
+  med=$(median "${samples[@]}")
+  log_success "median: ${med} ms"
+}
+
+main "$@"
