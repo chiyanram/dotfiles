@@ -154,16 +154,9 @@ bindkey '^[[B' history-substring-search-down
 # Tool Initialization
 ########################################################
 
-# Node Version Manager
-if [[ -x "$(command -v fnm)" ]]; then
-    eval "$(fnm env)"
-fi
-
-# Python
-if [[ -x "$(command -v pyenv)" ]]; then
-    export PYENV_ROOT="$HOME/.pyenv"
-    [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
-    eval "$(pyenv init -)"
+# Node + Python runtimes via mise (reads .nvmrc/.node-version/.python-version natively)
+if command -v mise &>/dev/null; then
+    eval "$(mise activate zsh)"
 fi
 
 # PNPM

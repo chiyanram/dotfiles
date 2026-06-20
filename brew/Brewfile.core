@@ -43,7 +43,7 @@ brew 'git-delta'                       # a better git diff
 brew 'entr'                            # file watcher / command runner
 brew 'just'                            # project command runner (like make, but better)
 brew 'direnv'                          # per-directory environment variables via .envrc
-brew 'fnm'                             # Fast Node version manager
+brew 'mise'                            # node + python runtime manager (replaces fnm/pyenv)
 brew 'python'                          # python (latest)
 brew 'stylua'                          # lua code formatter
 brew 'shellcheck'                      # diagnostics for shell scripts
