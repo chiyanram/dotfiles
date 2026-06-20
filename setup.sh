@@ -229,6 +229,7 @@ main() {
         shift
         ;;
       -n | --dry-run)
+        # shellcheck disable=SC2034  # consumed by step() in common.sh (sourced), not within this file
         STEP_DRY_RUN=1
         shift
         ;;
