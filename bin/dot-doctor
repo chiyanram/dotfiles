@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Description: Check if all required tools are installed and healthy
 
-set -Eeuo pipefail
 DOTFILES="${DOTFILES:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
 source "$DOTFILES/bin/lib/common.sh"
 
@@ -61,6 +60,51 @@ check_java() {
     printf "  %b %b%-14s%b %b%s%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "java" "$RESET" "$YELLOW" "not found — install via: sdk install java (optional)" "$RESET"
     optional_missing=$((optional_missing + 1))
   fi
+}
+
+# Pure: classify SSH-to-GitHub state from a key path and a precomputed auth bool.
+# Prints one of: missing | auth-fail | ok. Returns 1 only for auth-fail.
+_ssh_github_status() {
+  local key="${1:-}" auth_ok="${2:-false}"
+  if [[ ! -f "$key" ]]; then
+    printf '%s\n' "missing"
+    return 0
+  fi
+  if [[ "$auth_ok" == "true" ]]; then
+    printf '%s\n' "ok"
+    return 0
+  fi
+  printf '%s\n' "auth-fail"
+  return 1
+}
+
+# Live check: a present key that GitHub rejects is the half-configured state that
+# silently breaks pushes. `ssh -T git@github.com` exits 1 and prints "successfully
+# authenticated" on success (it never opens a shell), or an auth error on failure.
+check_ssh_github() {
+  local key="$HOME/.ssh/id_ed25519" auth_ok="false" status out
+  if [[ -f "$key" ]]; then
+    # ssh -T git@github.com always exits non-zero (GitHub never opens a shell), so
+    # classify by OUTPUT, not exit code. Capture first to dodge the pipefail trap:
+    # `ssh | grep` returns ssh's non-zero even when grep matched, so auth would
+    # never register as ok under `set -Eeuo pipefail`.
+    out="$(ssh -T -o BatchMode=yes -o ConnectTimeout=5 git@github.com 2>&1 || true)"
+    if grep -q "successfully authenticated" <<<"$out"; then auth_ok="true"; fi
+  fi
+  status="$(_ssh_github_status "$key" "$auth_ok")" || true
+  case "$status" in
+    ok)
+      printf "  %b %b%-14s%b %b%s%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "ssh github" "$RESET" "$DIM" "authenticated" "$RESET"
+      ;;
+    missing)
+      printf "  %b %b%-14s%b %b%s%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "ssh github" "$RESET" "$YELLOW" "no key — run ./setup.sh (optional)" "$RESET"
+      optional_missing=$((optional_missing + 1))
+      ;;
+    *)
+      printf "  %b %b%-14s%b %b%s%b\n" "${RED}${ERROR_ICON}" "$BOLD" "ssh github" "$RESET" "$RED" "key present but GitHub auth fails — add it: gh ssh-key add ~/.ssh/id_ed25519.pub" "$RESET"
+      optional_missing=$((optional_missing + 1))
+      ;;
+  esac
 }
 
 check_profile() {
@@ -310,6 +354,11 @@ main() {
   check_tool "maven" "mvn" "false"
   echo
 
+  # SSH / GitHub auth
+  fmt_title_underline "SSH"
+  check_ssh_github
+  echo
+
   # Summary
   echo "─────────────────────────────"
   local has_issues=false
@@ -335,4 +384,8 @@ main() {
   fi
 }
 
-main "$@"
+# Only run when executed directly; sourcing for tests must not run the health check.
+if [[ "${BASH_SOURCE[0]:-$0}" == "${0}" ]]; then
+  set -Eeuo pipefail
+  main "$@"
+fi

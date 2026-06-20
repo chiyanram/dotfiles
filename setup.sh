@@ -111,15 +111,23 @@ step_ssh() {
   read -r ssh_email
   mkdir -p "$HOME/.ssh"
   ssh-keygen -t ed25519 -C "$ssh_email" -f "$HOME/.ssh/id_ed25519" || return 1
-  eval "$(ssh-agent -s)" >/dev/null
-  ssh-add "$HOME/.ssh/id_ed25519" || log_warning "ssh-add failed — start the agent, then: ssh-add ~/.ssh/id_ed25519"
-  log_info "Add this public key to GitHub → Settings → SSH Keys:"
+  # macOS launchd runs ssh-agent; --apple-use-keychain persists the key across
+  # reboots. No `eval "$(ssh-agent -s)"` — that starts a redundant in-process agent.
+  ssh-add --apple-use-keychain "$HOME/.ssh/id_ed25519" ||
+    log_warning "ssh-add failed — retry: ssh-add --apple-use-keychain ~/.ssh/id_ed25519"
+  if command -v gh &>/dev/null && gh auth status &>/dev/null; then
+    if ask_yes_no "Add this key to GitHub via gh?"; then
+      gh ssh-key add "$HOME/.ssh/id_ed25519.pub" ||
+        log_warning "gh ssh-key add failed — add it manually below"
+    fi
+  fi
+  log_info "If not added above, add this public key to GitHub → Settings → SSH Keys:"
   cat "$HOME/.ssh/id_ed25519.pub"
   if command -v pbcopy &>/dev/null; then
     pbcopy <"$HOME/.ssh/id_ed25519.pub"
     log_info "Public key copied to clipboard"
   fi
-  log_warning "Press any key after adding the key to GitHub"
+  log_warning "Press any key after the key is on GitHub"
   read -r -n 1 -s
 }
 
