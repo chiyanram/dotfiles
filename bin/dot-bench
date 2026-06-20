@@ -18,6 +18,7 @@ EOF
 }
 
 # Print the median of the integers passed as args (sorted, middle element).
+# Assumes an odd count (RUNS is 5): returns the true middle, not an averaged median.
 median() {
   local sorted mid
   sorted=$(printf '%s\n' "$@" | sort -n)
