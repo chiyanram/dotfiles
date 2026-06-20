@@ -29,6 +29,19 @@ jobs:
       - name: Run dot test
         run: ./bin/dot-test
 
+  checks-macos:
+    name: Lint & tests (macOS)
+    runs-on: macos-latest
+    timeout-minutes: 15
+    env:
+      CI: "true"
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Install tools
+        run: brew install bats-core shfmt shellcheck
+      - name: Run dot test
+        run: ./bin/dot-test
+
   pre-commit:
     name: pre-commit hooks
     runs-on: ubuntu-latest
