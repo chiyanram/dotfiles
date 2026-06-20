@@ -240,9 +240,29 @@ done
 # Tool-Specific Setup (Keep at End)
 ########################################################
 
-# SDKMAN (must be at end)
+# SDKMAN — lazy (must be at end). Candidate bins on PATH so java/gradle/mvn/kotlin/
+# scala resolve immediately without paying SDKMAN's ~150-900ms init at startup.
 export SDKMAN_DIR="$HOME/.sdkman"
-[[ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]] && source "$SDKMAN_DIR/bin/sdkman-init.sh"
+if [[ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]]; then
+    source "$DOTFILES/bin/lib/sdkman-lazy.sh"
+    # current/ symlinks are followed live, so `sdk env`'s per-project switch still
+    # takes effect through these PATH entries. (/N) = dirs-only, nullglob, no fork.
+    for _sdk_bin in "$SDKMAN_DIR"/candidates/*/current/bin(/N); do
+        path=("$_sdk_bin" $path)
+    done
+    unset _sdk_bin
+    # Lazy stub: first `sdk` call sources the real init, then re-dispatches.
+    sdk() {
+        unset -f sdk
+        source "$SDKMAN_DIR/bin/sdkman-init.sh"
+        sdk "$@"
+    }
+    # .sdkmanrc-on-cd without SDKMAN's native hook (its hook isn't installed until
+    # SDKMAN loads). Triggers the lazy load only when entering a .sdkmanrc project;
+    # after the first load SDKMAN's own auto-env engages.
+    _sdkman_lazy_autoenv() { _sdkman_has_rc && sdk env >/dev/null; }
+    add-zsh-hook chpwd _sdkman_lazy_autoenv
+fi
 
 # Maven daemon completion
 [[ -n "$MVND_HOME" && -f "$MVND_HOME/bin/mvnd-bash-completion.bash" ]] && source "$MVND_HOME/bin/mvnd-bash-completion.bash"
