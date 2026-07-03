@@ -225,12 +225,16 @@ main() {
     zsh) steps=("ZSH plugins:update_zsh_plugins") ;;
     sdkman) steps=("SDKMAN:update_sdkman") ;;
     all)
+      # dotfiles first: pull the source of truth before the long-running steps so
+      # a new version is surfaced up front. Note this does NOT re-exec — bash has
+      # already parsed every function into memory, so a fresh pull's code takes
+      # effect on the *next* run, like any other committed change.
       steps=(
+        "dotfiles:update_dotfiles"
         "Neovim plugins:update_nvim_plugins"
         "Homebrew:update_homebrew"
         "ZSH plugins:update_zsh_plugins"
         "SDKMAN:update_sdkman"
-        "dotfiles:update_dotfiles"
       )
       ;;
     *)

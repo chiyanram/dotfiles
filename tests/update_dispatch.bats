@@ -18,6 +18,15 @@ setup() {
   [[ "$output" == *"dotfiles"* ]]
 }
 
+@test "dot-update -n all runs dotfiles first and SDKMAN last" {
+  run bash "$REPO/bin/dot-update" -n all
+  [ "$status" -eq 0 ]
+  first_step="$(printf '%s\n' "$output" | grep -F '[1/5]')"
+  last_step="$(printf '%s\n' "$output" | grep -F '[5/5]')"
+  [[ "$first_step" == *"dotfiles"* ]]
+  [[ "$last_step" == *"SDKMAN"* ]]
+}
+
 @test "dot-update -n brew prints a single [1/1] header" {
   run bash "$REPO/bin/dot-update" -n brew
   [ "$status" -eq 0 ]
