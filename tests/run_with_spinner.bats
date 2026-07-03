@@ -28,3 +28,13 @@ setup() {
   grep -q "line three" "$RUN_LOG"
   rm -f "$RUN_LOG"
 }
+
+@test "run_with_spinner children read EOF, not the caller's stdin" {
+  # Characterizes the non-interactive contract. Feed 'TYPED-INPUT': with stdin
+  # detached to /dev/null the child gets EOF and answer stays empty, rather than
+  # reading the caller's input as an interactive prompt would.
+  run_with_spinner "read -r answer || true; printf 'answer=[%s]\n' \"\$answer\"" 0 "test" <<< 'TYPED-INPUT'
+  grep -q 'answer=\[\]' "$RUN_LOG"
+  ! grep -q 'TYPED-INPUT' "$RUN_LOG"
+  rm -f "$RUN_LOG"
+}

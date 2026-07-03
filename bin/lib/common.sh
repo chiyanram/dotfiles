@@ -177,7 +177,10 @@ run_with_spinner() {
   # RUN_LOG is global on purpose: callers in dot-update read it after we return.
   # shellcheck disable=SC2034  # read by callers in a separate file
   RUN_LOG="$(mktemp)" # owned by this runner, removed by the caller
-  eval "$cmd" >"$RUN_LOG" 2>&1 &
+  # stdin is detached to /dev/null so an unattended step can never block on an
+  # interactive prompt (e.g. SDKMAN's "Use prescribed default version(s)?"): the
+  # child reads EOF and proceeds with defaults instead of hanging the whole run.
+  eval "$cmd" >"$RUN_LOG" 2>&1 </dev/null &
   local pid=$!
 
   spinner "$pid" "${style:-0}" "${msg:-Working...}" "$RUN_LOG"
