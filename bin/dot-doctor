@@ -86,12 +86,20 @@ _ssh_github_status() {
     printf '%s\n' "missing"
     return 0
   fi
-  if [[ "$auth_ok" == "true" ]]; then
-    printf '%s\n' "ok"
-    return 0
-  fi
-  printf '%s\n' "auth-fail"
-  return 1
+  case "$auth_ok" in
+    true)
+      printf '%s\n' "ok"
+      return 0
+      ;;
+    untrusted)
+      printf '%s\n' "untrusted"
+      return 1
+      ;;
+    *)
+      printf '%s\n' "auth-fail"
+      return 1
+      ;;
+  esac
 }
 
 # Live check: a present key that GitHub rejects is the half-configured state that
@@ -105,7 +113,13 @@ check_ssh_github() {
     # `ssh | grep` returns ssh's non-zero even when grep matched, so auth would
     # never register as ok under `set -Eeuo pipefail`.
     out="$(ssh -T -o BatchMode=yes -o ConnectTimeout=5 git@github.com 2>&1 || true)"
-    if grep -q "successfully authenticated" <<<"$out"; then auth_ok="true"; fi
+    if grep -q "successfully authenticated" <<<"$out"; then
+      auth_ok="true"
+    elif grep -qiE "host key verification failed|no matching host key|known_hosts" <<<"$out"; then
+      # Fresh machine: github.com isn't trusted yet, so BatchMode ssh can't accept
+      # the fingerprint — NOT a key/auth problem. Report it as its own state.
+      auth_ok="untrusted"
+    fi
   fi
   status="$(_ssh_github_status "$key" "$auth_ok")" || true
   case "$status" in
@@ -114,6 +128,10 @@ check_ssh_github() {
       ;;
     missing)
       printf "  %b %b%-14s%b %b%s%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "ssh github" "$RESET" "$YELLOW" "no key — run ./setup.sh (optional)" "$RESET"
+      optional_missing=$((optional_missing + 1))
+      ;;
+    untrusted)
+      printf "  %b %b%-14s%b %b%s%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "ssh github" "$RESET" "$YELLOW" "github.com host key not trusted — run ./setup.sh (or: ssh-keyscan github.com >> ~/.ssh/known_hosts)" "$RESET"
       optional_missing=$((optional_missing + 1))
       ;;
     *)

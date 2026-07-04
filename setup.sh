@@ -97,7 +97,24 @@ step_profile() {
   log_info "Profile: $profile · docker runtime: $(dot_docker_runtime)"
 }
 
+# Trust github.com's host key so non-interactive ssh — git push, and dot doctor's
+# BatchMode auth check — doesn't fail host-key verification on a fresh machine
+# (the first interactive ssh would otherwise prompt to accept the fingerprint).
+ensure_github_known_host() {
+  local kh="$HOME/.ssh/known_hosts"
+  mkdir -p "$HOME/.ssh"
+  if [[ -f "$kh" ]] && ssh-keygen -F github.com -f "$kh" >/dev/null 2>&1; then
+    return 0 # already trusted
+  fi
+  if ssh-keyscan -t rsa,ecdsa,ed25519 github.com 2>/dev/null >>"$kh"; then
+    log_success "Trusted github.com host key (added to known_hosts)"
+  else
+    log_warning "Could not fetch github.com host key (offline?) — first git push may prompt"
+  fi
+}
+
 step_ssh() {
+  ensure_github_known_host
   if [[ -f "$HOME/.ssh/id_ed25519" ]]; then
     log_success "SSH key already exists (~/.ssh/id_ed25519)"
     return "$STEP_SKIP_CODE"

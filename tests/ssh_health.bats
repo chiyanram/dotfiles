@@ -28,3 +28,10 @@ run_status() {
   [[ "$output" == *"ok"* ]]
   [[ "$output" == *"rc=0"* ]]
 }
+
+@test "ssh status is untrusted when the github host key is not in known_hosts" {
+  touch "$BATS_TEST_TMPDIR/key"
+  run_status "$BATS_TEST_TMPDIR/key" "untrusted"
+  [[ "$output" == *"untrusted"* ]]
+  [[ "$output" == *"rc=1"* ]]
+}
