@@ -73,8 +73,8 @@ check_java() {
     version=$(java --version 2>&1 | head -n1) || version="installed"
     printf "  %b %b%-14s%b %b%s%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "java" "$RESET" "$DIM" "$version" "$RESET"
   else
-    printf "  %b %b%-14s%b %b%s%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "java" "$RESET" "$YELLOW" "not found — install via: sdk install java (optional)" "$RESET"
-    optional_missing=$((optional_missing + 1))
+    printf "  %b %b%-14s%b %b%s%b\n" "${RED}${ERROR_ICON}" "$BOLD" "java" "$RESET" "$RED" "not found — install via: sdk install java" "$RESET"
+    missing_count=$((missing_count + 1))
   fi
 }
 
@@ -356,8 +356,10 @@ main() {
   check_sdkman
   check_sdkman_env
   check_java
-  check_tool "gradle" "gradle" "false"
-  check_tool "maven" "mvn" "false"
+  check_tool "gradle" "gradle" "true"
+  check_tool "maven" "mvn" "true"
+  check_tool "mvnd" "mvnd" "true"
+  check_tool "kotlin" "kotlin" "true"
   echo
 
   # SSH / GitHub auth
