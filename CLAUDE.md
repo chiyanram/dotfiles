@@ -55,6 +55,8 @@ Personal dotfiles managing my macOS development environment. Clean git history, 
 - Never use `trap EXIT` inside functions — use explicit cleanup instead
 - macOS ships BSD tools: no `readlink -f`, no GNU `sed -i`. Use ZSH `:A` modifier or `cd && pwd -P`
 - Every script must work on a fresh machine (day 0): guard tools with `command -v`, files with `[[ -f ]]`
+- The day-0 path (`bootstrap.sh` → `setup.sh` → `dot-*`) runs under macOS system **bash 3.2** until Homebrew installs bash 5.x, so those scripts must be bash-3.2-safe: no associative arrays (`declare -A`), `mapfile`/`readarray`, or `${x,,}`/`${x^^}` case-conversion. A process never swaps its own interpreter mid-run — to check a freshly-installed bash, probe the PATH `bash` (`bash -c 'echo "${BASH_VERSINFO[0]}"'`), not `$BASH_VERSINFO`
+- Install Homebrew with the TTY-preserving `bash -c "$(curl … install.sh)"`, never `curl … | bash` — a fresh Mac's install needs an interactive sudo password, which a pipe (stdin = the pipe, not the terminal) can't provide
 - `git config <key>` returns exit 1 if key missing — always use `2>/dev/null || true`
 
 ### Brewfile (`brew/Brewfile.*`)
