@@ -185,6 +185,15 @@ configure_sdkman_auto_env() {
   log_success "SDKMAN auto-env enabled (.sdkmanrc auto-applies on cd)"
 }
 
+# run_sdk <args...> — run `sdk <args...>` in a PATH-bash subprocess, TTY attached.
+# Never `source` sdkman-init.sh into this process: setup.sh lives its whole life
+# under system bash 3.2 with `set -u`, and the init script both expands unset
+# vars (SDKMAN_CANDIDATES_API — a set -u abort that kills the entire script, not
+# just the step) and uses bash-4-only syntax (${var^^} in its path helpers).
+run_sdk() {
+  bash -c 'source "${SDKMAN_DIR:-$HOME/.sdkman}/bin/sdkman-init.sh" && sdk "$@"' sdk "$@"
+}
+
 step_sdkman() {
   if [[ -d "$HOME/.sdkman" ]]; then
     log_success "SDKMAN already installed"
@@ -205,11 +214,8 @@ step_sdkman() {
     return "$STEP_SKIP_CODE"
   fi
   curl -fsSL --connect-timeout 10 --retry 2 https://get.sdkman.io | bash || return 1
-  export SDKMAN_DIR="$HOME/.sdkman"
-  # shellcheck source=/dev/null
-  source "$SDKMAN_DIR/bin/sdkman-init.sh"
-  ask_yes_no "Install latest Java?" && sdk install java
-  ask_yes_no "Install latest Gradle?" && sdk install gradle
+  ask_yes_no "Install latest Java?" && run_sdk install java
+  ask_yes_no "Install latest Gradle?" && run_sdk install gradle
   configure_sdkman_auto_env
   return 0 # a declined optional install (ask_yes_no -> 1) must not fail the step
 }
