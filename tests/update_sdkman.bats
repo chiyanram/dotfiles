@@ -3,25 +3,34 @@ setup() {
   export TERM=dumb
 }
 
-# Regression test for the bug where `export sdkman_auto_answer=true` ran BEFORE
-# sourcing sdkman-init.sh. The init re-sources ~/.sdkman/etc/config (which ships
-# sdkman_auto_answer=false), clobbering the export back to false — so `sdk update`
-# prompted interactively ("Use prescribed default versions? Y/N"). The fix sets
-# the var AFTER the source so it survives.
-@test "dot update sdkman runs sdk with auto_answer=true despite etc/config default" {
+# `dot update sdkman` runs `sdk update` then `sdk upgrade` non-interactively.
+# `sdk upgrade` prompts "Use prescribed default version(s)? (Y/n):" and reads
+# stdin; the `sdk` dispatcher re-sources etc/config every call, so setting
+# sdkman_auto_answer=true at runtime never sticks. Non-interactivity instead
+# comes from the update running as a detached-stdin async command, so the prompt
+# reads EOF (takes the default) rather than consuming the caller's stdin.
+@test "dot update sdkman runs update+upgrade and its prompt reads EOF, not our stdin" {
   local fake="$BATS_TEST_TMPDIR/sdkman"
   mkdir -p "$fake/bin"
   local marker="$BATS_TEST_TMPDIR/marker"
-  # fake init mimics etc/config setting auto_answer=false, then defines `sdk`
-  # to record the value it actually sees when invoked.
+  # Fake `sdk`: record each subcommand, and on upgrade prompt by reading stdin —
+  # exactly like the real "Use prescribed default version(s)?" prompt.
   cat >"$fake/bin/sdkman-init.sh" <<EOF
-sdkman_auto_answer=false
-sdk() { printf 'auto_answer=%s\n' "\$sdkman_auto_answer" >>"$marker"; }
+sdk() {
+  printf 'cmd=%s\n' "\$1" >>"$marker"
+  if [ "\$1" = upgrade ]; then
+    if read -r ans; then printf 'prompt=[%s]\n' "\$ans" >>"$marker"
+    else printf 'prompt=EOF\n' >>"$marker"; fi
+  fi
+}
 EOF
 
-  run env SDKMAN_DIR="$fake" bash "$REPO/bin/dot-update" sdkman
+  # Feed a sentinel on stdin: an interactive step would consume it.
+  run env SDKMAN_DIR="$fake" bash "$REPO/bin/dot-update" sdkman <<< 'SENTINEL'
   [ "$status" -eq 0 ]
-  [ -f "$marker" ]
-  grep -q 'auto_answer=true' "$marker"
-  ! grep -q 'auto_answer=false' "$marker"
+  grep -q 'cmd=update' "$marker"
+  grep -q 'cmd=upgrade' "$marker"
+  # The prompt hits EOF instead of reading 'SENTINEL'.
+  grep -q 'prompt=EOF' "$marker"
+  ! grep -q 'SENTINEL' "$marker"
 }

@@ -168,9 +168,12 @@ update_sdkman() {
     return "$STEP_SKIP_CODE"
   fi
 
-  # set auto_answer AFTER sourcing: the init re-sources etc/config (which ships
-  # sdkman_auto_answer=false), so an export beforehand gets clobbered back to false
-  run_with_spinner "bash -c 'source \"$sdkman_dir/bin/sdkman-init.sh\" && export sdkman_auto_answer=true && sdk update 2>&1 && sdk upgrade 2>&1'" 11 "Updating SDKMAN"
+  # No sdkman_auto_answer=true here: the `sdk` dispatcher re-sources etc/config
+  # (sdkman_auto_answer=false, never declared local) on every call, so any export
+  # is clobbered before `sdk upgrade` runs — the workaround never worked. The
+  # update is non-interactive because run_with_spinner detaches stdin: the
+  # "Use prescribed default version(s)?" prompt reads EOF and takes the default.
+  run_with_spinner "bash -c 'source \"$sdkman_dir/bin/sdkman-init.sh\" && sdk update 2>&1 && sdk upgrade 2>&1'" 11 "Updating SDKMAN"
 
   if grep -q "Error\|fatal\|Failed" "$RUN_LOG"; then
     log_error "Error occurred during SDKMAN update"
