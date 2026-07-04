@@ -79,3 +79,28 @@ teardown() { teardown_sandbox; }
   [ "$status" -eq 0 ]
   [[ "$output" == *"REPLACE"* ]]
 }
+
+@test "link all --dry-run -v shows a content diff for a conflicting real file" {
+  printf 'live content\n' >"$HOME/.demorc" # repo .demorc says 'demo home rc'
+  run "$DOT" link all -n -v
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"CONFLICT"* ]]
+  [[ "$output" == *"live content"* ]]
+  [[ "$output" == *"demo home rc"* ]]
+}
+
+@test "link all -f replaces a symlink that points elsewhere (routes through the shared classifier)" {
+  ln -s /nonexistent/whatever "$HOME/.demorc"
+  run "$DOT" link all -f
+  [ "$status" -eq 0 ]
+  [ -L "$HOME/.demorc" ]
+  [ "$(readlink "$HOME/.demorc")" = "$DOTFILES/home/.demorc" ]
+}
+
+@test "link all leaves a real file untouched (refuses to clobber, non-fatal)" {
+  printf 'real\n' >"$HOME/.demorc"
+  run "$DOT" link all
+  [ "$status" -eq 0 ]
+  [ ! -L "$HOME/.demorc" ]
+  [ "$(cat "$HOME/.demorc")" = "real" ]
+}

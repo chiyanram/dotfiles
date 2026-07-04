@@ -456,6 +456,7 @@ managed_targets() {
 # scans everything, then returns non-zero if any CONFLICT (a real file/dir in the
 # way) so a caller/CI can refuse before a real run.
 link_plan() {
+  local verbose="${1:-false}"
   fmt_title_underline "Link plan (dry run)"
 
   local source target label state ccolor
@@ -479,6 +480,10 @@ link_plan() {
       real)
         printf "  %b%-9s%b %s (real file/dir in the way)\n" "$RED" "CONFLICT" "$RESET" "$label"
         conflicts=$((conflicts + 1))
+        # With -v, show the content delta (live vs repo) for regular files.
+        if [ "$verbose" = true ] && [ -f "$source" ] && [ -f "$target" ]; then
+          diff -u "$target" "$source" | sed 's/^/      /' || true
+        fi
         ;;
     esac
   done < <(managed_targets)
@@ -491,6 +496,45 @@ link_plan() {
     "$YELLOW" "$replaces" "$RESET" "$ccolor" "$conflicts" "$RESET"
   [ "$conflicts" -gt 0 ] && log_warning "Conflicts block a real run — back up or remove the real files first (dot backup)"
   [ "$conflicts" -eq 0 ]
+}
+
+# link_apply <source> <target> <label> <verbose> <force> — perform the action the
+# plan previews, deciding via the SAME classify_link the plan uses so `dot link`
+# and `dot link -n` can never disagree. Creates parent dirs as needed.
+link_apply() {
+  local source="$1" target="$2" label="$3" verbose="$4" force="$5"
+  local target_dir
+  target_dir="$(dirname "$target")"
+  if [ ! -d "$target_dir" ]; then
+    [ "$verbose" = true ] && log_info "Creating directory: $target_dir"
+    mkdir -p "$target_dir"
+  fi
+  # shellcheck disable=SC2088  # tilde in labels is display, not expansion
+  case "$(classify_link "$source" "$target")" in
+    missing)
+      [ "$verbose" = true ] && log_info "CREATE  $label"
+      ln -s "$source" "$target"
+      ;;
+    ok)
+      # Use `if`, not `&&`: a bare failing test here would make link_apply return
+      # non-zero and trip `set -e` in the caller's loop on an all-SKIP re-run.
+      if [ "$verbose" = true ]; then
+        log_info "SKIP    $label (already linked)"
+      fi
+      ;;
+    wrong)
+      if [ "$force" = true ]; then
+        [ "$verbose" = true ] && log_info "REPLACE $label → $source"
+        rm "$target"
+        ln -s "$source" "$target"
+      else
+        log_warning "$label points elsewhere ($(readlink "$target")) — rerun with -f to replace"
+      fi
+      ;;
+    real)
+      log_warning "$label is a real file/dir, not a symlink — skipping (back up first: dot backup)"
+      ;;
+  esac
 }
 
 link_config() {
@@ -533,6 +577,7 @@ cmd_link() {
 
   local verbose=false
   local force=false
+  local dry_run=false
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -549,12 +594,8 @@ cmd_link() {
         return
         ;;
       -n | --dry-run)
-        if [ "$operation" != "link" ]; then
-          log_error "--dry-run is only supported for 'dot link'"
-          exit 1
-        fi
-        link_plan
-        return $?
+        dry_run=true
+        shift
         ;;
       *)
         log_error "Unknown argument: $1"
@@ -562,6 +603,16 @@ cmd_link() {
         ;;
     esac
   done
+
+  # Preview the plan and stop — never mutates. Non-zero exit if any conflict.
+  if [ "$dry_run" = true ]; then
+    if [ "$operation" != "link" ]; then
+      log_error "--dry-run is only supported for 'dot link'"
+      exit 1
+    fi
+    link_plan "$verbose"
+    return $?
+  fi
 
   local title_text
   if [ "$pkg" = "all" ]; then
@@ -573,16 +624,20 @@ cmd_link() {
   fmt_title_underline "$title_text"
 
   if [ "$pkg" = "all" ]; then
-    # Handle all packages in config directory
-    for config in "$DOTFILES/config"/*; do
-      if [ -d "$config" ]; then
-        # skip empty config packages (nothing to link)
-        [[ -n "$(ls -A "$config" 2>/dev/null)" ]] || continue
-        local target
-        target="$CONFIG_HOME/$(basename "$config")"
-        if [ "$operation" = "link" ]; then
-          link_config "$config" "$target" "$verbose" "$force"
-        else # unlink
+    if [ "$operation" = "link" ]; then
+      # Link every managed target via the SAME walk + classifier the plan uses,
+      # so `dot link all` and `dot link all -n` can never disagree.
+      local source target label
+      while IFS=$'\t' read -r source target label; do
+        link_apply "$source" "$target" "$label" "$verbose" "$force"
+      done < <(managed_targets)
+    else # unlink
+      for config in "$DOTFILES/config"/*; do
+        if [ -d "$config" ]; then
+          # skip empty config packages (nothing to link)
+          [[ -n "$(ls -A "$config" 2>/dev/null)" ]] || continue
+          local target
+          target="$CONFIG_HOME/$(basename "$config")"
           if [ -L "$target" ]; then
             [ "$verbose" = true ] && log_info "Unlinking $target"
             rm "$target"
@@ -590,11 +645,9 @@ cmd_link() {
             log_warning "Skipping \"$target\" because it is not a symlink"
           fi
         fi
-      fi
-    done
-
-    # Handle home directory files
-    link_home_files "$operation" "$verbose" "$force"
+      done
+      link_home_files "unlink" "$verbose" "$force"
+    fi
   else
     # Handle specific package
     local target="$CONFIG_HOME/$pkg"
