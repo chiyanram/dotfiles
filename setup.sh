@@ -214,10 +214,16 @@ step_sdkman() {
     return "$STEP_SKIP_CODE"
   fi
   curl -fsSL --connect-timeout 10 --retry 2 https://get.sdkman.io | bash || return 1
-  ask_yes_no "Install latest Java?" && run_sdk install java
-  ask_yes_no "Install latest Gradle?" && run_sdk install gradle
+  # Mandatory JVM toolchain — `dot doctor` treats these as required. `sdk install`
+  # is idempotent (a present candidate is a no-op), so re-running setup is safe.
+  local sdk_candidate
+  for sdk_candidate in java gradle maven mvnd kotlin; do
+    log_info "Installing $sdk_candidate via SDKMAN..."
+    run_sdk install "$sdk_candidate" ||
+      log_warning "sdk install $sdk_candidate failed — retry later: sdk install $sdk_candidate"
+  done
   configure_sdkman_auto_env
-  return 0 # a declined optional install (ask_yes_no -> 1) must not fail the step
+  return 0 # per-candidate failures are warnings; the step still completes
 }
 
 step_doctor() {
