@@ -195,6 +195,15 @@ step_sdkman() {
     log_info "Skipping — install later: curl -s https://get.sdkman.io | bash"
     return "$STEP_SKIP_CODE"
   fi
+  # SDKMAN's installer and `sdk` need bash >= 4. Probe the bash on PATH (what the
+  # install pipe below runs under) — NOT $BASH_VERSINFO: this script keeps running
+  # under system bash 3.2 for its whole life even after Homebrew installs bash 5.x.
+  local path_bash_major
+  path_bash_major="$(bash -c 'echo "${BASH_VERSINFO[0]}"' 2>/dev/null || echo 0)"
+  if [[ "$path_bash_major" -lt 4 ]]; then
+    log_warning "SDKMAN needs bash >= 4 (PATH bash is $path_bash_major); install Homebrew's bash first, then: curl -s https://get.sdkman.io | bash"
+    return "$STEP_SKIP_CODE"
+  fi
   curl -fsSL --connect-timeout 10 --retry 2 https://get.sdkman.io | bash || return 1
   export SDKMAN_DIR="$HOME/.sdkman"
   # shellcheck source=/dev/null
