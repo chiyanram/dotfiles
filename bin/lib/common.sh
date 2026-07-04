@@ -396,11 +396,13 @@ STEP_SKIP_CODE=78
 _step_ok=0
 _step_skipped=()
 _step_failed=()
+_step_timings=() # "<elapsed_seconds>|<label>" per step that actually ran
 
 step_init() {
   _step_ok=0
   _step_skipped=()
   _step_failed=()
+  _step_timings=()
 }
 
 # step <label> <command> [args...]
@@ -413,8 +415,11 @@ step() {
     _step_ok=$((_step_ok + 1))
     return 0
   fi
+  # $SECONDS is a bash builtin (3.2+); the delta is monotonic and immune to clock changes.
+  local start=$SECONDS
   local rc=0
   "$@" || rc=$?
+  local elapsed=$((SECONDS - start))
   if [[ "$rc" -eq 0 ]]; then
     _step_ok=$((_step_ok + 1))
   elif [[ "$rc" -eq "$STEP_SKIP_CODE" ]]; then
@@ -422,10 +427,25 @@ step() {
   else
     _step_failed+=("$label")
   fi
+  _step_timings+=("$elapsed|$label")
   return 0
 }
 
-# step_summary — print the tally; return 1 if any step failed.
+# fmt_duration <seconds> -> compact human string: 5 -> "5s", 90 -> "1m30s",
+# 17794 -> "4h56m34s". Pure: same input -> same output, no side effects.
+fmt_duration() {
+  local total="$1" h m s out=""
+  h=$((total / 3600))
+  m=$(((total % 3600) / 60))
+  s=$((total % 60))
+  [[ $h -gt 0 ]] && out+="${h}h"
+  [[ $h -gt 0 || $m -gt 0 ]] && out+="${m}m"
+  out+="${s}s"
+  printf '%s' "$out"
+}
+
+# step_summary — print the tally and a per-step timing breakdown (longest first,
+# so a slow step is obvious); return 1 if any step failed.
 step_summary() {
   echo
   fmt_title_underline "Summary"
@@ -440,6 +460,14 @@ step_summary() {
   for s in "${_step_failed[@]+"${_step_failed[@]}"}"; do
     printf "    %b✗ %s%b\n" "$RED" "$s" "$RESET"
   done
+  if [[ "${#_step_timings[@]}" -gt 0 ]]; then
+    printf "  %bTimings (longest first)%b\n" "$BOLD" "$RESET"
+    local elapsed lbl
+    while IFS='|' read -r elapsed lbl; do
+      [[ -n "$elapsed" ]] || continue
+      printf "    %b%8s%b  %s\n" "$DIM" "$(fmt_duration "$elapsed")" "$RESET" "$lbl"
+    done < <(printf '%s\n' "${_step_timings[@]}" | sort -rn -t'|' -k1)
+  fi
   [[ "${#_step_failed[@]}" -eq 0 ]]
 }
 

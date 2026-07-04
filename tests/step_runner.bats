@@ -68,3 +68,32 @@ setup() {
   run step_summary
   [ "$status" -eq 0 ]
 }
+
+@test "fmt_duration formats seconds, minutes, and hours" {
+  [ "$(fmt_duration 0)" = "0s" ]
+  [ "$(fmt_duration 5)" = "5s" ]
+  [ "$(fmt_duration 90)" = "1m30s" ]
+  [ "$(fmt_duration 3600)" = "1h0m0s" ]
+  [ "$(fmt_duration 17794)" = "4h56m34s" ]
+}
+
+@test "step_summary reports a timing breakdown for each step that ran" {
+  step_init
+  step "alpha" true
+  step "beta" true
+  run step_summary
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Timings (longest first)"* ]]
+  [[ "$output" == *"alpha"* ]]
+  [[ "$output" == *"beta"* ]]
+}
+
+@test "dry-run records no timing breakdown" {
+  export STEP_DRY_RUN=1
+  step_init
+  step "skipme" true
+  run step_summary
+  unset STEP_DRY_RUN
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"Timings"* ]]
+}
