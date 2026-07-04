@@ -53,6 +53,7 @@ $(fmt_key "Available Commands:")
             -n, --dry-run         Show what would be removed without actually removing
             -v, --verbose         Show detailed output
         -f, --force               Replace existing symlinks (refuses to overwrite real files)
+        -n, --dry-run             Preview the plan (CREATE/SKIP/REPLACE/CONFLICT); non-zero on conflict
         --status                  Show link status without making changes
         -v, --verbose             Show detailed output
     unlink                        Unlink dotfiles packages
@@ -431,6 +432,67 @@ link_status() {
     "$GREEN" "$ok" "$RESET" "$RED" "$missing" "$RESET" "$YELLOW" "$wrong" "$RESET" "$RED" "$real" "$RESET"
 }
 
+# Emit "<source>\t<target>\t<label>" for every managed target: config packages
+# (config/<pkg> → ~/.config/<pkg>) and home files (home/<rel> → ~/<rel>). Single
+# source of truth for "what dot link manages", so the plan and the action agree.
+managed_targets() {
+  local config name file rel
+  for config in "$DOTFILES/config"/*; do
+    [ -d "$config" ] || continue
+    # skip empty config packages (nothing to link)
+    [[ -n "$(ls -A "$config" 2>/dev/null)" ]] || continue
+    name=$(basename "$config")
+    printf '%s\t%s\t~/.config/%s\n' "$config" "$CONFIG_HOME/$name" "$name"
+  done
+  [ -d "$DOTFILES/home" ] || return 0
+  while IFS= read -r -d '' file; do
+    rel="${file#"$DOTFILES"/home/}"
+    printf '%s\t%s\t~/%s\n' "$file" "$HOME/$rel" "$rel"
+  done < <(find "$DOTFILES/home" -type f -print0)
+}
+
+# link_plan — preview what `dot link all` would do, classifying each managed
+# target via classify_link. Never mutates the filesystem. Two-phase gate: it
+# scans everything, then returns non-zero if any CONFLICT (a real file/dir in the
+# way) so a caller/CI can refuse before a real run.
+link_plan() {
+  fmt_title_underline "Link plan (dry run)"
+
+  local source target label state ccolor
+  local creates=0 skips=0 replaces=0 conflicts=0
+  while IFS=$'\t' read -r source target label; do
+    state=$(classify_link "$source" "$target")
+    # shellcheck disable=SC2088  # tilde is a display label, not expansion
+    case "$state" in
+      missing)
+        printf "  %b%-9s%b %s\n" "$GREEN" "CREATE" "$RESET" "$label"
+        creates=$((creates + 1))
+        ;;
+      ok)
+        printf "  %b%-9s%b %b%s%b\n" "$DIM" "SKIP" "$RESET" "$DIM" "$label" "$RESET"
+        skips=$((skips + 1))
+        ;;
+      wrong)
+        printf "  %b%-9s%b %s → %s\n" "$YELLOW" "REPLACE" "$RESET" "$label" "$(readlink "$target")"
+        replaces=$((replaces + 1))
+        ;;
+      real)
+        printf "  %b%-9s%b %s (real file/dir in the way)\n" "$RED" "CONFLICT" "$RESET" "$label"
+        conflicts=$((conflicts + 1))
+        ;;
+    esac
+  done < <(managed_targets)
+
+  ccolor="$DIM"
+  [ "$conflicts" -gt 0 ] && ccolor="$RED"
+  echo
+  printf "  %b%d create%b · %b%d skip%b · %b%d replace%b · %b%d conflict%b\n" \
+    "$GREEN" "$creates" "$RESET" "$DIM" "$skips" "$RESET" \
+    "$YELLOW" "$replaces" "$RESET" "$ccolor" "$conflicts" "$RESET"
+  [ "$conflicts" -gt 0 ] && log_warning "Conflicts block a real run — back up or remove the real files first (dot backup)"
+  [ "$conflicts" -eq 0 ]
+}
+
 link_config() {
   local config="$1" target="$2" verbose="$3" force="$4"
   local name
@@ -485,6 +547,14 @@ cmd_link() {
       --status)
         link_status
         return
+        ;;
+      -n | --dry-run)
+        if [ "$operation" != "link" ]; then
+          log_error "--dry-run is only supported for 'dot link'"
+          exit 1
+        fi
+        link_plan
+        return $?
         ;;
       *)
         log_error "Unknown argument: $1"

@@ -42,3 +42,40 @@ teardown() { teardown_sandbox; }
   [ "$status" -eq 0 ]
   [ ! -e "$XDG_CONFIG_HOME/emptypkg" ]
 }
+
+@test "link all --dry-run previews CREATE for unlinked targets and writes nothing" {
+  run "$DOT" link all -n
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"CREATE"* ]]
+  [[ "$output" == *"demo"* ]]
+  [[ "$output" == *".demorc"* ]]
+  # dry-run must not touch the filesystem
+  [ ! -e "$XDG_CONFIG_HOME/demo" ]
+  [ ! -e "$HOME/.demorc" ]
+}
+
+@test "link all --dry-run shows SKIP when everything is already linked" {
+  "$DOT" link all
+  run "$DOT" link all -n
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"SKIP"* ]]
+  [[ "$output" != *"CREATE"* ]]
+}
+
+@test "link all --dry-run flags a real file as CONFLICT and exits non-zero" {
+  printf 'i am a real file\n' >"$HOME/.demorc"
+  run "$DOT" link all -n
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"CONFLICT"* ]]
+  [[ "$output" == *".demorc"* ]]
+  # still no mutation — the real file is untouched
+  [ ! -L "$HOME/.demorc" ]
+  [ "$(cat "$HOME/.demorc")" = "i am a real file" ]
+}
+
+@test "link all --dry-run shows REPLACE for a symlink pointing elsewhere" {
+  ln -s /somewhere/else "$HOME/.demorc"
+  run "$DOT" link all -n
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"REPLACE"* ]]
+}
