@@ -10,6 +10,7 @@ if OS.mac?
   cask 'ghostty'                       # a better terminal emulator
   cask 'nikitabobko/tap/aerospace'     # a tiling window manager
   cask 'jdk-mission-control'           # GUI to analyze JFR recordings (pairs with jfr)
+  cask 'claude-code'                   # Claude Code — terminal AI coding assistant (provides `claude`)
 
   # Fonts
   cask 'font-symbols-only-nerd-font'   # nerd-only symbols font
