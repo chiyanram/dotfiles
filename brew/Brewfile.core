@@ -8,7 +8,6 @@ if OS.mac?
 
   # Applications (cross-profile)
   cask 'ghostty'                       # a better terminal emulator
-  cask 'nikitabobko/tap/aerospace'     # a tiling window manager
   cask 'jdk-mission-control'           # GUI to analyze JFR recordings (pairs with jfr)
   cask 'intellij-idea'                 # IntelliJ IDEA Ultimate — JetBrains Java/Kotlin IDE
   cask 'claude-code'                   # Claude Code — terminal AI coding assistant (provides `claude`)
