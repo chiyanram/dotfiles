@@ -23,3 +23,14 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   [[ "$output" == *"personal"* ]]
   [[ "$output" == *"docker-desktop"* ]]
 }
+
+@test "doctor runs under system bash 3.2 without the associative-array crash" {
+  [[ "$(uname)" == "Darwin" ]] || skip "system bash 3.2 is macOS-only"
+  [[ -x /bin/bash ]] || skip "no /bin/bash"
+  export HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/.config" DOTFILES="$REPO" TERM=dumb
+  # A fresh Mac runs doctor under bash 3.2. It exits non-zero in a bare sandbox
+  # (missing tools) — fine; it must NOT die on a bash-4 associative array.
+  run /bin/bash "$REPO/bin/dot-doctor"
+  [[ "$output" != *"unbound variable"* ]]
+  [[ "$output" == *"Homebrew Packages"* ]]
+}

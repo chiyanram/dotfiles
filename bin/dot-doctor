@@ -7,6 +7,22 @@ source "$DOTFILES/bin/lib/common.sh"
 missing_count=0
 optional_missing=0
 
+# Map a brew formula to its binary name for the few that differ. A case function,
+# not an associative array (`declare -A`): assoc arrays are a bash 4+ feature and
+# crash under macOS system bash 3.2, which is what runs on a fresh Mac.
+brew_cmd_for() {
+  case "$1" in
+    neovim) echo "nvim" ;;
+    ripgrep) echo "rg" ;;
+    git-delta) echo "delta" ;;
+    httpie) echo "http" ;;
+    gnupg) echo "gpg" ;;
+    python) echo "python3" ;;
+    tflint-ruby/tflint/tflint) echo "tflint" ;;
+    *) echo "$1" ;;
+  esac
+}
+
 check_tool() {
   local name="$1"
   local cmd="${2:-$1}"
@@ -304,17 +320,6 @@ main() {
   fmt_title_underline "Homebrew Packages"
   check_tool "brew" "brew"
 
-  # Formula name → binary name for mismatched entries
-  declare -A brew_cmd_map=(
-    [neovim]="nvim"
-    [ripgrep]="rg"
-    ["git-delta"]="delta"
-    [httpie]="http"
-    [gnupg]="gpg"
-    [python]="python3"
-    ["tflint-ruby/tflint/tflint"]="tflint"
-  )
-
   # Formulas to skip (system-provided or no user-facing binary)
   local brew_skip=" bash zsh grep font-symbols-only-nerd-font "
 
@@ -331,7 +336,8 @@ main() {
   if [[ "${#brewfiles[@]}" -gt 0 ]]; then
     while IFS= read -r formula; do
       [[ "$brew_skip" == *" $formula "* ]] && continue
-      local cmd="${brew_cmd_map[$formula]:-$formula}"
+      local cmd
+      cmd="$(brew_cmd_for "$formula")"
       # Tap-qualified formulas (containing '/') use the binary as display name
       local name="$formula"
       [[ "$formula" == */* ]] && name="$cmd"
