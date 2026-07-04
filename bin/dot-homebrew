@@ -32,12 +32,19 @@ homebrew_install() {
     exit 0
   fi
 
-  # Run as a login shell (non-interactive) so that the script doesn't pause for user input
-  # --connect-timeout/--retry so a proxy-blocked or flaky network fails fast
-  # instead of hanging; curl honors HTTPS_PROXY from the environment.
-  if ! curl -fsSL --connect-timeout 10 --retry 2 \
-    https://raw.githubusercontent.com/Homebrew/install/master/install.sh | bash --login; then
-    log_error "Homebrew install failed (network/proxy?). Set HTTPS_PROXY or install manually: https://brew.sh"
+  # Fetch the installer, then run it via `bash -c` so its stdin stays the TTY: a
+  # fresh Mac's Homebrew install needs an interactive sudo password, which a
+  # `curl | bash` pipe can't supply (stdin becomes the pipe, not the terminal).
+  # --connect-timeout/--retry fail fast on a blocked/flaky network (curl honors
+  # HTTPS_PROXY); the empty-check stops a failed download from silently passing.
+  local installer
+  if ! installer="$(curl -fsSL --connect-timeout 10 --retry 2 \
+    https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || [[ -z "$installer" ]]; then
+    log_error "Homebrew installer download failed (network/proxy?). Set HTTPS_PROXY or install manually: https://brew.sh"
+    return 1
+  fi
+  if ! /bin/bash -c "$installer"; then
+    log_error "Homebrew install failed — it needs an admin (sudo) password; re-run in a terminal, or install manually: https://brew.sh"
     return 1
   fi
 
