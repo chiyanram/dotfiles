@@ -13,6 +13,7 @@ setup_sandbox() {
   export SANDBOX
   export HOME="$SANDBOX/home"
   export XDG_CONFIG_HOME="$HOME/.config"
+  export XDG_STATE_HOME="$HOME/.local/state" # isolate dot's state (manifests) to the sandbox
   export DOTFILES="$SANDBOX/dotfiles"
   export DOT="$DOTFILES/bin/dot"
   export TERM=dumb # no tty in CI; keeps tput/colors quiet

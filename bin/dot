@@ -13,6 +13,7 @@ command_name=$(basename "${BASH_SOURCE[0]}")
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
 DOTFILES="${DOTFILES:-$(cd "$script_dir/.." && pwd -P)}"
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/dot"
 
 if [[ -f "$DOTFILES/bin/lib/common.sh" ]]; then
   source "$DOTFILES/bin/lib/common.sh"
@@ -60,6 +61,8 @@ $(fmt_key "Available Commands:")
         all                       Unlink all
         <pkg>                     Unlink a specific package
         -v, --verbose             Show detailed output
+    restore                       Undo the last 'dot link' run (removes/repoints created symlinks)
+        [manifest]                Restore a specific manifest instead of the newest
 EOF
 
   echo -e "\nExternal commands:"
@@ -501,6 +504,14 @@ link_plan() {
 # link_apply <source> <target> <label> <verbose> <force> — perform the action the
 # plan previews, deciding via the SAME classify_link the plan uses so `dot link`
 # and `dot link -n` can never disagree. Creates parent dirs as needed.
+# Append an undo record to the current run's manifest (if one is active). Row:
+# "<action>\t<target>\t<prev>" — prev is what restore sets <target> back to
+# (empty = remove). No-op when DOT_MANIFEST is unset (e.g. single-package link).
+manifest_record() {
+  [ -n "${DOT_MANIFEST:-}" ] || return 0
+  printf '%s\t%s\t%s\n' "$1" "$2" "$3" >>"$DOT_MANIFEST"
+}
+
 link_apply() {
   local source="$1" target="$2" label="$3" verbose="$4" force="$5"
   local target_dir
@@ -514,6 +525,7 @@ link_apply() {
     missing)
       [ "$verbose" = true ] && log_info "CREATE  $label"
       ln -s "$source" "$target"
+      manifest_record "create" "$target" ""
       ;;
     ok)
       # Use `if`, not `&&`: a bare failing test here would make link_apply return
@@ -525,8 +537,11 @@ link_apply() {
     wrong)
       if [ "$force" = true ]; then
         [ "$verbose" = true ] && log_info "REPLACE $label → $source"
+        local prev
+        prev="$(readlink "$target")"
         rm "$target"
         ln -s "$source" "$target"
+        manifest_record "replace" "$target" "$prev"
       else
         log_warning "$label points elsewhere ($(readlink "$target")) — rerun with -f to replace"
       fi
@@ -625,12 +640,22 @@ cmd_link() {
 
   if [ "$pkg" = "all" ]; then
     if [ "$operation" = "link" ]; then
+      # Record every mutation to a per-run manifest so `dot restore` can undo it.
+      mkdir -p "$STATE_DIR"
+      DOT_MANIFEST="$STATE_DIR/manifest-$(date +%Y%m%d_%H%M%S)-$$.tsv"
       # Link every managed target via the SAME walk + classifier the plan uses,
       # so `dot link all` and `dot link all -n` can never disagree.
       local source target label
       while IFS=$'\t' read -r source target label; do
         link_apply "$source" "$target" "$label" "$verbose" "$force"
       done < <(managed_targets)
+      # Drop an empty manifest (a no-op re-run changed nothing to undo).
+      if [ -s "$DOT_MANIFEST" ]; then
+        log_info "Recorded $(wc -l <"$DOT_MANIFEST" | tr -d ' ') change(s) — undo with: dot restore"
+      else
+        rm -f "$DOT_MANIFEST"
+      fi
+      unset DOT_MANIFEST
     else # unlink
       for config in "$DOTFILES/config"/*; do
         if [ -d "$config" ]; then
@@ -677,6 +702,50 @@ cmd_link() {
   log_success "Done"
 }
 
+# Undo a `dot link` run from its manifest (newest, or an explicit file). Reverses
+# each recorded mutation: a created symlink is removed; a replaced one is repointed
+# to its previous target. Safe: it only touches paths that are still symlinks.
+cmd_restore() {
+  local manifest="${1:-}"
+  if [ -z "$manifest" ]; then
+    # shellcheck disable=SC2012  # manifest names are timestamp+pid (no odd chars); ls -t = newest by mtime
+    manifest="$(ls -1t "$STATE_DIR"/manifest-*.tsv 2>/dev/null | head -1 || true)"
+  fi
+  if [ -z "$manifest" ] || [ ! -f "$manifest" ]; then
+    log_error "No link manifest to restore (looked in $STATE_DIR)"
+    return 1
+  fi
+
+  fmt_title_underline "Restoring from $(basename "$manifest")"
+  local action target prev restored=0
+  while IFS=$'\t' read -r action target prev; do
+    [ -n "$action" ] || continue
+    case "$action" in
+      create)
+        if [ -L "$target" ]; then
+          rm "$target"
+          log_info "removed  ~${target#"$HOME"}"
+          restored=$((restored + 1))
+        fi
+        ;;
+      replace)
+        if [ -L "$target" ]; then
+          rm "$target"
+          ln -s "$prev" "$target"
+          log_info "reverted ~${target#"$HOME"} → $prev"
+          restored=$((restored + 1))
+        else
+          log_warning "skip ~${target#"$HOME"} — no longer a symlink"
+        fi
+        ;;
+    esac
+  done <"$manifest"
+
+  echo
+  log_success "Restored $restored change(s)"
+  rm -f "$manifest"
+}
+
 main() {
   if [ $# -lt 1 ]; then
     usage
@@ -701,6 +770,9 @@ main() {
       ;;
     unlink)
       cmd_link "unlink" "$@"
+      ;;
+    restore)
+      cmd_restore "$@"
       ;;
     *)
       if command -v "dot-$cmd" >/dev/null 2>&1; then
