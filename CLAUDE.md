@@ -17,8 +17,9 @@ Mirrors my global instructions (dev-kit `AGENTS.md`) — repeated because these 
 
 Process:
 
-- **Work follows from an issue.** Non-trivial work is tracked by a GitHub issue; commits reference it (`Refs #N` / `Closes #N`). No issue yet → log one first.
-- **Commit small, focused pieces.** One logical change per commit; never batch unrelated changes.
+- **Every issue gets a branch.** Non-trivial work is tracked by a GitHub issue and done on its own branch (`<type>/<issue-number>-<brief-description>`) — never commit straight to `main`. No issue yet → log one first.
+- **Commit small, focused pieces** on the branch, pushing as you go. One logical change per commit; never batch unrelated changes.
+- **Close the issue through a PR.** Open a PR with `Closes #N` in the body and squash-merge to `main`; the merge is what closes the issue (a `Closes #N` commit only takes effect once it lands on `main`).
 - **Every change updates its docs.** A behavior/command/config change updates the relevant docs (`README.md`, this file, `usage()` help) in the *same* change — doc drift is a bug.
 
 ## About This Repo
