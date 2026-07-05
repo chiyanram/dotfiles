@@ -1,9 +1,5 @@
 # Dotfiles Project
 
-## Who I Am
-
-Senior backend engineer. Primary stack: Java 25+, Spring Boot 4.x, Gradle, PostgreSQL, Kubernetes, Terraform. Also invests in Indian stock market (stocks and mutual funds). Lifelong learner. This is a personal macOS laptop.
-
 ## How We Work Here
 
 Mirrors my global instructions (dev-kit `AGENTS.md`) — repeated because these bite most in a bash/dotfiles repo:
@@ -24,7 +20,7 @@ Process:
 
 ## About This Repo
 
-Personal dotfiles managing my macOS development environment. Clean git history, fully independent.
+Personal dotfiles for my macOS laptop (backend engineer: JVM toolchain via SDKMAN, Node/Python via mise). Clean git history, fully independent. Who I am and how I work live in the global instructions (dev-kit `AGENTS.md`) — this file only holds what's specific to this repo.
 
 ## Platform
 
@@ -34,8 +30,8 @@ Personal dotfiles managing my macOS development environment. Clean git history, 
 
 ## Architecture
 
-- `bin/dot` is the main entry point. Built-in commands: link, unlink, backup, clean, help
-- `bin/dot-*` are external commands discovered via PATH (doctor, update, git, homebrew, macos, shell)
+- `bin/dot` is the main entry point. Built-in commands: link, unlink, backup, restore, clean, help
+- `bin/dot-*` are external commands discovered via PATH — `dot help` lists them; don't enumerate them in docs (the list goes stale)
 - `bin/lib/common.sh` provides shared utilities (colors, logging, spinners)
 - `config/` directories are symlinked to `~/.config/` via `dot link`
 - `home/` files are symlinked to `~/` preserving directory structure
@@ -78,6 +74,11 @@ Personal dotfiles managing my macOS development environment. Clean git history, 
 - Never `source` a third-party init script (sdkman-init.sh etc.) into a dot script's own process — they expand unset vars (fatal under `set -u`, and the abort escapes the step runner's `||` catch, killing the whole script) and may use bash-4-only syntax. Run the tool in a PATH-bash subprocess instead: `bash -c 'source …init.sh && tool "$@"' tool "$@"`
 - `git config <key>` returns exit 1 if key missing — always use `2>/dev/null || true`
 
+### Tests
+- Tests are bats; `dot test` is the merge gate (shellcheck, shfmt, bash syntax, zsh smoke, bats) — run it before claiming green
+- Tests must be bash-3.2-safe too: the macOS CI job installs no modern bash, so bats runs under system bash 3.2 — no bash-4+ features (`$BASHPID`, etc.)
+- shfmt house style is `-i 2 -ci` — enforced by `dot test` and CI but NOT by pre-commit, so hooks passing ≠ CI passing
+
 ### Brewfile (`brew/Brewfile.*`)
 - Organized by category with comments: macOS, core, shell, dev tools, infra
 - `cask` entries go inside `if OS.mac?` block
@@ -95,7 +96,8 @@ Personal dotfiles managing my macOS development environment. Clean git history, 
 - Plugin keybindings must come AFTER the plugin's `zfetch` call, not in the Key Bindings section
 - `fzf-git.sh` requires `[[ -o zle ]]` guard — it registers zle widgets at source time
 - Tool initializations check `command -v` before running
-- SDKMAN must be at the end (it modifies PATH)
+- mise activates Node/Python runtimes (reads .nvmrc/.python-version natively)
+- SDKMAN is lazy-loaded (candidate bins on PATH, full init deferred) and must stay at the end
 - Starship init is the very last thing
 - Never alias POSIX core commands (`find`, `grep`, `sed`, `awk`, `sort`) — other tools call them internally (SDKMAN uses `find`, etc.)
 - After any zsh config change, verify with: `zsh -i -c 'echo ok' 2>&1`
@@ -118,6 +120,7 @@ Personal dotfiles managing my macOS development environment. Clean git history, 
 - `~/.localrc` and `~/.zshrc.local` — machine-specific shell config (sourced by .zshrc, not committed)
 - `~/.zshenv.local` — machine-specific env vars (sourced by .zshenv, not committed)
 - `~/.gitconfig-local` — personal git config (name, email, signing key)
+- Identity/auth/transport git config (`url.insteadOf`, keys, email) must NEVER go in `config/git/config` — it's shared across machines; use `~/.gitconfig-local`
 
 ### Common Commands
 ```bash
@@ -125,6 +128,9 @@ dot link all -v           # Symlink everything
 dot doctor                # Verify all tools installed
 dot update all            # Update brew, nvim, zsh, sdkman, dotfiles
 dot backup -v             # Backup before changes
+dot test                  # Full gate: shellcheck, shfmt, bash syntax, zsh smoke, bats (CI runs exactly this)
+bats tests/<file>.bats    # Run a single test file
+dot profile get           # Machine profile (personal|work) — stored in ~/.config/dotfiles/profile, selects Brewfile
 dot homebrew bundle       # Install all Brewfile packages
 pre-commit run --all-files  # Validate configs
 ```
