@@ -323,6 +323,24 @@ check_zsh_plugins() {
 }
 
 main() {
+  local strict=false
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --strict)
+        strict=true
+        shift
+        ;;
+      -h | --help)
+        printf 'Usage: dot doctor [--strict]\n  --strict  treat every warning (optional tools, etc.) as a failure\n'
+        exit 0
+        ;;
+      *)
+        log_error "Unknown option: $1 (try: dot doctor --strict)"
+        exit 1
+        ;;
+    esac
+  done
+
   fmt_title_border "Dotfiles Health Check"
   echo
 
@@ -414,6 +432,12 @@ main() {
   fi
 
   [[ "$optional_missing" -gt 0 ]] && log_warning "$optional_missing optional tool(s) missing"
+
+  # --strict: every warning is a failure, for a "must be perfectly green" CI gate.
+  if [[ "$strict" == true && "$optional_missing" -gt 0 ]]; then
+    log_error "strict: treating $optional_missing warning(s) as failures"
+    has_issues=true
+  fi
 
   if [[ "$has_issues" == true ]]; then
     exit 1

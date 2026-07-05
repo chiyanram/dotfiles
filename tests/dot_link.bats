@@ -104,3 +104,14 @@ teardown() { teardown_sandbox; }
   [ ! -L "$HOME/.demorc" ]
   [ "$(cat "$HOME/.demorc")" = "real" ]
 }
+
+@test "link --status exits 0 when linked, non-zero when the state is broken (CI gate)" {
+  "$DOT" link all
+  run "$DOT" link --status
+  [ "$status" -eq 0 ]
+
+  rm "$HOME/.demorc" # break one link
+  run "$DOT" link --status
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"1 missing"* ]]
+}

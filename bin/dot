@@ -433,6 +433,8 @@ link_status() {
   echo
   printf "  %b%d ok%b  %b%d missing%b  %b%d wrong%b  %b%d real%b\n" \
     "$GREEN" "$ok" "$RESET" "$RED" "$missing" "$RESET" "$YELLOW" "$wrong" "$RESET" "$RED" "$real" "$RESET"
+  # Non-zero when the linked state is broken/partial, so CI and `dot doctor` can gate on it.
+  [ $((missing + wrong + real)) -eq 0 ]
 }
 
 # Emit "<source>\t<target>\t<label>" for every managed target: config packages

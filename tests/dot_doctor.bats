@@ -48,3 +48,15 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   [[ "$output" == *"installed"* ]]
   [[ "$output" != *"not found"* ]]
 }
+
+@test "doctor --help documents --strict and exits 0" {
+  run env DOTFILES="$REPO" TERM=dumb "$REPO/bin/dot-doctor" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"--strict"* ]]
+}
+
+@test "doctor rejects an unknown option" {
+  run env DOTFILES="$REPO" TERM=dumb "$REPO/bin/dot-doctor" --nope
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Unknown option"* ]]
+}
