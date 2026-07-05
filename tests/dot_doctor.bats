@@ -1,6 +1,10 @@
 setup() {
   REPO="$(cd "$BATS_TEST_DIRNAME/.." && pwd -P)"
   SANDBOX="$(mktemp -d)"
+  # Run doctor with a minimal PATH so slow dev-tool probes (gradle/java `--version`,
+  # brew, sdk) resolve to "not found" instantly instead of shelling out — ~24s → ~2s
+  # per run, and deterministic (fresh-machine-like) rather than machine-dependent.
+  DOCTOR_PATH="/usr/bin:/bin"
 }
 
 teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
@@ -10,7 +14,7 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   export HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/.config" DOTFILES="$REPO" TERM=dumb
   "$REPO/bin/dot-profile" set work
   # doctor exits non-zero in a sandbox (missing links/tools) — ignore that; check output.
-  run "$REPO/bin/dot-doctor"
+  run env PATH="$DOCTOR_PATH" "$REPO/bin/dot-doctor"
   [[ "$output" == *"Profile"* ]]
   [[ "$output" == *"work"* ]]
   [[ "$output" == *"rancher"* ]]
@@ -19,7 +23,7 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
 @test "doctor defaults to the personal profile and docker-desktop runtime" {
   [[ "$(uname)" == "Darwin" ]] || skip "dot doctor inspection is macOS-only"
   export HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/.config" DOTFILES="$REPO" TERM=dumb
-  run "$REPO/bin/dot-doctor"
+  run env PATH="$DOCTOR_PATH" "$REPO/bin/dot-doctor"
   [[ "$output" == *"personal"* ]]
   [[ "$output" == *"docker-desktop"* ]]
 }
@@ -30,7 +34,7 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   export HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/.config" DOTFILES="$REPO" TERM=dumb
   # A fresh Mac runs doctor under bash 3.2. It exits non-zero in a bare sandbox
   # (missing tools) — fine; it must NOT die on a bash-4 associative array.
-  run /bin/bash "$REPO/bin/dot-doctor"
+  run env PATH="$DOCTOR_PATH" /bin/bash "$REPO/bin/dot-doctor"
   [[ "$output" != *"unbound variable"* ]]
   [[ "$output" == *"Homebrew Packages"* ]]
 }
