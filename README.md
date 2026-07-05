@@ -149,13 +149,16 @@ Add executable scripts named `dot-<command>` anywhere in `$PATH`:
 
 Managed via `dot link`. Each directory in `config/` becomes a symlink in `~/.config/`.
 
+Each directory under `config/` is a package (the list below is a snapshot — `ls config/` is authoritative):
+
 | Package | Description |
 |---------|-------------|
 | `aerospace` | Tiling window manager for macOS |
-| `docker` | Docker completions |
+| `atuin` | Shell history database (Ctrl-R) |
 | `ghostty` | Terminal emulator (Catppuccin theme) |
 | `git` | Git configuration and global ignore |
 | `lazygit` | Git TUI |
+| `mise` | Node/Python runtime manager (reads `.nvmrc`/`.python-version`) |
 | `nvim` | Neovim (Lua config, lazy.nvim plugin manager) |
 | `ripgrep` | Ripgrep configuration |
 | `sesh` | Terminal session manager |
@@ -170,8 +173,8 @@ Configuration lives in `home/` (`.zshrc`, `.zsh_functions`, `.zsh_aliases`, `.zp
 
 - **Starship prompt** with git status, Java version, K8s context, Docker status
 - **Plugins** via `zfetch` (custom plugin manager):
-  - zsh-completions, zsh-syntax-highlighting, zsh-autosuggestions, zsh-history-substring-search, zsh-you-should-use, zsh-npm-scripts-autocomplete, fzf-tab, fzf-git.sh
-- **Tool initialization**: fnm, pyenv, pnpm, zoxide, direnv, fzf, SDKMAN, starship
+  - zsh-completions, zsh-syntax-highlighting, zsh-autosuggestions, zsh-history-substring-search, zsh-you-should-use, fzf-tab, fzf-git.sh
+- **Tool initialization**: mise (Node/Python), pnpm, zoxide, direnv, fzf, atuin, SDKMAN (lazy-loaded), starship
 - **Docker aliases** (`home/.docker_aliases`)
 - **Custom functions**: `c` (cd to workspaces), `h` (cd to home subdir), `g` (git shortcut), `md` (mkdir + cd), `zfetch` (plugin manager)
 
@@ -217,15 +220,15 @@ sdk list java               # List available Java versions
 dot update sdkman           # Update SDKMAN and all installed SDKs
 ```
 
-### Infrastructure (via Homebrew)
+### Packages (Homebrew)
 
-The `brew/Brewfile.core` includes backend and infrastructure tools, with profile-specific additions in `brew/Brewfile.{personal,work}`:
+Packages are declared in `brew/Brewfile.core` (cross-profile) plus `brew/Brewfile.{personal,work}` (profile-specific) — **those files are the source of truth**; read them for the full, current list.
 
 ```bash
-dot homebrew bundle         # Install everything from brew/Brewfile.*
+dot homebrew bundle         # Install everything for the active profile
 ```
 
-Installed tools include: `kubectl`, `helm`, `k9s`, `kubectx`, `stern`, `docker`, `lazydocker`, `httpie`, `pgcli`, `dive`
+Spans CLI tools (git, neovim, ripgrep, fzf, kubectl, helm, k9s, jq, git-delta, …), GUI casks (ghostty, intellij-idea, claude-code, jdk-mission-control), and profile-specific infra (the Docker runtime, dive, lazydocker).
 
 ### Health Check
 
@@ -234,19 +237,6 @@ Verify your setup is complete:
 ```bash
 dot doctor                  # Check all required and optional tools
 ```
-
-## Homebrew Packages
-
-Full list in `brew/Brewfile.core` (plus profile-specific `brew/Brewfile.{personal,work}`). Key packages:
-
-| Category | Tools |
-|----------|-------|
-| Core | git, zsh, neovim, tmux |
-| Shell | starship, fzf, fd, ripgrep, zoxide, bat, eza, procs |
-| Dev | lazygit, gh, git-delta, just, direnv, fnm, python, jq, shellcheck |
-| Java | jbang, sdkman (external) |
-| Infra | kubectl, kubecolor, helm, k9s, kubectx, stern, yq, docker, lazydocker, httpie, pgcli, dive |
-| macOS | ghostty, aerospace, trash, noti |
 
 ## macOS Settings
 
