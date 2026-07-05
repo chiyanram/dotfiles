@@ -72,7 +72,7 @@ sdkman_plan() {
 
 sdkman_install() {
   fmt_title_underline "Installing SDKMAN toolchain"
-  local cand spec flag version failed=0
+  local cand spec flag version failed=0 default_java=""
   while IFS=$'\t' read -r cand spec flag; do
     if [ "$cand" = "java" ]; then
       if ! version="$(resolve_temurin "$spec")"; then
@@ -82,9 +82,7 @@ sdkman_install() {
       fi
       log_info "java $spec → $version"
       if run_sdk install java "$version"; then
-        if [ "$flag" = "default" ]; then
-          run_sdk default java "$version" || log_warning "Could not set java $version as default"
-        fi
+        if [ "$flag" = "default" ]; then default_java="$version"; fi
       else
         log_warning "sdk install java $version failed"
         failed=$((failed + 1))
@@ -97,6 +95,13 @@ sdkman_install() {
       }
     fi
   done < <(toolchain_rows)
+
+  # Set the default JDK LAST. `sdk install java <v>` auto-answers its "set as
+  # default?" prompt (EOF from run_sdk's /dev/null), so each install would grab
+  # the default; applying the flagged version after the loop makes it win.
+  if [ -n "$default_java" ]; then
+    run_sdk default java "$default_java" || log_warning "Could not set java $default_java as default"
+  fi
 
   echo
   if [ "$failed" -gt 0 ]; then

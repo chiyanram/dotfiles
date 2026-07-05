@@ -65,6 +65,10 @@ EOF
 source "$REPO/bin/dot-sdkman"
 run_sdk() {
   if [ "\$1" = list ]; then cat "$FAKE_LIST"; return 0; fi
+  # Simulate sdk: installing a JDK auto-answers "set as default? (Y/n)" (EOF→yes),
+  # and \`sdk default\` sets it explicitly — both change the effective default.
+  if [ "\$1" = install ] && [ "\$2" = java ]; then printf '%s' "\$3" >"$SANDBOX/curdef"; fi
+  if [ "\$1" = default ] && [ "\$2" = java ]; then printf '%s' "\$3" >"$SANDBOX/curdef"; fi
   printf 'sdk %s\n' "\$*" >>"$calls"
 }
 sdkman_install
@@ -78,7 +82,7 @@ DRIVER
   grep -qx 'sdk install java 26.0.1-tem' "$calls"
   grep -qx 'sdk install java 25.0.3-tem' "$calls"
   grep -qx 'sdk install java 17.0.19-tem' "$calls"
-  # only the 'default'-flagged java is set as default
-  grep -qx 'sdk default java 25.0.3-tem' "$calls"
-  ! grep -q 'sdk default java 26' "$calls"
+  # The flagged default (25) must WIN even though 17 installs after it and each
+  # install auto-grabs the default — i.e. `sdk default 25` runs last (#5 regression).
+  [ "$(cat "$SANDBOX/curdef")" = "25.0.3-tem" ]
 }
