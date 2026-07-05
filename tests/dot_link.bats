@@ -115,3 +115,14 @@ teardown() { teardown_sandbox; }
   [ "$status" -ne 0 ]
   [[ "$output" == *"1 missing"* ]]
 }
+
+@test "link --adopt imports a real file into the repo, then links to it" {
+  printf 'machine-specific config\n' >"$HOME/.demorc" # repo has 'demo home rc'
+  run "$DOT" link all --adopt
+  [ "$status" -eq 0 ]
+  [ -L "$HOME/.demorc" ]
+  [ "$(readlink "$HOME/.demorc")" = "$DOTFILES/home/.demorc" ]
+  # the repo now holds the machine's version, and the link reads it back
+  [ "$(cat "$DOTFILES/home/.demorc")" = "machine-specific config" ]
+  [ "$(cat "$HOME/.demorc")" = "machine-specific config" ]
+}

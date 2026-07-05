@@ -56,3 +56,17 @@ manifests() { ls "$STATE"/manifest-*.tsv 2>/dev/null; }
   [ ! -L "$HOME/.demorc" ]
   [ "$(cat "$HOME/.demorc")" = "i replaced it" ]
 }
+
+@test "link -b backs up a real file then links; restore puts the original back" {
+  printf 'my real config\n' >"$HOME/.demorc"
+  run "$DOT" link all -b
+  [ "$status" -eq 0 ]
+  [ -L "$HOME/.demorc" ]
+  [ "$(readlink "$HOME/.demorc")" = "$DOTFILES/home/.demorc" ]
+  ls "$HOME"/.demorc.backup.* >/dev/null 2>&1 # a timestamped backup exists
+
+  run "$DOT" restore
+  [ "$status" -eq 0 ]
+  [ ! -L "$HOME/.demorc" ]
+  [ "$(cat "$HOME/.demorc")" = "my real config" ] # original restored
+}

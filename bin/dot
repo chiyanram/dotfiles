@@ -54,6 +54,8 @@ $(fmt_key "Available Commands:")
             -n, --dry-run         Show what would be removed without actually removing
             -v, --verbose         Show detailed output
         -f, --force               Replace existing symlinks (refuses to overwrite real files)
+        -b, --backup              On a real file: move it to <target>.backup.<ts>, then link (undo: dot restore)
+        --adopt                   On a real file: import it INTO the repo, then link (opt-in; changes git state)
         -n, --dry-run             Preview the plan (CREATE/SKIP/REPLACE/CONFLICT); non-zero on conflict
         --status                  Show link status without making changes
         -v, --verbose             Show detailed output
@@ -516,6 +518,7 @@ manifest_record() {
 
 link_apply() {
   local source="$1" target="$2" label="$3" verbose="$4" force="$5"
+  local backup="${6:-false}" adopt="${7:-false}"
   local target_dir
   target_dir="$(dirname "$target")"
   if [ ! -d "$target_dir" ]; then
@@ -549,7 +552,25 @@ link_apply() {
       fi
       ;;
     real)
-      log_warning "$label is a real file/dir, not a symlink — skipping (back up first: dot backup)"
+      if [ "$adopt" = true ]; then
+        # Import the live file INTO the repo, then link. This overwrites the repo's
+        # version (git-recoverable), so it's opt-in and not manifest-recorded.
+        [ "$verbose" = true ] && log_info "ADOPT   $label → repo (review with: git -C \"\$DOTFILES\" diff)"
+        rm -rf "$source"
+        mv "$target" "$source"
+        ln -s "$source" "$target"
+      elif [ "$backup" = true ]; then
+        # Sideline the real file to a timestamped backup, then link. Recorded so
+        # `dot restore` puts the original back.
+        local bak
+        bak="$target.backup.$(date +%Y%m%d_%H%M%S)"
+        [ "$verbose" = true ] && log_info "BACKUP  $label → $(basename "$bak")"
+        mv "$target" "$bak"
+        ln -s "$source" "$target"
+        manifest_record "backup" "$target" "$bak"
+      else
+        log_warning "$label is a real file/dir — skipping (use -b to back it up and link, or --adopt to import it into the repo)"
+      fi
       ;;
   esac
 }
@@ -595,6 +616,8 @@ cmd_link() {
   local verbose=false
   local force=false
   local dry_run=false
+  local backup=false
+  local adopt=false
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -604,6 +627,14 @@ cmd_link() {
         ;;
       -f | --force)
         force=true
+        shift
+        ;;
+      -b | --backup)
+        backup=true
+        shift
+        ;;
+      --adopt)
+        adopt=true
         shift
         ;;
       --status)
@@ -649,7 +680,7 @@ cmd_link() {
       # so `dot link all` and `dot link all -n` can never disagree.
       local source target label
       while IFS=$'\t' read -r source target label; do
-        link_apply "$source" "$target" "$label" "$verbose" "$force"
+        link_apply "$source" "$target" "$label" "$verbose" "$force" "$backup" "$adopt"
       done < <(managed_targets)
       # Drop an empty manifest (a no-op re-run changed nothing to undo).
       if [ -s "$DOT_MANIFEST" ]; then
@@ -738,6 +769,17 @@ cmd_restore() {
           restored=$((restored + 1))
         else
           log_warning "skip ~${target#"$HOME"} — no longer a symlink"
+        fi
+        ;;
+      backup)
+        # prev holds the sidelined backup path; put it back over our symlink.
+        if [ -L "$target" ] && [ -e "$prev" ]; then
+          rm "$target"
+          mv "$prev" "$target"
+          log_info "restored ~${target#"$HOME"} from backup"
+          restored=$((restored + 1))
+        else
+          log_warning "skip ~${target#"$HOME"} — link or backup missing"
         fi
         ;;
     esac
