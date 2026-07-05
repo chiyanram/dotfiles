@@ -34,3 +34,17 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   [[ "$output" != *"unbound variable"* ]]
   [[ "$output" == *"Homebrew Packages"* ]]
 }
+
+@test "check_sdk recognizes a candidate installed via SDKMAN but not on PATH" {
+  mkdir -p "$SANDBOX/.sdkman/candidates/kotlin/current/bin"
+  printf '#!/bin/sh\n' >"$SANDBOX/.sdkman/candidates/kotlin/current/bin/kotlin"
+  chmod +x "$SANDBOX/.sdkman/candidates/kotlin/current/bin/kotlin"
+  # Source doctor (main is guarded), then check with a PATH that lacks kotlin.
+  run env TERM=dumb bash -c "
+    source '$REPO/bin/dot-doctor'
+    SDKMAN_DIR='$SANDBOX/.sdkman' PATH='/usr/bin:/bin' check_sdk kotlin kotlin true
+  "
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"installed"* ]]
+  [[ "$output" != *"not found"* ]]
+}

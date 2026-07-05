@@ -67,14 +67,26 @@ check_sdkman_env() {
   fi
 }
 
-check_java() {
-  if command -v java &>/dev/null; then
-    local version
-    version=$(java --version 2>&1 | head -n1) || version="installed"
-    printf "  %b %b%-14s%b %b%s%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "java" "$RESET" "$DIM" "$version" "$RESET"
-  else
-    printf "  %b %b%-14s%b %b%s%b\n" "${RED}${ERROR_ICON}" "$BOLD" "java" "$RESET" "$RED" "not found — install via: sdk install java" "$RESET"
+# check_sdk <candidate> <bin> [required] — like check_tool, but also recognizes a
+# candidate installed via SDKMAN whose bin isn't on THIS shell's PATH yet (a fresh
+# install needs a new shell), so it isn't a false "not found" right after install.
+check_sdk() {
+  local candidate="$1" bin="${2:-$1}" required="${3:-true}"
+  if command -v "$bin" &>/dev/null; then
+    check_tool "$candidate" "$bin" "$required"
+    return
+  fi
+  local sdkbin="${SDKMAN_DIR:-$HOME/.sdkman}/candidates/$candidate/current/bin/$bin"
+  if [[ -x "$sdkbin" ]]; then
+    printf "  %b %b%-14s%b %b%s%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "$candidate" "$RESET" "$DIM" "installed (open a new shell for PATH)" "$RESET"
+    return
+  fi
+  if [[ "$required" == "true" ]]; then
+    printf "  %b %b%-14s%b %b%s%b\n" "${RED}${ERROR_ICON}" "$BOLD" "$candidate" "$RESET" "$RED" "not found" "$RESET"
     missing_count=$((missing_count + 1))
+  else
+    printf "  %b %b%-14s%b %b%s%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "$candidate" "$RESET" "$YELLOW" "not found (optional)" "$RESET"
+    optional_missing=$((optional_missing + 1))
   fi
 }
 
@@ -373,11 +385,11 @@ main() {
   fmt_title_underline "Java / Backend"
   check_sdkman
   check_sdkman_env
-  check_java
-  check_tool "gradle" "gradle" "true"
-  check_tool "maven" "mvn" "true"
-  check_tool "mvnd" "mvnd" "true"
-  check_tool "kotlin" "kotlin" "true"
+  check_sdk "java" "java" "true"
+  check_sdk "gradle" "gradle" "true"
+  check_sdk "maven" "mvn" "true"
+  check_sdk "mvnd" "mvnd" "true"
+  check_sdk "kotlin" "kotlin" "true"
   echo
 
   # SSH / GitHub auth
