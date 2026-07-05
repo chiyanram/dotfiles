@@ -22,19 +22,19 @@ cd ~/tools-repo/dotfiles
 ./setup.sh
 ```
 
-The script walks you through each step interactively:
+The script prints and runs each step (any step it can't do is skipped, and the run always finishes with a summary):
 
-1. Xcode CLI tools check
-2. Homebrew installation
-3. SSH key generation (copies public key to clipboard)
-4. Docker runtime selection (Docker Desktop or Rancher Desktop)
-5. Homebrew package installation
-6. Backup existing configs and symlink dotfiles
-7. Set ZSH as default shell
-8. Git identity configuration
-9. macOS system defaults (optional, can skip)
-10. SDKMAN + Java/Gradle installation (optional, can skip)
-11. Health check via `dot doctor`
+1. Xcode CLI tools
+2. Homebrew
+3. Machine profile — `personal`/`work` (also picks the Docker runtime)
+4. SSH key (+ trusts `github.com` so the first `git push` doesn't prompt)
+5. Homebrew packages (`dot homebrew bundle`)
+6. Backup existing configs & symlink dotfiles
+7. Default shell → zsh
+8. Git identity
+9. macOS system defaults (optional)
+10. JVM toolchain via SDKMAN (`dot sdkman install` — Temurin JDKs + gradle/maven/mvnd/kotlin)
+11. Health check (`dot doctor`)
 
 > **Note:** After setup, open a new terminal. `dot` will be in your `$PATH`.
 
@@ -105,35 +105,40 @@ dot unlink [package]        # Unlink all or specific package
 
 | Command | Description |
 |---------|-------------|
-| `dot link all` | Symlink all config packages to `~/.config` |
+| `dot link all` | Symlink every config/home package into place |
 | `dot link <pkg>` | Link a specific package (e.g., `dot link nvim`) |
-| `dot link --status` | Show status of all links (OK, MISSING, WRONG, REAL) |
-| `dot link all --force` | Replace existing symlinks (refuses to overwrite real files) |
+| `dot link --status` | Show link health (OK/MISSING/WRONG/REAL); exits non-zero if broken |
+| `dot restore` | Undo the last `dot link` run (removes/repoints what it created) |
 | `dot unlink all` | Remove all symlinks |
-| `dot backup` | Create timestamped backup of existing dotfiles |
-| `dot clean` | Remove broken and stale symlinks |
-| `dot help` | Show all available commands |
+| `dot backup` | Timestamped backup of existing dotfiles |
+| `dot clean` | Remove broken/stale symlinks |
+| `dot help` | List all commands (built-in + auto-discovered `dot-*`) |
+
+**Safe linking — preview, apply, undo.** `dot link` never blindly overwrites:
+
+```bash
+dot link all -n             # preview the plan (CREATE/SKIP/REPLACE/CONFLICT); non-zero on conflict
+dot link all -n -v          # ...plus a diff of any conflicting file
+dot link all                # apply (records a manifest under ~/.local/state/dot/)
+dot restore                 # undo that run
+```
+
+When a real file sits where a link should go, `dot link` refuses by default; resolve it explicitly:
+
+- `dot link all -b` — move the file to `<target>.backup.<ts>`, then link (restorable via `dot restore`)
+- `dot link all --adopt` — import the live file into the repo, then link (git-recoverable)
 
 ### External Commands
 
-| Command | Description |
-|---------|-------------|
-| `dot update all` | Update everything (Neovim, Homebrew, ZSH plugins, SDKMAN, dotfiles) |
-| `dot update brew` | Update Homebrew packages |
-| `dot update nvim` | Update Neovim plugins |
-| `dot update zsh` | Update ZSH plugins |
-| `dot update sdkman` | Update SDKMAN and installed SDKs |
-| `dot update dotfiles` | Pull latest dotfiles from git |
-| `dot migrate` | Pull latest, clean, relink, install packages, health check |
-| `dot doctor` | Health check — config links, shell, plugins, and tools |
-| `dot git setup` | Configure git user settings interactively |
-| `dot macos defaults` | Configure recommended macOS system defaults |
-| `dot shell change` | Change default shell to zsh |
-| `dot homebrew install` | Install Homebrew |
-| `dot homebrew bundle` | Install packages from Brewfile |
-| `dot profile show` | Show the active profile (personal\|work) and per-machine config |
-| `dot profile set work` | Switch the machine profile |
-| `dot profile set-config <key> <value>` | Set a per-machine value (e.g. `work_dir`, `docker_runtime`) |
+`dot-*` scripts are auto-discovered from `$PATH`, so **`dot help` is the authoritative, always-current list** (any table here would only go stale). The main families:
+
+- **`dot doctor`** — health check (config links, shell, plugins, tools); `--strict` fails on any warning
+- **`dot update <all|brew|nvim|zsh|sdkman|dotfiles>`** — update installed things (reports what actually *changed*)
+- **`dot sdkman <install|plan|env>`** — the JVM toolchain (see [Java / Backend](#java--backend-sdkman))
+- **`dot homebrew <install|bundle>`** — Homebrew itself + Brewfile packages
+- **`dot profile <show|set|set-config>`** — personal/work profile + per-machine config
+- **`dot migrate`** — pull latest, clean, relink, install, health check (for an already-set-up machine)
+- **`dot git setup`**, **`dot macos defaults`**, **`dot shell change`** — one-off setup helpers
 
 ### Extending with Custom Commands
 
@@ -209,16 +214,18 @@ Accessibility → enable Ghostty.** If `Ctrl`+`` ` `` collides on a machine, ove
 
 ## Development Tooling
 
-### Java / Backend (via SDKMAN)
+### Java / Backend (SDKMAN)
 
-SDKMAN is initialized in `.zshrc` and manages Java, Gradle, Maven, and other JVM tools.
+The JVM toolchain is **declared** in `sdkman/toolchain` — the "Brewfile for SDKMAN" — and installed by `dot sdkman` (`setup.sh` runs `install` for you):
 
 ```bash
-sdk install java            # Install latest Java
-sdk install gradle          # Install Gradle
-sdk list java               # List available Java versions
-dot update sdkman           # Update SDKMAN and all installed SDKs
+dot sdkman plan             # Show the resolved plan (which Temurin patch each major maps to)
+dot sdkman install          # Install everything in sdkman/toolchain (idempotent)
+dot sdkman env 21           # Pin java 21 in ./.sdkmanrc for this project (or: env latest)
+dot update sdkman           # Upgrade SDKMAN + installed SDKs
 ```
+
+`sdkman/toolchain` lists gradle/maven/mvnd/kotlin (latest stable) plus several Temurin JDKs (`java latest` + the LTS majors). The **global default JDK is the latest**; per-project JDKs are pinned in a `.sdkmanrc` that auto-switches on `cd`. `dot sdkman env <major>` resolves the exact `-tem` version for you — no manual lookup of version strings.
 
 ### Packages (Homebrew)
 
