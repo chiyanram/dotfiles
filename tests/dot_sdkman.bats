@@ -86,3 +86,30 @@ DRIVER
   # install auto-grabs the default — i.e. `sdk default 25` runs last (#5 regression).
   [ "$(cat "$SANDBOX/curdef")" = "25.0.3-tem" ]
 }
+
+@test "sdkman env <major> writes .sdkmanrc pinning the resolved Temurin patch" {
+  cat >"$SANDBOX/driver.sh" <<DRIVER
+source "$REPO/bin/dot-sdkman"
+run_sdk() { cat "$FAKE_LIST"; }
+cd "$SANDBOX"
+sdkman_env 21
+DRIVER
+  run env DOTFILES="$REPO" bash "$SANDBOX/driver.sh"
+  [ "$status" -eq 0 ]
+  grep -qx 'java=21.0.11-tem' "$SANDBOX/.sdkmanrc"
+}
+
+@test "sdkman env updates an existing java= line and preserves other pins" {
+  printf 'gradle=8.5\njava=17.0.0-tem\n' >"$SANDBOX/.sdkmanrc"
+  cat >"$SANDBOX/driver.sh" <<DRIVER
+source "$REPO/bin/dot-sdkman"
+run_sdk() { cat "$FAKE_LIST"; }
+cd "$SANDBOX"
+sdkman_env 25
+DRIVER
+  run env DOTFILES="$REPO" bash "$SANDBOX/driver.sh"
+  [ "$status" -eq 0 ]
+  grep -qx 'java=25.0.3-tem' "$SANDBOX/.sdkmanrc"
+  grep -qx 'gradle=8.5' "$SANDBOX/.sdkmanrc" # preserved
+  ! grep -q '17.0.0-tem' "$SANDBOX/.sdkmanrc" # old java replaced
+}

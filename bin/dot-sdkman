@@ -23,6 +23,7 @@ Options:
     -h, --help       Show this help message
     install          Install every candidate in the manifest (idempotent)
     plan             Print the resolved plan without installing
+    env <major>      Write/update ./.sdkmanrc to pin java <major> (e.g. env 21, or: latest)
 EOF
 }
 
@@ -111,28 +112,47 @@ sdkman_install() {
   log_success "SDKMAN toolchain installed"
 }
 
-main() {
-  local subcmd=""
-  if [ $# -lt 1 ]; then
-    usage
-    exit 0
+# sdkman_env <major|latest> — write/update .sdkmanrc in the CWD to pin the latest
+# Temurin patch of that major, so `cd` into the project auto-switches the JDK
+# (sdkman_auto_env). No hunting for the exact "-tem" version string.
+sdkman_env() {
+  local major="${1:-}"
+  if [ -z "$major" ]; then
+    log_error "Usage: $command_name env <java-major>   e.g. $command_name env 21 (or: latest)"
+    return 1
   fi
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      -h | --help)
-        usage
-        exit 0
-        ;;
-      *)
-        subcmd="$1"
-        shift
-        ;;
-    esac
-  done
+  local version
+  if ! version="$(resolve_temurin "$major")" || [ -z "$version" ]; then
+    log_error "No Temurin build found for java $major — see: $command_name plan"
+    return 1
+  fi
+  if [ -f .sdkmanrc ] && grep -q '^java=' .sdkmanrc; then
+    # Portable in-place edit (BSD/GNU sed differ): rewrite via a temp file.
+    local tmp
+    tmp="$(mktemp)"
+    sed "s|^java=.*|java=$version|" .sdkmanrc >"$tmp" && mv "$tmp" .sdkmanrc
+    log_success "Updated .sdkmanrc → java=$version"
+  else
+    printf 'java=%s\n' "$version" >>.sdkmanrc
+    log_success "Wrote .sdkmanrc → java=$version"
+  fi
+  log_info "Auto-applies on cd. Pin more tools with lines like: gradle=8.5"
+}
+
+main() {
+  case "${1:-}" in
+    "" | -h | --help)
+      usage
+      exit 0
+      ;;
+  esac
+  local subcmd="$1"
+  shift
 
   case "$subcmd" in
     install) sdkman_install ;;
     plan) sdkman_plan ;;
+    env) sdkman_env "$@" ;;
     *)
       log_error "Unknown $command_name command: $subcmd"
       echo -e
