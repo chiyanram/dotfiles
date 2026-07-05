@@ -65,11 +65,13 @@ Personal dotfiles managing my macOS development environment. Clean git history, 
 - `cask` entries go inside `if OS.mac?` block
 - Every entry needs a trailing comment explaining what it is
 - No deprecated taps (homebrew/bundle is built-in now)
+- Env vars read in a Brewfile (`ENV.fetch(...)`) must use the `HOMEBREW_` prefix — Homebrew strips non-`HOMEBREW_*` vars from the environment
 
 ### Zsh Config
 - `.zshrc` is sectioned with `########` comment blocks
 - Profiler hooks wrap the entire file (start at top, stop at bottom)
 - `compdef` calls live in `.zshrc` after compinit (not in `.zsh_functions` — it is sourced before compinit)
+- Before removing any line, grep for everything it provides — e.g. `compinit` provides `compdef`/`compadd`; dropping it silently breaks callers in the earlier-sourced `.zsh_functions`
 - Homebrew completions before compinit
 - compinit with 24h caching
 - Plugin keybindings must come AFTER the plugin's `zfetch` call, not in the Key Bindings section
