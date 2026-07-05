@@ -300,7 +300,6 @@ check_zsh_plugins() {
     "zsh-users/zsh-autosuggestions"
     "zsh-users/zsh-history-substring-search"
     "MichaelAquilina/zsh-you-should-use"
-    "grigorii-zander/zsh-npm-scripts-autocomplete"
     "Aloxaf/fzf-tab"
     "junegunn/fzf-git.sh"
   )
