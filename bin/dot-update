@@ -45,9 +45,16 @@ update_homebrew() {
     return 1
   fi
 
-  grep -A1 "=>" "$RUN_LOG" | grep -v "^--$" || log_info "No updates found"
+  local changed=0
+  if grep -q "=>" "$RUN_LOG"; then
+    grep -A1 "=>" "$RUN_LOG" | grep -v "^--$" || true
+    changed=1
+  else
+    log_info "No updates found"
+  fi
   rm -f "$RUN_LOG"
   echo -e
+  if [[ "$changed" -eq 1 ]]; then return "$STEP_CHANGED_CODE"; fi
 }
 
 update_nvim_plugins() {
@@ -68,9 +75,16 @@ update_nvim_plugins() {
     return 1
   fi
 
-  grep -i "updated\|installed\|removed" "$RUN_LOG" || log_info "No updates found"
+  local changed=0
+  if grep -qi "updated\|installed\|removed" "$RUN_LOG"; then
+    grep -i "updated\|installed\|removed" "$RUN_LOG" || true
+    changed=1
+  else
+    log_info "No updates found"
+  fi
   rm -f "$RUN_LOG"
   echo -e
+  if [[ "$changed" -eq 1 ]]; then return "$STEP_CHANGED_CODE"; fi
 }
 
 update_dotfiles() {
@@ -100,14 +114,14 @@ update_dotfiles() {
 
   if run_with_spinner "git -C '$DOTFILES' pull --ff-only origin main" 11 "Updating dotfiles"; then
     log_info "Dotfiles updated successfully"
+    rm -f "$RUN_LOG"
+    return "$STEP_CHANGED_CODE"
   else
     log_error "Failed to update dotfiles"
     [[ "$verbose" == true ]] && cat "$RUN_LOG"
     rm -f "$RUN_LOG"
     return 1
   fi
-
-  rm -f "$RUN_LOG"
 }
 
 update_zsh_plugins() {
@@ -120,7 +134,7 @@ update_zsh_plugins() {
     return "$STEP_SKIP_CODE"
   fi
 
-  local found=false
+  local found=false changed=false
   # zfetch clones to $ZPLUGDIR/<org>/<repo>, so plugins live two levels deep
   for dir in "$plugin_dir"/*/*/; do
     [[ -d "$dir/.git" ]] || continue
@@ -138,6 +152,7 @@ update_zsh_plugins() {
     local after
     after=$(git -C "$dir" rev-parse HEAD)
     if [[ "$before" != "$after" ]]; then
+      changed=true
       local commit_count
       commit_count=$(git -C "$dir" rev-list --count "$before".."$after")
       local commit_msg
@@ -156,6 +171,7 @@ update_zsh_plugins() {
 
   echo -e
   log_success "ZSH Plugin updates completed."
+  if [[ "$changed" == true ]]; then return "$STEP_CHANGED_CODE"; fi
 }
 
 update_sdkman() {
@@ -182,9 +198,16 @@ update_sdkman() {
     return 1
   fi
 
-  grep -i "updated\|upgraded\|installed" "$RUN_LOG" || log_info "All SDKs are up to date"
+  local changed=0
+  if grep -qi "updated\|upgraded\|installed" "$RUN_LOG"; then
+    grep -i "updated\|upgraded\|installed" "$RUN_LOG" || true
+    changed=1
+  else
+    log_info "All SDKs are up to date"
+  fi
   rm -f "$RUN_LOG"
   echo -e
+  if [[ "$changed" -eq 1 ]]; then return "$STEP_CHANGED_CODE"; fi
 }
 
 main() {

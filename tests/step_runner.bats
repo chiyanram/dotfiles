@@ -97,3 +97,26 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" != *"Timings"* ]]
 }
+
+@test "step records a changed outcome and lists it by name" {
+  step_init
+  step "did-work" bash -c "exit $STEP_CHANGED_CODE"
+  run step_summary
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"1 changed"* ]]
+  [[ "$output" == *"did-work"* ]]
+}
+
+@test "summary tallies ok / changed / skipped / failed distinctly" {
+  step_init
+  step "a" true                             # ok (already done)
+  step "b" bash -c "exit $STEP_CHANGED_CODE" # changed (mutated)
+  step "c" bash -c "exit $STEP_SKIP_CODE"    # skipped
+  step "d" false                            # failed
+  run step_summary
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"1 ok"* ]]
+  [[ "$output" == *"1 changed"* ]]
+  [[ "$output" == *"1 skipped"* ]]
+  [[ "$output" == *"1 failed"* ]]
+}

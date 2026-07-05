@@ -392,14 +392,19 @@ dot_docker_runtime_entries() {
 # propagates a failure, so one bad step never aborts the rest.
 
 STEP_SKIP_CODE=78
+# A step returns STEP_CHANGED_CODE when it actually mutated state (installed/updated
+# something), 0 when already in the desired state ("ok"), STEP_SKIP_CODE when skipped.
+STEP_CHANGED_CODE=79
 # Initialized at source time so `step` is safe even before an explicit step_init.
 _step_ok=0
+_step_changed=()
 _step_skipped=()
 _step_failed=()
 _step_timings=() # "<elapsed_seconds>|<label>" per step that actually ran
 
 step_init() {
   _step_ok=0
+  _step_changed=()
   _step_skipped=()
   _step_failed=()
   _step_timings=()
@@ -422,6 +427,8 @@ step() {
   local elapsed=$((SECONDS - start))
   if [[ "$rc" -eq 0 ]]; then
     _step_ok=$((_step_ok + 1))
+  elif [[ "$rc" -eq "$STEP_CHANGED_CODE" ]]; then
+    _step_changed+=("$label")
   elif [[ "$rc" -eq "$STEP_SKIP_CODE" ]]; then
     _step_skipped+=("$label")
   else
@@ -449,11 +456,15 @@ fmt_duration() {
 step_summary() {
   echo
   fmt_title_underline "Summary"
-  printf "  %b%d ok%b  %b%d skipped%b  %b%d failed%b\n" \
+  printf "  %b%d ok%b  %b%d changed%b  %b%d skipped%b  %b%d failed%b\n" \
     "$GREEN" "$_step_ok" "$RESET" \
+    "$CYAN" "${#_step_changed[@]}" "$RESET" \
     "$YELLOW" "${#_step_skipped[@]}" "$RESET" \
     "$RED" "${#_step_failed[@]}" "$RESET"
   local s
+  for s in "${_step_changed[@]+"${_step_changed[@]}"}"; do
+    printf "    %bΔ %s%b\n" "$CYAN" "$s" "$RESET"
+  done
   for s in "${_step_skipped[@]+"${_step_skipped[@]}"}"; do
     printf "    %b⊘ %s%b\n" "$YELLOW" "$s" "$RESET"
   done
