@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+# Description: Install the declared SDKMAN toolchain (sdkman/toolchain).
+
+set -Eeuo pipefail
+DOTFILES="${DOTFILES:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
+
+# source helpers
+source "$DOTFILES/bin/lib/common.sh"
+command_name=$(basename "${BASH_SOURCE[0]}")
+
+TOOLCHAIN_FILE="${SDKMAN_TOOLCHAIN:-$DOTFILES/sdkman/toolchain}"
+
+usage() {
+  cat <<EOF
+  $(fmt_key "Usage:") $(fmt_key "$command_name") $(fmt_value "<command>")
+
+  Install the SDKMAN toolchain declared in sdkman/toolchain — the "Brewfile"
+  for SDKMAN. Bare candidates install SDKMAN's current default (latest stable);
+  a java <major> resolves to its latest Temurin patch. Upgrades come from
+  \`dot update\` (sdk upgrade).
+
+Options:
+    -h, --help       Show this help message
+    install          Install every candidate in the manifest (idempotent)
+    plan             Print the resolved plan without installing
+EOF
+}
+
+# Resolve a java spec to a Temurin identifier: "latest" -> newest *-tem,
+# "<major>" -> newest <major>.*-tem. Echoes the identifier, or returns 1.
+resolve_temurin() {
+  local spec="$1" ids
+  ids="$(run_sdk list java 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' |
+    grep -oE '[0-9]+\.[0-9]+\.[0-9]+-tem' | sort -V -u)" || true
+  [ -n "$ids" ] || return 1
+  if [ "$spec" = "latest" ]; then
+    printf '%s\n' "$ids" | tail -1
+  else
+    printf '%s\n' "$ids" | grep -E "^${spec}\." | tail -1
+  fi
+}
+
+# Emit "candidate<TAB>spec<TAB>flag" for every manifest line (comments/blanks skipped).
+toolchain_rows() {
+  if [ ! -f "$TOOLCHAIN_FILE" ]; then
+    log_error "No toolchain manifest at $TOOLCHAIN_FILE"
+    return 1
+  fi
+  local line cand spec flag
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%%#*}" # strip trailing comment
+    read -r cand spec flag <<<"$line" || true
+    [ -n "$cand" ] || continue
+    printf '%s\t%s\t%s\n' "$cand" "$spec" "$flag"
+  done <"$TOOLCHAIN_FILE"
+}
+
+sdkman_plan() {
+  fmt_title_underline "SDKMAN toolchain plan"
+  local cand spec flag version def
+  while IFS=$'\t' read -r cand spec flag; do
+    if [ "$cand" = "java" ]; then
+      version="$(resolve_temurin "$spec" 2>/dev/null || echo '?')"
+      def=""
+      [ "$flag" = "default" ] && def="  (default)"
+      printf "  %b%-8s%b %s %b→%b %s%s\n" "$BOLD" "java" "$RESET" "$spec" "$DIM" "$RESET" "$version" "$def"
+    else
+      printf "  %b%-8s%b %b→ default (latest stable)%b\n" "$BOLD" "$cand" "$RESET" "$DIM" "$RESET"
+    fi
+  done < <(toolchain_rows)
+}
+
+sdkman_install() {
+  fmt_title_underline "Installing SDKMAN toolchain"
+  local cand spec flag version failed=0
+  while IFS=$'\t' read -r cand spec flag; do
+    if [ "$cand" = "java" ]; then
+      if ! version="$(resolve_temurin "$spec")"; then
+        log_warning "Could not resolve a Temurin build for 'java $spec' — skipping"
+        failed=$((failed + 1))
+        continue
+      fi
+      log_info "java $spec → $version"
+      if run_sdk install java "$version"; then
+        if [ "$flag" = "default" ]; then
+          run_sdk default java "$version" || log_warning "Could not set java $version as default"
+        fi
+      else
+        log_warning "sdk install java $version failed"
+        failed=$((failed + 1))
+      fi
+    else
+      log_info "$cand → default (latest stable)"
+      run_sdk install "$cand" || {
+        log_warning "sdk install $cand failed"
+        failed=$((failed + 1))
+      }
+    fi
+  done < <(toolchain_rows)
+
+  echo
+  if [ "$failed" -gt 0 ]; then
+    log_warning "$failed toolchain item(s) failed — see above"
+    return 1
+  fi
+  log_success "SDKMAN toolchain installed"
+}
+
+main() {
+  local subcmd=""
+  if [ $# -lt 1 ]; then
+    usage
+    exit 0
+  fi
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -h | --help)
+        usage
+        exit 0
+        ;;
+      *)
+        subcmd="$1"
+        shift
+        ;;
+    esac
+  done
+
+  case "$subcmd" in
+    install) sdkman_install ;;
+    plan) sdkman_plan ;;
+    *)
+      log_error "Unknown $command_name command: $subcmd"
+      echo -e
+      usage
+      exit 1
+      ;;
+  esac
+}
+
+# Only run main when executed directly (sourcing for tests must not install anything).
+if [[ "${BASH_SOURCE[0]:-$0}" == "${0}" ]]; then main "$@"; fi

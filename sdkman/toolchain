@@ -1,0 +1,20 @@
+# SDKMAN toolchain — installed by `dot sdkman install` (and by ./setup.sh).
+#
+# Format:  <candidate> [spec] [default]
+#   <candidate>        no spec → SDKMAN's current default (latest stable), self-updating
+#   java latest        newest Temurin build — auto-advances (26 now, 27 when it ships)
+#   java <major>       latest Temurin patch of that major (e.g. 25 → 25.0.3-tem)
+#   default            mark this java as the default JDK
+#
+# Newer versions arrive via `dot update` (sdk upgrade), like Brewfile: bundle
+# installs, update upgrades.
+
+gradle
+maven
+mvnd
+kotlin
+
+java latest         # newest Temurin — to learn/experiment
+java 25 default     # LTS — default JDK
+java 21             # LTS
+java 17             # LTS

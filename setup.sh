@@ -202,45 +202,30 @@ configure_sdkman_auto_env() {
   log_success "SDKMAN auto-env enabled (.sdkmanrc auto-applies on cd)"
 }
 
-# run_sdk <args...> — run `sdk <args...>` in a PATH-bash subprocess, TTY attached.
-# Never `source` sdkman-init.sh into this process: setup.sh lives its whole life
-# under system bash 3.2 with `set -u`, and the init script both expands unset
-# vars (SDKMAN_CANDIDATES_API — a set -u abort that kills the entire script, not
-# just the step) and uses bash-4-only syntax (${var^^} in its path helpers).
-run_sdk() {
-  bash -c 'source "${SDKMAN_DIR:-$HOME/.sdkman}/bin/sdkman-init.sh" && sdk "$@"' sdk "$@"
-}
-
 step_sdkman() {
-  if [[ -d "$HOME/.sdkman" ]]; then
-    log_success "SDKMAN already installed"
-    configure_sdkman_auto_env
-    return "$STEP_SKIP_CODE"
-  fi
-  if ! ask_yes_no "Install SDKMAN (Java, Gradle, Maven manager)?"; then
-    log_info "Skipping — install later: curl -s https://get.sdkman.io | bash"
-    return "$STEP_SKIP_CODE"
-  fi
-  # SDKMAN's installer and `sdk` need bash >= 4. Probe the bash on PATH (what the
-  # install pipe below runs under) — NOT $BASH_VERSINFO: this script keeps running
-  # under system bash 3.2 for its whole life even after Homebrew installs bash 5.x.
+  # SDKMAN's installer and `sdk` need bash >= 4. Probe the bash on PATH (what
+  # run_sdk uses) — NOT $BASH_VERSINFO: this script keeps running under system
+  # bash 3.2 for its whole life even after Homebrew installs bash 5.x.
   local path_bash_major
   path_bash_major="$(bash -c 'echo "${BASH_VERSINFO[0]}"' 2>/dev/null || echo 0)"
   if [[ "$path_bash_major" -lt 4 ]]; then
-    log_warning "SDKMAN needs bash >= 4 (PATH bash is $path_bash_major); install Homebrew's bash first, then: curl -s https://get.sdkman.io | bash"
+    log_warning "SDKMAN needs bash >= 4 (PATH bash is $path_bash_major); install Homebrew's bash first"
     return "$STEP_SKIP_CODE"
   fi
-  curl -fsSL --connect-timeout 10 --retry 2 https://get.sdkman.io | bash || return 1
-  # Mandatory JVM toolchain — `dot doctor` treats these as required. `sdk install`
-  # is idempotent (a present candidate is a no-op), so re-running setup is safe.
-  local sdk_candidate
-  for sdk_candidate in java gradle maven mvnd kotlin; do
-    log_info "Installing $sdk_candidate via SDKMAN..."
-    run_sdk install "$sdk_candidate" ||
-      log_warning "sdk install $sdk_candidate failed — retry later: sdk install $sdk_candidate"
-  done
+
+  if [[ ! -d "$HOME/.sdkman" ]]; then
+    if ! ask_yes_no "Install SDKMAN (Java, Gradle, Maven manager)?"; then
+      log_info "Skipping — install later: curl -s https://get.sdkman.io | bash"
+      return "$STEP_SKIP_CODE"
+    fi
+    curl -fsSL --connect-timeout 10 --retry 2 https://get.sdkman.io | bash || return 1
+  else
+    log_success "SDKMAN already installed"
+  fi
+
+  # Ensure the declared JVM toolchain (idempotent) — see sdkman/toolchain.
+  "$DOT" sdkman install || log_warning "Some SDKMAN candidates failed — retry: dot sdkman install"
   configure_sdkman_auto_env
-  return 0 # per-candidate failures are warnings; the step still completes
 }
 
 step_doctor() {
