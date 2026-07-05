@@ -4,6 +4,23 @@
 
 Senior backend engineer. Primary stack: Java 25+, Spring Boot 4.x, Gradle, PostgreSQL, Kubernetes, Terraform. Also invests in Indian stock market (stocks and mutual funds). Lifelong learner. This is a personal macOS laptop.
 
+## How We Work Here
+
+Mirrors my global instructions (dev-kit `AGENTS.md`) — repeated because these bite most in a bash/dotfiles repo:
+
+- **Never speculate as fact.** Every claim about the code or a tool is VERIFIED (ran/read it — cite `file:line`) or INFERRED ("I think / haven't checked"). A guess dressed as fact is the costliest failure here.
+- **Don't call it done until it's green.** "fixed / passing / works" are VERIFIED claims — run the `bats` test or command and show the output. No run, no claim.
+- **Feedback-loop-first debugging.** Before hypothesizing, build one deterministic command that goes red on *this* bug and green once fixed. No red-capable repro → no hypothesis.
+- **Small, deliberate steps** — each increment demoable or bats-testable on its own.
+- **DRY / single source of truth** — state each convention once in its canonical home; flag repetition aggressively.
+- **Challenge, don't flatter; lead with a recommendation, not a menu.**
+
+Process:
+
+- **Work follows from an issue.** Non-trivial work is tracked by a GitHub issue; commits reference it (`Refs #N` / `Closes #N`). No issue yet → log one first.
+- **Commit small, focused pieces.** One logical change per commit; never batch unrelated changes.
+- **Every change updates its docs.** A behavior/command/config change updates the relevant docs (`README.md`, this file, `usage()` help) in the *same* change — doc drift is a bug.
+
 ## About This Repo
 
 Personal dotfiles managing my macOS development environment. Clean git history, fully independent.
