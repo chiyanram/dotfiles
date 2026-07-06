@@ -17,7 +17,8 @@ usage() {
 
 Options:
     -h, --help           Show this help message
-    -v, --verbose        Show verbose output
+    -v, --verbose        Show verbose output (failed steps print their full
+                         log; without it, the last $FAIL_LOG_TAIL_LINES lines)
     nvim, vim            Update Neovim plugins
     homebrew, brew       Update Homebrew packages
     dotfiles             Update dotfiles
@@ -25,6 +26,30 @@ Options:
     sdkman               Update SDKMAN and installed SDKs
     all                  Update everything
 EOF
+}
+
+# Captured-log lines shown when a step fails without --verbose.
+FAIL_LOG_TAIL_LINES=15
+
+# surface_step_failure <message> — report a failed step without swallowing the
+# cause (issue #18): log <message>, then show the captured output ($RUN_LOG) —
+# all of it with --verbose, otherwise the last $FAIL_LOG_TAIL_LINES lines — and
+# keep the log file on disk, printing its path for deeper digging.
+surface_step_failure() {
+  local message="$1"
+  log_error "$message"
+  if [[ ! -s "$RUN_LOG" ]]; then
+    log_info "No output was captured"
+    rm -f "$RUN_LOG"
+    return 0
+  fi
+  if [[ "$verbose" == true ]]; then
+    cat "$RUN_LOG"
+  else
+    log_info "Last $FAIL_LOG_TAIL_LINES lines of output:"
+    tail -n "$FAIL_LOG_TAIL_LINES" "$RUN_LOG"
+  fi
+  log_info "Full log kept at: $RUN_LOG"
 }
 
 update_homebrew() {
@@ -39,9 +64,7 @@ update_homebrew() {
   local exit_status=$?
 
   if [[ $exit_status -ne 0 ]] || grep -q "Error\|fatal\|Failed" "$RUN_LOG"; then
-    log_error "Error occurred during update"
-    [[ "$verbose" == true ]] && cat "$RUN_LOG"
-    rm -f "$RUN_LOG"
+    surface_step_failure "Error occurred during update"
     return 1
   fi
 
@@ -69,9 +92,7 @@ update_nvim_plugins() {
   local exit_status=$?
 
   if [[ $exit_status -ne 0 ]] || grep -q "Error\|ERROR\|Could not\|not installed" "$RUN_LOG"; then
-    log_error "Error occurred during Neovim plugin update"
-    [[ "$verbose" == true ]] && cat "$RUN_LOG"
-    rm -f "$RUN_LOG"
+    surface_step_failure "Error occurred during Neovim plugin update"
     return 1
   fi
 
@@ -117,9 +138,7 @@ update_dotfiles() {
     rm -f "$RUN_LOG"
     return "$STEP_CHANGED_CODE"
   else
-    log_error "Failed to update dotfiles"
-    [[ "$verbose" == true ]] && cat "$RUN_LOG"
-    rm -f "$RUN_LOG"
+    surface_step_failure "Failed to update dotfiles"
     return 1
   fi
 }
@@ -192,9 +211,7 @@ update_sdkman() {
   run_with_spinner "bash -c 'source \"$sdkman_dir/bin/sdkman-init.sh\" && sdk update 2>&1 && sdk upgrade 2>&1'" 11 "Updating SDKMAN"
 
   if grep -q "Error\|fatal\|Failed" "$RUN_LOG"; then
-    log_error "Error occurred during SDKMAN update"
-    [[ "$verbose" == true ]] && cat "$RUN_LOG"
-    rm -f "$RUN_LOG"
+    surface_step_failure "Error occurred during SDKMAN update"
     return 1
   fi
 

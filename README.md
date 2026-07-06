@@ -135,7 +135,7 @@ When a real file sits where a link should go, `dot link` refuses by default; res
 
 - **`dot doctor`** — health check (config links, shell, plugins, tools, drift summary); `--strict` fails on any warning
 - **`dot reconcile [domain]`** — read-only drift report vs the repo's declared state: installed-but-undeclared and declared-but-missing, per domain (brew, sdkman, plugins, symlinks)
-- **`dot update <all|brew|nvim|zsh|sdkman|dotfiles>`** — update installed things (reports what actually _changed_)
+- **`dot update <all|brew|nvim|zsh|sdkman|dotfiles>`** — update installed things (reports what actually _changed_; a failed step prints the tail of its captured log and keeps the full log on disk)
 - **`dot sdkman <install|plan|env>`** — the JVM toolchain (see [Java / Backend](#java--backend-sdkman))
 - **`dot homebrew <install|bundle>`** — Homebrew itself + Brewfile packages
 - **`dot profile <show|set|set-config>`** — personal/work profile + per-machine config
