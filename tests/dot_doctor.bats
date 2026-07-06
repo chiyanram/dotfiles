@@ -53,6 +53,18 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   [[ "$output" != *"not found"* ]]
 }
 
+@test "doctor surfaces a drift summary pointing at dot reconcile" {
+  [[ "$(uname)" == "Darwin" ]] || skip "dot doctor inspection is macOS-only"
+  export HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/.config" DOTFILES="$REPO" TERM=dumb
+  # Sandbox HOME has none of the repo's declared state → drift is guaranteed
+  # (declared plugins not cloned, toolchain not installed). Doctor must show the
+  # per-domain summary and point at dot reconcile — informational, not gating.
+  run env PATH="$DOCTOR_PATH" "$REPO/bin/dot-doctor"
+  [[ "$output" == *"Drift"* ]]
+  [[ "$output" == *"missing"* ]]
+  [[ "$output" == *"dot reconcile"* ]]
+}
+
 @test "doctor --help documents --strict and exits 0" {
   run env DOTFILES="$REPO" TERM=dumb "$REPO/bin/dot-doctor" --help
   [ "$status" -eq 0 ]

@@ -21,6 +21,9 @@ else
   echo "Error: Unable to source common.sh"
   exit 1
 fi
+# Drift detection (shared with dot-reconcile) — cmd_clean uses its dangling scan.
+# shellcheck disable=SC1091
+source "$DOTFILES/bin/lib/reconcile.sh"
 
 find_commands() {
   IFS=: read -ra path_dirs <<<"$PATH"
@@ -92,19 +95,15 @@ cmd_clean() {
     fi
   done
 
-  # Clean stale symlinks pointing to deleted dotfiles config dirs
-  if [ -d "$CONFIG_HOME" ]; then
-    while IFS= read -r -d '' link; do
-      if [ -L "$link" ] && [ ! -e "$link" ]; then
-        local link_target
-        link_target=$(readlink "$link")
-        if [[ "$link_target" == "$DOTFILES"* ]]; then
-          log_info "Removing stale symbolic link: ~${link#"$HOME"} → $link_target"
-          rm "$link"
-        fi
-      fi
-    done < <(find "$CONFIG_HOME" -maxdepth 1 -type l -print0 2>/dev/null || true)
-  fi
+  # Clean dangling links into $DOTFILES whose source is gone: stale config-dir
+  # links, plus home links whose repo file was DELETED — those are derived from
+  # git history (shared reconcile scan), since no current repo file names them.
+  local stale
+  while IFS= read -r stale; do
+    [ -n "$stale" ] || continue
+    log_info "Removing stale symbolic link: ~${stale#"$HOME"} → $(readlink "$stale")"
+    rm "$stale"
+  done < <(reconcile_symlinks_dangling)
 
   # Clean broken home directory symlinks
   if [ -d "$DOTFILES/home" ]; then
@@ -350,24 +349,6 @@ cmd_link_clean() {
   fi
 }
 
-classify_link() {
-  local source="$1"
-  local target="$2"
-  if [ -L "$target" ]; then
-    local actual
-    actual=$(readlink "$target")
-    if [ "$actual" = "$source" ]; then
-      echo "ok"
-    else
-      echo "wrong"
-    fi
-  elif [ -e "$target" ]; then
-    echo "real"
-  else
-    echo "missing"
-  fi
-}
-
 link_status() {
   fmt_title_underline "Link Status"
 
@@ -439,24 +420,8 @@ link_status() {
   [ $((missing + wrong + real)) -eq 0 ]
 }
 
-# Emit "<source>\t<target>\t<label>" for every managed target: config packages
-# (config/<pkg> → ~/.config/<pkg>) and home files (home/<rel> → ~/<rel>). Single
-# source of truth for "what dot link manages", so the plan and the action agree.
-managed_targets() {
-  local config name file rel
-  for config in "$DOTFILES/config"/*; do
-    [ -d "$config" ] || continue
-    # skip empty config packages (nothing to link)
-    [[ -n "$(ls -A "$config" 2>/dev/null)" ]] || continue
-    name=$(basename "$config")
-    printf '%s\t%s\t~/.config/%s\n' "$config" "$CONFIG_HOME/$name" "$name"
-  done
-  [ -d "$DOTFILES/home" ] || return 0
-  while IFS= read -r -d '' file; do
-    rel="${file#"$DOTFILES"/home/}"
-    printf '%s\t%s\t~/%s\n' "$file" "$HOME/$rel" "$rel"
-  done < <(find "$DOTFILES/home" -type f -print0)
-}
+# classify_link and managed_targets live in bin/lib/common.sh (shared with
+# dot-reconcile's symlink drift detection).
 
 # link_plan — preview what `dot link all` would do, classifying each managed
 # target via classify_link. Never mutates the filesystem. Two-phase gate: it

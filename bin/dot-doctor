@@ -3,6 +3,9 @@
 
 DOTFILES="${DOTFILES:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
 source "$DOTFILES/bin/lib/common.sh"
+# Drift summary (shared with dot-reconcile) — bash-3.2-safe, read-only scans.
+# shellcheck disable=SC1091
+source "$DOTFILES/bin/lib/reconcile.sh"
 
 missing_count=0
 optional_missing=0
@@ -412,6 +415,21 @@ main() {
   # SSH / GitHub auth
   fmt_title_underline "SSH"
   check_ssh_github
+  echo
+
+  # Drift vs the repo's declared state (cheap local scans; informational — it
+  # never gates the exit code, --strict included; dot reconcile is the detail view)
+  fmt_title_underline "Drift"
+  local drift_line drift
+  drift="$(reconcile_summary 2>/dev/null || true)"
+  if [[ -n "$drift" ]]; then
+    while IFS= read -r drift_line; do
+      log_warning "$drift_line"
+    done <<<"$drift"
+    log_info "Details & remediation: dot reconcile"
+  else
+    log_success "machine matches the repo's declared state"
+  fi
   echo
 
   # Summary
