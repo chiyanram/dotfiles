@@ -1,0 +1,45 @@
+setup() {
+  REPO="$(cd "$BATS_TEST_DIRNAME/.." && pwd -P)"
+  export REPO TERM=dumb
+  SANDBOX="$(mktemp -d)"
+  export SANDBOX
+}
+
+teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
+
+# Source the reconcile lib from the real repo, but point DOTFILES/ZPLUGDIR at the
+# sandbox so declared (repo .zshrc) and actual (cloned plugin dirs) are fixtures.
+plugins_undeclared() {
+  run env DOTFILES="$SANDBOX/dotfiles" ZPLUGDIR="$SANDBOX/plugins" REPO="$REPO" bash -c '
+    source "$REPO/bin/lib/reconcile.sh"
+    reconcile_plugins_undeclared
+  '
+}
+
+@test "plugins: an installed clone the .zshrc no longer declares is reported as undeclared" {
+  mkdir -p "$SANDBOX/dotfiles/home"
+  cat >"$SANDBOX/dotfiles/home/.zshrc" <<'EOF'
+zfetch zsh-users/zsh-completions
+zfetch MichaelAquilina/zsh-you-should-use you-should-use.plugin.zsh
+EOF
+  # two declared clones present, plus one orphan (removed from .zshrc, clone lingers — #20)
+  mkdir -p "$SANDBOX/plugins/zsh-users/zsh-completions/.git" \
+    "$SANDBOX/plugins/MichaelAquilina/zsh-you-should-use/.git" \
+    "$SANDBOX/plugins/grigorii-zander/zsh-npm-scripts-autocomplete/.git"
+
+  plugins_undeclared
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"grigorii-zander/zsh-npm-scripts-autocomplete"* ]] # orphan reported
+  [[ "$output" != *"zsh-users/zsh-completions"* ]]                    # declared ones are not
+  [[ "$output" != *"MichaelAquilina/zsh-you-should-use"* ]]
+}
+
+@test "plugins: no orphans when every clone is declared" {
+  mkdir -p "$SANDBOX/dotfiles/home"
+  printf 'zfetch zsh-users/zsh-completions\n' >"$SANDBOX/dotfiles/home/.zshrc"
+  mkdir -p "$SANDBOX/plugins/zsh-users/zsh-completions/.git"
+
+  plugins_undeclared
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
