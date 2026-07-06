@@ -105,3 +105,52 @@ reconcile_sdkman_undeclared() {
   reconcile_sdkman_actual |
     grep -vxF -f <(printf '%s\n' "$declared") 2>/dev/null || true
 }
+
+# --- symlinks domain (report-only) ---------------------------------------------
+# Requires common.sh (classify_link, managed_targets) to be sourced first.
+# No prune/adopt verbs: remediation is the existing `dot clean` / `dot link`.
+
+# Declared-but-unhealthy managed links: "<state>\t<label>" for every managed
+# target whose state isn't ok (missing / wrong / real).
+reconcile_symlinks_missing() {
+  local source target label state
+  while IFS=$'\t' read -r source target label; do
+    state=$(classify_link "$source" "$target")
+    [ "$state" = "ok" ] && continue
+    printf '%s\t%s\n' "$state" "$label"
+  done < <(managed_targets)
+}
+
+# Dangling links whose repo source was deleted. Two scans:
+#  (a) $XDG_CONFIG_HOME depth-1 links into $DOTFILES that no longer resolve
+#      (removed config packages — same scope as dot clean's stale scan);
+#  (b) home-file targets derived from GIT HISTORY of deleted home/ files —
+#      current repo files can't name them (the source is gone), which is exactly
+#      why a repo-derived scan misses the ~/.claude case (#21).
+reconcile_symlinks_dangling() {
+  local config_home="${CONFIG_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}}"
+  {
+    local link
+    if [ -d "$config_home" ]; then
+      while IFS= read -r -d '' link; do
+        if [ ! -e "$link" ] && [[ "$(readlink "$link")" == "$DOTFILES"* ]]; then
+          # shellcheck disable=SC2088  # tilde is a display label, not expansion
+          printf '~/%s\n' "${link#"$HOME"/}"
+        fi
+      done < <(find "$config_home" -maxdepth 1 -type l -print0 2>/dev/null || true)
+    fi
+
+    local rel target
+    if git -C "$DOTFILES" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+      while IFS= read -r rel; do
+        [ -n "$rel" ] || continue
+        target="$HOME/${rel#home/}"
+        if [ -L "$target" ] && [ ! -e "$target" ] &&
+          [[ "$(readlink "$target")" == "$DOTFILES"* ]]; then
+          # shellcheck disable=SC2088  # tilde is a display label, not expansion
+          printf '~/%s\n' "${target#"$HOME"/}"
+        fi
+      done < <(git -C "$DOTFILES" log --diff-filter=D --name-only --pretty=format: -- home/ 2>/dev/null | sort -u)
+    fi
+  } | sort -u
+}

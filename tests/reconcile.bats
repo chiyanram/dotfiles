@@ -87,6 +87,60 @@ sdkman_undeclared() {
   '
 }
 
+# ---- symlinks domain (report-only) ----
+symlinks_env() {
+  env HOME="$SANDBOX/home" XDG_CONFIG_HOME="$SANDBOX/home/.config" \
+    DOTFILES="$SANDBOX/dotfiles" REPO="$REPO" bash -c '
+    source "$REPO/bin/lib/common.sh"
+    source "$REPO/bin/lib/reconcile.sh"
+    '"$1"'
+  '
+}
+
+# Fixture: a git-tracked dotfiles repo where home/.claude/settings.json existed,
+# was linked into $HOME, then was deleted from the repo (the #21 case) — leaving
+# a dangling link that derives from git history, not from current repo files.
+setup_symlink_fixture() {
+  mkdir -p "$SANDBOX/dotfiles/config/demo" "$SANDBOX/dotfiles/home/.claude" \
+    "$SANDBOX/home/.config" "$SANDBOX/home/.claude"
+  printf 'demo\n' >"$SANDBOX/dotfiles/config/demo/demo.conf"
+  printf 'rc\n' >"$SANDBOX/dotfiles/home/.demorc"
+  printf '{}\n' >"$SANDBOX/dotfiles/home/.claude/settings.json"
+  git -C "$SANDBOX/dotfiles" init -q
+  git -C "$SANDBOX/dotfiles" -c user.email=t@t -c user.name=t add -A
+  git -C "$SANDBOX/dotfiles" -c user.email=t@t -c user.name=t commit -qm init
+  # link the home file, then delete its source from the repo
+  ln -s "$SANDBOX/dotfiles/home/.claude/settings.json" "$SANDBOX/home/.claude/settings.json"
+  git -C "$SANDBOX/dotfiles" rm -q home/.claude/settings.json
+  git -C "$SANDBOX/dotfiles" -c user.email=t@t -c user.name=t commit -qm "remove claude"
+}
+
+@test "symlinks: a dangling link whose repo source was deleted is reported (git-history derived)" {
+  setup_symlink_fixture
+  run symlinks_env reconcile_symlinks_dangling
+  [ "$status" -eq 0 ]
+  [[ "$output" == *".claude/settings.json"* ]]
+}
+
+@test "symlinks: declared-but-missing links are reported with their state" {
+  setup_symlink_fixture
+  run symlinks_env reconcile_symlinks_missing
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"missing"*"demo"* ]]    # config package never linked
+  [[ "$output" == *"missing"*".demorc"* ]] # home file never linked
+}
+
+@test "symlinks: a healthy link is neither dangling nor missing" {
+  setup_symlink_fixture
+  mkdir -p "$SANDBOX/home/.config"
+  ln -s "$SANDBOX/dotfiles/config/demo" "$SANDBOX/home/.config/demo"
+  ln -s "$SANDBOX/dotfiles/home/.demorc" "$SANDBOX/home/.demorc"
+  run symlinks_env 'reconcile_symlinks_dangling; reconcile_symlinks_missing'
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"demo"* ]]
+  [[ "$output" != *".demorc"* ]]
+}
+
 @test "sdkman: an installed candidate the toolchain does not declare is undeclared" {
   mkdir -p "$SANDBOX/dotfiles/sdkman"
   cat >"$SANDBOX/dotfiles/sdkman/toolchain" <<'EOF'
