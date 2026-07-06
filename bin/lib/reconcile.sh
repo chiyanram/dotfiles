@@ -10,7 +10,7 @@
 
 # Declared: owner/repo of each `zfetch owner/repo` line (skip the update/ls subcommands).
 reconcile_plugins_declared() {
-  local zshrc="${1:-$DOTFILES/home/.zshrc}"
+  local zshrc="$DOTFILES/home/.zshrc"
   [ -f "$zshrc" ] || return 0
   grep -E '^[[:space:]]*zfetch[[:space:]]' "$zshrc" 2>/dev/null |
     awk '{print $2}' | grep -vxE 'update|ls' || true
