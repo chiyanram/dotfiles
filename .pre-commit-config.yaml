@@ -28,4 +28,13 @@ repos:
     hooks:
       - id: gitleaks
 
+  # Auto-format Markdown. Markdown-only (types_or) so it doesn't fight the
+  # check-yaml/json/toml hooks above. `dot test` runs the same prettier in
+  # --check mode; keep its pinned version in sync with the rev below.
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: v3.9.4
+    hooks:
+      - id: prettier
+        types_or: [markdown]
+
 default_install_hook_types: [pre-commit]

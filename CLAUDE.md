@@ -6,7 +6,7 @@ Mirrors my global instructions (dev-kit `AGENTS.md`) — repeated because these 
 
 - **Never speculate as fact.** Every claim about the code or a tool is VERIFIED (ran/read it — cite `file:line`) or INFERRED ("I think / haven't checked"). A guess dressed as fact is the costliest failure here.
 - **Don't call it done until it's green.** "fixed / passing / works" are VERIFIED claims — run the `bats` test or command and show the output. No run, no claim.
-- **Feedback-loop-first debugging.** Before hypothesizing, build one deterministic command that goes red on *this* bug and green once fixed. No red-capable repro → no hypothesis.
+- **Feedback-loop-first debugging.** Before hypothesizing, build one deterministic command that goes red on _this_ bug and green once fixed. No red-capable repro → no hypothesis.
 - **Small, deliberate steps** — each increment demoable or bats-testable on its own.
 - **DRY / single source of truth** — state each convention once in its canonical home; flag repetition aggressively.
 - **Challenge, don't flatter; lead with a recommendation, not a menu.**
@@ -16,7 +16,7 @@ Process:
 - **Every issue gets a branch.** Non-trivial work is tracked by a GitHub issue and done on its own branch (`<type>/<issue-number>-<brief-description>`) — never commit straight to `main`. No issue yet → log one first.
 - **Commit small, focused pieces** on the branch, pushing as you go. One logical change per commit; never batch unrelated changes.
 - **Close the issue through a PR.** Open a PR with `Closes #N` in the body and squash-merge to `main`; the merge is what closes the issue (a `Closes #N` commit only takes effect once it lands on `main`).
-- **Every change updates its docs.** A behavior/command/config change updates the relevant docs (`README.md`, this file, `usage()` help) in the *same* change — doc drift is a bug.
+- **Every change updates its docs.** A behavior/command/config change updates the relevant docs (`README.md`, this file, `usage()` help) in the _same_ change — doc drift is a bug.
 
 ## About This Repo
 
@@ -58,6 +58,7 @@ Personal dotfiles for my macOS laptop (backend engineer: JVM toolchain via SDKMA
 ## Rules
 
 ### Shell Scripts
+
 - All `dot-*` scripts must have `# Description:` comment on line 2 for auto-discovery
 - All scripts source `$DOTFILES/bin/lib/common.sh` for shared utilities
 - Use `set -Eeuo pipefail` in all bash scripts
@@ -75,11 +76,14 @@ Personal dotfiles for my macOS laptop (backend engineer: JVM toolchain via SDKMA
 - `git config <key>` returns exit 1 if key missing — always use `2>/dev/null || true`
 
 ### Tests
-- Tests are bats; `dot test` is the merge gate (shellcheck, shfmt, bash syntax, zsh smoke, bats) — run it before claiming green
+
+- Tests are bats; `dot test` is the merge gate (shellcheck, shfmt, prettier-markdown, bash syntax, zsh smoke, bats) — run it before claiming green
 - Tests must be bash-3.2-safe too: the macOS CI job installs no modern bash, so bats runs under system bash 3.2 — no bash-4+ features (`$BASHPID`, etc.)
 - shfmt house style is `-i 2 -ci` — enforced by `dot test` and CI but NOT by pre-commit, so hooks passing ≠ CI passing
+- Markdown is formatted by prettier: a pre-commit hook auto-formats `.md` on commit, and `dot test` runs the same pinned prettier in `--check` mode — keep the version in `bin/dot-test` in sync with the `mirrors-prettier` rev in `.pre-commit-config.yaml`
 
 ### Brewfile (`brew/Brewfile.*`)
+
 - Organized by category with comments: macOS, core, shell, dev tools, infra
 - `cask` entries go inside `if OS.mac?` block
 - Every entry needs a trailing comment explaining what it is
@@ -87,6 +91,7 @@ Personal dotfiles for my macOS laptop (backend engineer: JVM toolchain via SDKMA
 - Env vars read in a Brewfile (`ENV.fetch(...)`) must use the `HOMEBREW_` prefix — Homebrew strips non-`HOMEBREW_*` vars from the environment
 
 ### Zsh Config
+
 - `.zshrc` is sectioned with `########` comment blocks
 - Profiler hooks wrap the entire file (start at top, stop at bottom)
 - `compdef` calls live in `.zshrc` after compinit (not in `.zsh_functions` — it is sourced before compinit)
@@ -103,32 +108,37 @@ Personal dotfiles for my macOS laptop (backend engineer: JVM toolchain via SDKMA
 - After any zsh config change, verify with: `zsh -i -c 'echo ok' 2>&1`
 
 ### Git Functions
+
 - Auto-detect main/master via `git remote show origin`
 - Check for uncommitted changes before destructive operations
 - All functions support `-h`/`--help`
 
 ### Aerospace
+
 - Workspaces: D=Dev, W=Web, C=Chat, M=Mail, N=Notes, S=Productivity, Z=Zoom
 - App assignments use `if.app-id` (bundle identifiers)
 - Floating layout for system dialogs (Finder, System Preferences)
 
 ### Config Management
+
 - `bin/dot` clean and backup dynamically derive the config list from `$DOTFILES/config/*/`
 - No hardcoded arrays — adding a new config package only requires creating the directory
 
 ### Local Customization
+
 - `~/.localrc` and `~/.zshrc.local` — machine-specific shell config (sourced by .zshrc, not committed)
 - `~/.zshenv.local` — machine-specific env vars (sourced by .zshenv, not committed)
 - `~/.gitconfig-local` — personal git config (name, email, signing key)
 - Identity/auth/transport git config (`url.insteadOf`, keys, email) must NEVER go in `config/git/config` — it's shared across machines; use `~/.gitconfig-local`
 
 ### Common Commands
+
 ```bash
 dot link all -v           # Symlink everything
 dot doctor                # Verify all tools installed
 dot update all            # Update brew, nvim, zsh, sdkman, dotfiles
 dot backup -v             # Backup before changes
-dot test                  # Full gate: shellcheck, shfmt, bash syntax, zsh smoke, bats (CI runs exactly this)
+dot test                  # Full gate: shellcheck, shfmt, prettier-markdown, bash syntax, zsh smoke, bats (CI runs exactly this)
 bats tests/<file>.bats    # Run a single test file
 dot profile get           # Machine profile (personal|work) — stored in ~/.config/dotfiles/profile, selects Brewfile
 dot homebrew bundle       # Install all Brewfile packages
@@ -136,11 +146,13 @@ pre-commit run --all-files  # Validate configs
 ```
 
 ### What Not to Commit
+
 - `.idea/`, `.zcompdump-*`, `ohmyzsh/`, `*.DS_Store` (covered by .gitignore)
 - Plan files (`plan_*.md`) — ephemeral, not for git
 - Secrets, tokens, credentials
 
 ### Conventional Commits
+
 - feat: new tool, command, or config
 - fix: bug fix in scripts or configs
 - chore: cleanup, removals, maintenance
