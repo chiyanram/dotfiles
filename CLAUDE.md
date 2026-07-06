@@ -50,7 +50,6 @@ Personal dotfiles for my macOS laptop (backend engineer: JVM toolchain via SDKMA
 - `home/.docker_aliases` — docker/compose helpers
 - `home/.zprofile` — login-shell env (brew shellenv, installer-added PATHs)
 - `config/starship/starship.toml` — prompt config
-- `config/aerospace/aerospace.toml` — tiling window manager
 - `config/nvim/` — neovim config (lua, lazy.nvim)
 - `config/ghostty/` — terminal emulator config
 - `config/tmux/tmux.conf` — terminal multiplexer
@@ -113,12 +112,6 @@ Personal dotfiles for my macOS laptop (backend engineer: JVM toolchain via SDKMA
 - Check for uncommitted changes before destructive operations
 - All functions support `-h`/`--help`
 
-### Aerospace
-
-- Workspaces: D=Dev, W=Web, C=Chat, M=Mail, N=Notes, S=Productivity, Z=Zoom
-- App assignments use `if.app-id` (bundle identifiers)
-- Floating layout for system dialogs (Finder, System Preferences)
-
 ### Config Management
 
 - `bin/dot` clean and backup dynamically derive the config list from `$DOTFILES/config/*/`
@@ -158,4 +151,4 @@ pre-commit run --all-files  # Validate configs
 - chore: cleanup, removals, maintenance
 - refactor: restructure without behavior change
 - docs: README and documentation updates
-- Scope examples: `brew`, `zsh`, `dot`, `aerospace`, `nvim`
+- Scope examples: `brew`, `zsh`, `dot`, `nvim`
