@@ -43,3 +43,38 @@ EOF
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
+
+# ---- brew domain ----
+brew_undeclared() {
+  run env DOTFILES="$SANDBOX/dotfiles" REPO="$REPO" bash -c '
+    source "$REPO/bin/lib/common.sh"
+    source "$REPO/bin/lib/reconcile.sh"
+    dot_profile() { echo personal; }
+    dot_docker_runtime() { echo docker-desktop; }
+    brew() {
+      case "$1 $2" in
+        "leaves ") printf "%s\n" git ripgrep terraform-docs htop ;;
+        "list --cask") printf "%s\n" docker-desktop aerospace ;;
+      esac
+    }
+    reconcile_brew_undeclared
+  '
+}
+
+@test "brew: only packages in no Brewfile (and not the docker runtime) are undeclared" {
+  mkdir -p "$SANDBOX/dotfiles/brew"
+  printf "brew 'git'\n" >"$SANDBOX/dotfiles/brew/Brewfile.core"
+  printf "brew 'ripgrep'\n" >"$SANDBOX/dotfiles/brew/Brewfile.personal"
+  printf "brew 'terraform-docs'\n" >"$SANDBOX/dotfiles/brew/Brewfile.work"
+
+  brew_undeclared
+  [ "$status" -eq 0 ]
+  # truly-undeclared (installed, in no Brewfile) are reported
+  [[ "$output" == *"htop"* ]]
+  [[ "$output" == *"aerospace"* ]]
+  # core / active-profile / other-profile / docker-runtime are NOT flagged
+  [[ "$output" != *"git"* ]]            # core
+  [[ "$output" != *"ripgrep"* ]]        # active profile (personal)
+  [[ "$output" != *"terraform-docs"* ]] # declared elsewhere (work)
+  [[ "$output" != *"docker-desktop"* ]] # config-driven docker runtime
+}

@@ -31,3 +31,50 @@ reconcile_plugins_undeclared() {
   reconcile_plugins_actual |
     grep -vxF -f <(printf '%s\n' "$declared") 2>/dev/null || true
 }
+
+# --- brew domain --------------------------------------------------------------
+# Declared = brew/cask names in the active profile's Brewfiles (core + <profile>)
+# plus the config-driven docker-runtime cask. "Declared elsewhere" = names in
+# another profile's Brewfile (reported, never pruned). Actual = brew leaves +
+# installed casks. Undeclared = actual minus declared minus declared-elsewhere.
+
+# Extract brew/cask package names from Brewfile content on stdin.
+_reconcile_brew_names() {
+  grep -E "^[[:space:]]*(brew|cask) '[^']+'" 2>/dev/null |
+    sed -E "s/^[[:space:]]*(brew|cask) '([^']+)'.*/\2/" || true
+}
+
+# Raw declared content: the active profile's Brewfiles + the docker-runtime cask.
+_reconcile_brew_declared_raw() {
+  local f
+  while IFS= read -r f; do [ -f "$f" ] && cat "$f"; done < <(dot_brewfiles)
+  dot_docker_runtime_entries "$(dot_docker_runtime)" 2>/dev/null || true
+}
+
+reconcile_brew_declared() { _reconcile_brew_declared_raw | _reconcile_brew_names | sort -u; }
+
+reconcile_brew_declared_elsewhere() {
+  local active other dir="$DOTFILES/brew"
+  active="$(dot_profile)"
+  for other in personal work; do
+    [ "$other" = "$active" ] && continue
+    [ -f "$dir/Brewfile.$other" ] && cat "$dir/Brewfile.$other"
+  done | _reconcile_brew_names | sort -u
+}
+
+reconcile_brew_actual() {
+  {
+    brew leaves 2>/dev/null
+    brew list --cask 2>/dev/null
+  } | sort -u
+}
+
+reconcile_brew_undeclared() {
+  local excluded
+  excluded="$(
+    reconcile_brew_declared
+    reconcile_brew_declared_elsewhere
+  )"
+  reconcile_brew_actual |
+    grep -vxF -f <(printf '%s\n' "$excluded") 2>/dev/null || true
+}
