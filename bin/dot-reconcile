@@ -50,7 +50,8 @@ _section() {
   while IFS= read -r line; do
     [ -n "$line" ] || continue
     if [ "$printed" = false ]; then
-      printf "  %b%s%b%s\n" "$color" "$label" "$RESET" "${hint:+  ${DIM}${hint}${RESET}}"
+      # the hint embeds color vars (backslash-text) — %b, never %s
+      printf "  %b%s%b%b\n" "$color" "$label" "$RESET" "${hint:+  ${DIM}${hint}${RESET}}"
       printed=true
     fi
     printf "    %s\n" "$line"
