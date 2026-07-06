@@ -133,11 +133,16 @@ spinner() {
   }
 
   # Main spinner loop with rainbow effect, live last-log line, and sudo detection
-  local rainbow_index=0 tick=0 keepalive_pid=""
+  local rainbow_index=0 keepalive_pid=""
   while ps -p "$pid" &>/dev/null; do
-    if [[ -z "$keepalive_pid" ]] && ((tick % 5 == 0)) && _has_descendant_named "$pid" sudo; then
+    # Checked every tick, and re-armed for EVERY prompt: a step can call sudo
+    # repeatedly (brew: once per cask, or a retry after the 5-minute prompt
+    # timeout). A pause that fires only once leaves later Password: prompts
+    # erased by the \r redraw below, so the run reads as hung (issue #19).
+    if _has_descendant_named "$pid" sudo; then
       _spinner_pause_for_sudo "$pid" "$msg"
-      keepalive_pid="$(_spinner_start_sudo_keepalive "$pid")"
+      # One keepalive per run is enough: it refreshes the timestamp until $pid exits.
+      [[ -z "$keepalive_pid" ]] && keepalive_pid="$(_spinner_start_sudo_keepalive "$pid")"
     fi
     local cols max
     if [[ -t 1 && -n "$logfile" ]]; then
@@ -157,7 +162,6 @@ spinner() {
       sleep $delay
       rainbow_index=$(((rainbow_index + 1) % ${#RAINBOW[@]}))
     done
-    tick=$((tick + 1))
   done
 
   [[ -n "$keepalive_pid" ]] && kill "$keepalive_pid" 2>/dev/null
@@ -248,13 +252,15 @@ _has_descendant_named() {
 }
 
 # Pause the spinner and surface a clear prompt while a sudo child waits for the
-# password. sudo writes its own "Password:" line to the tty beneath this banner.
+# password. sudo's own "Password:" line is usually already erased by the
+# animation's \r redraw, so the banner must carry the call to action itself:
+# sudo is still reading /dev/tty, the user just types into the paused line.
 # Blocks until the sudo descendant exits or the command finishes.
 _spinner_pause_for_sudo() {
   local pid="$1" msg="$2"
   [[ -t 1 ]] && tput cnorm
   echo -en "\r\033[K"
-  printf "  %b🔒 %s needs your password%b\n" "${BOLD}${YELLOW}" "$msg" "$RESET"
+  printf "  %b🔒 %s needs your password — type it and press Enter%b\n" "${BOLD}${YELLOW}" "$msg" "$RESET"
   while ps -p "$pid" &>/dev/null && _has_descendant_named "$pid" sudo; do
     sleep 0.3
   done
