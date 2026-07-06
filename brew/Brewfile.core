@@ -5,11 +5,13 @@ if OS.mac?
   # macOS utilities
   brew 'noti'                          # utility to display notifications from scripts
   brew 'trash'                         # rm, but put in the trash rather than completely delete
+  brew 'coreutils'                     # GNU coreutils; .zshrc puts gnubin ahead of BSD on PATH
 
   # Applications (cross-profile)
   cask 'ghostty'                       # a better terminal emulator
   cask 'jdk-mission-control'           # GUI to analyze JFR recordings (pairs with jfr)
   cask 'intellij-idea'                 # IntelliJ IDEA Ultimate — JetBrains Java/Kotlin IDE
+  cask 'jetbrains-toolbox'             # JetBrains IDE manager (Toolbox scripts on PATH via .zprofile)
   cask 'claude-code'                   # Claude Code — terminal AI coding assistant (provides `claude`)
 
   # Fonts
@@ -46,6 +48,7 @@ brew 'just'                            # project command runner (like make, but 
 brew 'direnv'                          # per-directory environment variables via .envrc
 brew 'mise'                            # node + python runtime manager (replaces fnm/pyenv)
 brew 'python'                          # python (latest)
+brew 'uv'                              # fast Python package/project manager
 brew 'stylua'                          # lua code formatter
 brew 'shellcheck'                      # diagnostics for shell scripts
 brew 'bats-core'                       # bash automated testing system (test harness)
