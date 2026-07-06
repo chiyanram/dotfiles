@@ -157,19 +157,18 @@ Managed via `dot link`. Each directory in `config/` becomes a symlink in `~/.con
 
 Each directory under `config/` is a package (the list below is a snapshot — `ls config/` is authoritative):
 
-| Package     | Description                                                    |
-| ----------- | -------------------------------------------------------------- |
-| `aerospace` | Tiling window manager for macOS                                |
-| `atuin`     | Shell history database (Ctrl-R)                                |
-| `ghostty`   | Terminal emulator (Catppuccin theme)                           |
-| `git`       | Git configuration and global ignore                            |
-| `lazygit`   | Git TUI                                                        |
-| `mise`      | Node/Python runtime manager (reads `.nvmrc`/`.python-version`) |
-| `nvim`      | Neovim (Lua config, lazy.nvim plugin manager)                  |
-| `ripgrep`   | Ripgrep configuration                                          |
-| `sesh`      | Terminal session manager                                       |
-| `starship`  | Cross-shell prompt (Java/K8s/Docker aware)                     |
-| `tmux`      | Terminal multiplexer                                           |
+| Package    | Description                                                    |
+| ---------- | -------------------------------------------------------------- |
+| `atuin`    | Shell history database (Ctrl-R)                                |
+| `ghostty`  | Terminal emulator (Catppuccin theme)                           |
+| `git`      | Git configuration and global ignore                            |
+| `lazygit`  | Git TUI                                                        |
+| `mise`     | Node/Python runtime manager (reads `.nvmrc`/`.python-version`) |
+| `nvim`     | Neovim (Lua config, lazy.nvim plugin manager)                  |
+| `ripgrep`  | Ripgrep configuration                                          |
+| `sesh`     | Terminal session manager                                       |
+| `starship` | Cross-shell prompt (Java/K8s/Docker aware)                     |
+| `tmux`     | Terminal multiplexer                                           |
 
 Zsh rc files (`.zshrc`, `.zprofile`, `.zsh_aliases`, `.zsh_functions`, `.docker_aliases`) live under `home/` and symlink directly into `$HOME`.
 
@@ -180,7 +179,7 @@ Configuration lives in `home/` (`.zshrc`, `.zsh_functions`, `.zsh_aliases`, `.zp
 - **Starship prompt** with git status, Java version, K8s context, Docker status
 - **Plugins** via `zfetch` (custom plugin manager):
   - zsh-completions, zsh-syntax-highlighting, zsh-autosuggestions, zsh-history-substring-search, zsh-you-should-use, fzf-tab, fzf-git.sh
-- **Tool initialization**: mise (Node/Python), pnpm, zoxide, direnv, fzf, atuin, SDKMAN (lazy-loaded), starship
+- **Tool initialization**: mise (Node/Python), zoxide, direnv, fzf, atuin, SDKMAN (lazy-loaded), starship
 - **Docker aliases** (`home/.docker_aliases`)
 - **Custom functions**: `c` (cd to workspaces), `h` (cd to home subdir), `g` (git shortcut), `md` (mkdir + cd), `zfetch` (plugin manager)
 
@@ -195,7 +194,7 @@ vimu
 
 ### tmux
 
-Custom keybindings with `⌃-a` prefix (remapped from `⌃-b`). Session management via `tm` command.
+Custom keybindings with `⌃-a` prefix (remapped from `⌃-b`). Session management via `sesh` (the terminal session manager).
 
 | Key       | Action           |
 | --------- | ---------------- |
@@ -257,7 +256,5 @@ Configures: Finder (show extensions, hidden files, path bar), keyboard (fast rep
 ## Preferred Software
 
 - [Ghostty](https://ghostty.org) — GPU-accelerated terminal emulator
-- [Aerospace](https://github.com/nikitabobko/AeroSpace) — i3-like tiling window manager for macOS
 - [Neovim](https://neovim.io) — Editor
 - [Starship](https://starship.rs) — Cross-shell prompt
-- [Raycast](https://raycast.com) — Launcher
