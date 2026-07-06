@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Description: Report drift between the repo's declared state and this machine.
+# Description: Report drift between the repo and this machine; prune undeclared items.
 
 set -Eeuo pipefail
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
@@ -19,13 +19,22 @@ DOMAINS="brew sdkman plugins symlinks"
 usage() {
   cat <<EOF
   $(fmt_key "Usage:") $(fmt_key "$command_name") $(fmt_value "[domain]")
+         $(fmt_key "$command_name") $(fmt_value "<domain> --prune <names...>")
+         $(fmt_key "$command_name") $(fmt_value "<domain> --prune --all")
 
   Report drift between the repo's declared state (Brewfiles, sdkman/toolchain,
   .zshrc plugins, config/home links) and what is actually on this machine.
-  Read-only: nothing is installed or removed. Domains: $DOMAINS (default: all).
+  The report is read-only. Domains: $DOMAINS (default: all).
+
+  --prune removes undeclared items from ONE domain (brew, sdkman, plugins —
+  symlinks are dot clean's job). Only items the report lists as undeclared are
+  prunable; anything declared (here or in another profile) is refused. The
+  report is the preview: no names and no --all removes nothing.
 
 Options:
-    -h, --help       Show this help message
+    --prune <names...>   Remove the named undeclared items
+    --prune --all        Remove every undeclared item in the domain
+    -h, --help           Show this help message
 EOF
 }
 
@@ -69,15 +78,61 @@ report_symlinks() {
   reconcile_symlinks_missing | _section "$RED" "unhealthy (state + target)" "→ dot link (see: dot link --status)"
 }
 
-main() {
-  case "${1:-}" in
-    -h | --help)
-      usage
-      exit 0
+# Prune the named (or all) undeclared items of one domain. Every name is
+# checked against the domain's undeclared set — the ONLY gate between user
+# input and an uninstall, so a declared / declared-elsewhere / alias-declared
+# name is refused, never removed.
+do_prune() {
+  local domain="$1" all="$2" names="$3"
+  case "$domain" in
+    brew | sdkman | plugins) ;;
+    symlinks)
+      log_error "symlinks has no --prune — dangling links are removed by: dot clean"
+      return 1
+      ;;
+    "")
+      log_error "--prune needs a domain: brew, sdkman, or plugins"
+      return 1
+      ;;
+    *)
+      log_error "Unknown domain: $domain (expected one of: $DOMAINS)"
+      return 1
       ;;
   esac
 
-  local scope="${1:-}" domain matched=false
+  local undeclared
+  undeclared="$("reconcile_${domain}_undeclared")"
+  if [ "$all" = true ]; then
+    names="$undeclared"
+    if [ -z "$names" ]; then
+      log_success "Nothing undeclared in $domain — nothing to prune"
+      return 0
+    fi
+  elif [ -z "$names" ]; then
+    log_error "Nothing to prune: pass names or --all (run $command_name $domain to preview)"
+    return 1
+  fi
+
+  local name failed=0
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    if ! printf '%s\n' "$undeclared" | grep -qxF "$name"; then
+      log_error "refusing to prune $name — not undeclared in $domain (declared here or in another profile, or not installed)"
+      failed=1
+      continue
+    fi
+    if "reconcile_${domain}_prune" "$name"; then
+      log_success "pruned $name"
+    else
+      log_error "failed to prune $name"
+      failed=1
+    fi
+  done <<<"$names"
+  return "$failed"
+}
+
+report() {
+  local scope="$1" domain matched=false
   for domain in $DOMAINS; do
     if [ -z "$scope" ] || [ "$scope" = "$domain" ]; then
       "report_$domain"
@@ -95,10 +150,54 @@ main() {
   local summary
   summary="$(reconcile_summary)"
   if [ -n "$summary" ]; then
-    log_warning "Drift found — resolve with the hints above (prune/adopt arrive with dot reconcile v2)"
+    log_warning "Drift found — resolve with the hints above, or prune undeclared items: $command_name <domain> --prune"
   else
     log_success "No drift — this machine matches the repo's declared state"
   fi
+}
+
+main() {
+  # Grammar: [domain] [--prune [names... | --all]] — the first positional is
+  # the domain; positionals after --prune are names (newline-joined, not an
+  # array: "${arr[@]}" on an empty array trips set -u under bash 3.2).
+  local scope="" prune=false all=false names="" arg
+  for arg in "$@"; do
+    case "$arg" in
+      -h | --help)
+        usage
+        exit 0
+        ;;
+      --prune) prune=true ;;
+      --all) all=true ;;
+      -*)
+        log_error "Unknown option: $arg"
+        echo
+        usage
+        exit 1
+        ;;
+      *)
+        if [ "$prune" = true ]; then
+          names="${names}${arg}"$'\n'
+        elif [ -z "$scope" ]; then
+          scope="$arg"
+        else
+          log_error "Unexpected argument: $arg (one domain at a time)"
+          exit 1
+        fi
+        ;;
+    esac
+  done
+
+  if [ "$all" = true ] && [ "$prune" = false ]; then
+    log_error "--all only makes sense with --prune"
+    exit 1
+  fi
+
+  if [ "$prune" = true ]; then
+    do_prune "$scope" "$all" "$names"
+    return
+  fi
+  report "$scope"
 }
 
 # Only run main when executed directly (sourcing for tests must not report).
