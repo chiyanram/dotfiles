@@ -38,10 +38,63 @@ reconcile_plugins_undeclared() {
 # another profile's Brewfile (reported, never pruned). Actual = brew leaves +
 # installed casks. Undeclared = actual minus declared minus declared-elsewhere.
 
-# Extract brew/cask package names from Brewfile content on stdin.
+# Extract package names of one kind ($1 = brew|cask) from Brewfile content on stdin.
 _reconcile_brew_names() {
-  grep -E "^[[:space:]]*(brew|cask) '[^']+'" 2>/dev/null |
-    sed -E "s/^[[:space:]]*(brew|cask) '([^']+)'.*/\2/" || true
+  grep -E "^[[:space:]]*$1 '[^']+'" 2>/dev/null |
+    sed -E "s/^[[:space:]]*$1 '([^']+)'.*/\1/" || true
+}
+
+# Formula name-alias map, one "alias|canonical" line per alias (issue #26).
+# Brewfiles may declare a formula by an alias (kubectl) while brew installs and
+# lists the canonical name (kubernetes-cli); set-diffing the two spellings
+# reports a false missing+undeclared pair — and --prune (ph2) must never offer
+# to uninstall a package that IS declared, just under an alias.
+# Sources, cheapest first (filesystem reads, no per-package brew calls):
+#   1. Homebrew's API cache (the default install-from-API world);
+#   2. a locally tapped homebrew-core (HOMEBREW_NO_INSTALL_FROM_API setups):
+#      Aliases/<alias> symlinks to the canonical <formula>.rb.
+# Neither present (day-0, CI): emit nothing — names pass through unnormalized,
+# which is the pre-#26 behavior.
+_reconcile_brew_alias_map() {
+  local cache="${HOMEBREW_CACHE:-$HOME/Library/Caches/Homebrew}/api/formula_aliases.txt"
+  if [ -f "$cache" ]; then
+    cat "$cache"
+    return 0
+  fi
+  command -v brew >/dev/null 2>&1 || return 0
+  local dir link
+  dir="$(brew --repository 2>/dev/null)/Library/Taps/homebrew/homebrew-core/Aliases"
+  [ -d "$dir" ] || return 0
+  for link in "$dir"/*; do
+    [ -L "$link" ] || continue
+    printf '%s|%s\n' "${link##*/}" "$(basename "$(readlink "$link")" .rb)"
+  done
+}
+
+# stdin → stdout: rewrite each formula alias to its canonical name. Applied to
+# BOTH sides of every brew set-diff so comparisons are canonical-vs-canonical.
+# Formula names only — cask tokens have no alias namespace and must never be
+# rewritten by a colliding formula alias.
+_reconcile_brew_canonical() {
+  local map
+  map="$(_reconcile_brew_alias_map)"
+  if [ -z "$map" ]; then
+    cat
+    return 0
+  fi
+  # NR==FNR reads the (guaranteed non-empty) map first, then filters stdin.
+  awk -F'|' '
+    NR == FNR { canon[$1] = $2; next }
+    { if ($0 in canon) print canon[$0]; else print }
+  ' <(printf '%s\n' "$map") -
+}
+
+# Brewfile content on stdin → declared names: formulas canonicalized, casks as-is.
+_reconcile_brew_declared_names() {
+  local content
+  content="$(cat)"
+  printf '%s\n' "$content" | _reconcile_brew_names brew | _reconcile_brew_canonical
+  printf '%s\n' "$content" | _reconcile_brew_names cask
 }
 
 # Raw declared content: the active profile's Brewfiles + the docker-runtime cask.
@@ -51,7 +104,7 @@ _reconcile_brew_declared_raw() {
   dot_docker_runtime_entries "$(dot_docker_runtime)" 2>/dev/null || true
 }
 
-reconcile_brew_declared() { _reconcile_brew_declared_raw | _reconcile_brew_names | sort -u; }
+reconcile_brew_declared() { _reconcile_brew_declared_raw | _reconcile_brew_declared_names | sort -u; }
 
 reconcile_brew_declared_elsewhere() {
   local active other dir="$DOTFILES/brew"
@@ -62,12 +115,12 @@ reconcile_brew_declared_elsewhere() {
     [ "$other" = "$active" ] && continue
     [ -f "$dir/Brewfile.$other" ] || continue
     cat "$dir/Brewfile.$other"
-  done | _reconcile_brew_names | sort -u
+  done | _reconcile_brew_declared_names | sort -u
 }
 
 reconcile_brew_actual() {
   {
-    brew leaves 2>/dev/null
+    brew leaves 2>/dev/null | _reconcile_brew_canonical
     brew list --cask 2>/dev/null
   } | sort -u
 }
@@ -88,7 +141,7 @@ reconcile_brew_undeclared() {
 reconcile_brew_missing() {
   local installed
   installed="$(
-    brew list --formula 2>/dev/null
+    brew list --formula 2>/dev/null | _reconcile_brew_canonical
     brew list --cask 2>/dev/null
   )"
   reconcile_brew_declared |

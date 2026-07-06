@@ -45,8 +45,10 @@ EOF
 }
 
 # ---- brew domain ----
+# Every brew test pins HOMEBREW_CACHE into the sandbox so the real machine's
+# alias map (api/formula_aliases.txt) can never leak into a fixture.
 brew_undeclared() {
-  run env DOTFILES="$SANDBOX/dotfiles" REPO="$REPO" bash -c '
+  run env DOTFILES="$SANDBOX/dotfiles" HOMEBREW_CACHE="$SANDBOX/brew-cache" REPO="$REPO" bash -c '
     source "$REPO/bin/lib/common.sh"
     source "$REPO/bin/lib/reconcile.sh"
     dot_profile() { echo personal; }
@@ -91,7 +93,7 @@ sdkman_undeclared() {
 @test "brew: a declared package that is installed only as a dependency is NOT missing" {
   mkdir -p "$SANDBOX/dotfiles/brew"
   printf "brew 'git'\nbrew 'python'\nbrew 'absent-tool'\n" >"$SANDBOX/dotfiles/brew/Brewfile.core"
-  run env DOTFILES="$SANDBOX/dotfiles" REPO="$REPO" bash -c '
+  run env DOTFILES="$SANDBOX/dotfiles" HOMEBREW_CACHE="$SANDBOX/brew-cache" REPO="$REPO" bash -c '
     source "$REPO/bin/lib/common.sh"
     source "$REPO/bin/lib/reconcile.sh"
     dot_profile() { echo personal; }
@@ -109,6 +111,102 @@ sdkman_undeclared() {
   [[ "$output" == *"absent-tool"* ]] # truly missing
   [[ "$output" != *"python"* ]]      # installed as dep — not missing
   [[ "$output" != *"git"* ]]
+}
+
+# ---- name-alias normalization (#26) ----
+# Brewfiles may declare a formula by an alias (kubectl) while brew lists the
+# canonical name (kubernetes-cli); without normalization each aliased entry is
+# double-reported as missing AND undeclared.
+
+# Fixture: kubectl/python/golang declared as aliases; canonical names installed.
+setup_alias_fixture() {
+  mkdir -p "$SANDBOX/dotfiles/brew"
+  printf "brew 'kubectl'\nbrew 'python'\n" >"$SANDBOX/dotfiles/brew/Brewfile.core"
+  printf "brew 'golang'\n" >"$SANDBOX/dotfiles/brew/Brewfile.work" # declared elsewhere
+}
+
+# The injected fake brew: only canonical names installed, plus the runtime cask.
+FAKE_BREW_CANONICAL='brew() {
+  case "$1 ${2:-}" in
+    "leaves ") printf "%s\n" kubernetes-cli python@3.14 go ;;
+    "list --formula") printf "%s\n" kubernetes-cli python@3.14 go ;;
+    "list --cask") printf "%s\n" docker-desktop ;;
+    "--repository ") echo "$SANDBOX/brewrepo" ;;
+  esac
+}'
+
+alias_report() {
+  run env DOTFILES="$SANDBOX/dotfiles" HOMEBREW_CACHE="$SANDBOX/brew-cache" REPO="$REPO" bash -c '
+    source "$REPO/bin/lib/common.sh"
+    source "$REPO/bin/lib/reconcile.sh"
+    dot_profile() { echo personal; }
+    dot_docker_runtime() { echo docker-desktop; }
+    '"$FAKE_BREW_CANONICAL"'
+    reconcile_brew_undeclared
+    reconcile_brew_missing
+  '
+}
+
+@test "brew: an alias declared in a Brewfile matches its installed canonical name (API cache map)" {
+  setup_alias_fixture
+  mkdir -p "$SANDBOX/brew-cache/api"
+  printf 'kubectl|kubernetes-cli\npython|python@3.14\ngolang|go\n' \
+    >"$SANDBOX/brew-cache/api/formula_aliases.txt"
+
+  alias_report
+  [ "$status" -eq 0 ]
+  # kubectl→kubernetes-cli, python→python@3.14 (declared), golang→go (declared
+  # elsewhere): nothing is missing, nothing is undeclared — no false pairs.
+  [ -z "$output" ]
+}
+
+@test "brew: alias map falls back to the local homebrew-core tap Aliases dir" {
+  setup_alias_fixture
+  # no API cache; a tapped homebrew-core provides Aliases/<alias> -> canonical .rb
+  local aliases="$SANDBOX/brewrepo/Library/Taps/homebrew/homebrew-core/Aliases"
+  mkdir -p "$aliases"
+  ln -s ../Formula/kubernetes-cli.rb "$aliases/kubectl"
+  ln -s ../Formula/python@3.14.rb "$aliases/python"
+  ln -s ../Formula/go.rb "$aliases/golang"
+
+  alias_report
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "brew: without alias data the diff degrades to unnormalized names (day-0/CI)" {
+  setup_alias_fixture # neither API cache nor tap Aliases dir exists
+
+  alias_report
+  [ "$status" -eq 0 ]
+  # the known #26 false pair is back — degraded, but never wrong about installs
+  [[ "$output" == *"kubernetes-cli"* ]] # undeclared (canonical spelling)
+  [[ "$output" == *"kubectl"* ]]        # missing (declared spelling)
+}
+
+@test "brew: cask tokens are never rewritten by the formula alias map" {
+  mkdir -p "$SANDBOX/dotfiles/brew" "$SANDBOX/brew-cache/api"
+  printf "cask 'foo'\n" >"$SANDBOX/dotfiles/brew/Brewfile.core"
+  # a formula alias that collides with the declared cask token
+  printf 'foo|bar\n' >"$SANDBOX/brew-cache/api/formula_aliases.txt"
+  run env DOTFILES="$SANDBOX/dotfiles" HOMEBREW_CACHE="$SANDBOX/brew-cache" REPO="$REPO" bash -c '
+    source "$REPO/bin/lib/common.sh"
+    source "$REPO/bin/lib/reconcile.sh"
+    dot_profile() { echo personal; }
+    dot_docker_runtime() { echo docker-desktop; }
+    brew() {
+      case "$1 ${2:-}" in
+        "list --cask") printf "%s\n" foo docker-desktop ;;
+        *) : ;;
+      esac
+    }
+    reconcile_brew_undeclared
+    reconcile_brew_missing
+  '
+  [ "$status" -eq 0 ]
+  # cask foo is declared and installed: normalizing it to bar would fabricate
+  # a foo-undeclared + bar-missing pair
+  [ -z "$output" ]
 }
 
 @test "summary: per-domain drift counts on one line each" {
