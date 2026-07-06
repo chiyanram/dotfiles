@@ -151,9 +151,10 @@ reconcile_symlinks_missing() {
   done < <(managed_targets)
 }
 
-# Dangling links whose repo source was deleted. Two scans:
+# Dangling links whose repo source was deleted — emitted as ABSOLUTE paths so
+# `dot clean` can rm them directly (the report prettifies to ~/). Two scans:
 #  (a) $XDG_CONFIG_HOME depth-1 links into $DOTFILES that no longer resolve
-#      (removed config packages — same scope as dot clean's stale scan);
+#      (removed config packages);
 #  (b) home-file targets derived from GIT HISTORY of deleted home/ files —
 #      current repo files can't name them (the source is gone), which is exactly
 #      why a repo-derived scan misses the ~/.claude case (#21).
@@ -164,8 +165,7 @@ reconcile_symlinks_dangling() {
     if [ -d "$config_home" ]; then
       while IFS= read -r -d '' link; do
         if [ ! -e "$link" ] && [[ "$(readlink "$link")" == "$DOTFILES"* ]]; then
-          # shellcheck disable=SC2088  # tilde is a display label, not expansion
-          printf '~/%s\n' "${link#"$HOME"/}"
+          printf '%s\n' "$link"
         fi
       done < <(find "$config_home" -maxdepth 1 -type l -print0 2>/dev/null || true)
     fi
@@ -177,8 +177,7 @@ reconcile_symlinks_dangling() {
         target="$HOME/${rel#home/}"
         if [ -L "$target" ] && [ ! -e "$target" ] &&
           [[ "$(readlink "$target")" == "$DOTFILES"* ]]; then
-          # shellcheck disable=SC2088  # tilde is a display label, not expansion
-          printf '~/%s\n' "${target#"$HOME"/}"
+          printf '%s\n' "$target"
         fi
       done < <(git -C "$DOTFILES" log --diff-filter=D --name-only --pretty=format: -- home/ 2>/dev/null | sort -u)
     fi

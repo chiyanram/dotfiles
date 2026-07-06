@@ -21,6 +21,9 @@ else
   echo "Error: Unable to source common.sh"
   exit 1
 fi
+# Drift detection (shared with dot-reconcile) — cmd_clean uses its dangling scan.
+# shellcheck disable=SC1091
+source "$DOTFILES/bin/lib/reconcile.sh"
 
 find_commands() {
   IFS=: read -ra path_dirs <<<"$PATH"
@@ -92,19 +95,15 @@ cmd_clean() {
     fi
   done
 
-  # Clean stale symlinks pointing to deleted dotfiles config dirs
-  if [ -d "$CONFIG_HOME" ]; then
-    while IFS= read -r -d '' link; do
-      if [ -L "$link" ] && [ ! -e "$link" ]; then
-        local link_target
-        link_target=$(readlink "$link")
-        if [[ "$link_target" == "$DOTFILES"* ]]; then
-          log_info "Removing stale symbolic link: ~${link#"$HOME"} → $link_target"
-          rm "$link"
-        fi
-      fi
-    done < <(find "$CONFIG_HOME" -maxdepth 1 -type l -print0 2>/dev/null || true)
-  fi
+  # Clean dangling links into $DOTFILES whose source is gone: stale config-dir
+  # links, plus home links whose repo file was DELETED — those are derived from
+  # git history (shared reconcile scan), since no current repo file names them.
+  local stale
+  while IFS= read -r stale; do
+    [ -n "$stale" ] || continue
+    log_info "Removing stale symbolic link: ~${stale#"$HOME"} → $(readlink "$stale")"
+    rm "$stale"
+  done < <(reconcile_symlinks_dangling)
 
   # Clean broken home directory symlinks
   if [ -d "$DOTFILES/home" ]; then

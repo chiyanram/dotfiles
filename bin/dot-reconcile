@@ -64,7 +64,8 @@ report_plugins() {
 
 report_symlinks() {
   fmt_title_underline "Symlinks"
-  reconcile_symlinks_dangling | _section "$YELLOW" "dangling (source removed from repo)" "→ dot clean"
+  reconcile_symlinks_dangling | sed "s|^$HOME|~|" |
+    _section "$YELLOW" "dangling (source removed from repo)" "→ dot clean"
   reconcile_symlinks_missing | _section "$RED" "unhealthy (state + target)" "→ dot link (see: dot link --status)"
 }
 
