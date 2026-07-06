@@ -1,7 +1,7 @@
 # shellcheck shell=bash
 # Drift-detection core for `dot reconcile` (design approach B): per-domain
 # adapters, sourced by dot-reconcile, dot-doctor, dot-migrate. Detection is
-# read-only; the prune verbs at the bottom are invoked ONLY by dot-reconcile.
+# read-only; the prune/adopt verbs at the bottom are invoked ONLY by dot-reconcile.
 # Functions only — no side effects at source time; safe under the caller's set -e.
 # Requires common.sh (classify_link, managed_targets, run_sdk) sourced first.
 
@@ -269,6 +269,79 @@ reconcile_plugins_prune() {
   local zpd="${ZPLUGDIR:-${XDG_DATA_HOME:-$HOME/.local/share}/zsh/plugins}"
   rm -rf "${zpd:?}/${1:?}"
   rmdir "$zpd/${1%%/*}" 2>/dev/null || true # owner dir, if now empty
+}
+
+# --- adopt verbs (ph3, #25) --------------------------------------------------------
+# One item per call; appends to the declared file and leaves it UNCOMMITTED —
+# the user reviews the diff and commits (the repo stays the source of truth
+# without silent history). Same contract as prune: dot-reconcile is the only
+# caller and has already validated the name against the undeclared set.
+
+# Append to the active profile's Brewfile ($2 = core promotes to Brewfile.core).
+# Casks are detected from the installed set; the trailing comment matches the
+# Brewfile house style (every entry explains itself — this one asks the user to).
+reconcile_brew_adopt() {
+  local name="$1" file kind=brew
+  if [ "${2:-}" = "core" ]; then
+    file="$DOTFILES/brew/Brewfile.core"
+  else
+    file="$DOTFILES/brew/Brewfile.$(dot_profile)"
+  fi
+  brew list --cask 2>/dev/null | grep -qxF "$name" && kind=cask
+  printf "%-38s # adopted by dot reconcile — describe me\n" "$kind '$name'" >>"$file"
+}
+
+# Tools append as a bare candidate (the toolchain's latest-stable convention).
+# java pins Temurin majors: each installed *-tem version adopts as `java <major>`;
+# a non-Temurin JDK (graalvm, ...) can't be expressed by resolve_temurin, so it
+# is reported for by-hand adoption instead.
+reconcile_sdkman_adopt() {
+  local cand="$1" tc="${SDKMAN_TOOLCHAIN:-$DOTFILES/sdkman/toolchain}"
+  if [ "$cand" != "java" ]; then
+    printf '%s\n' "$cand" >>"$tc"
+    return 0
+  fi
+  local dir="${SDKMAN_DIR:-$HOME/.sdkman}/candidates/java" version majors=""
+  for version in "$dir"/*; do
+    [ -d "$version" ] || continue
+    [ -L "$version" ] && continue # `current` symlink
+    version="${version##*/}"
+    case "$version" in
+      *-tem) majors="${majors}java ${version%%[.-]*}"$'\n' ;;
+      *) log_warning "java $version is not a Temurin JDK — adopt it by hand (the toolchain pins Temurin majors)" ;;
+    esac
+  done
+  majors="$(printf '%s' "$majors" | sort -u)"
+  [ -n "$majors" ] || return 1
+  printf '%s\n' "$majors" >>"$tc"
+}
+
+# Guarded .zshrc edit (the decided plugins-adopt shape, epic #22): insert
+# `zfetch owner/repo` right after the LAST zfetch plugin line — the end of the
+# main post-compinit group — then smoke-test the shell; on failure revert the
+# edit and warn. Plugins needing pre-compinit placement or keybindings are the
+# edge the user relocates before committing (the edit stays uncommitted).
+reconcile_plugins_adopt() {
+  local plugin="$1" zshrc="$DOTFILES/home/.zshrc" anchor backup
+  anchor="$(grep -nE '^[[:space:]]*zfetch[[:space:]]+[^[:space:]]+/' "$zshrc" 2>/dev/null |
+    tail -1 | cut -d: -f1)"
+  if [ -z "$anchor" ]; then
+    log_error "no zfetch anchor in .zshrc — add 'zfetch $plugin' by hand"
+    return 1
+  fi
+  backup="$(mktemp)"
+  cp "$zshrc" "$backup"
+  awk -v n="$anchor" -v p="$plugin" \
+    'NR == n { print; print "zfetch " p; next } { print }' \
+    "$backup" >"$zshrc"
+  if zsh -i -c 'echo ok' >/dev/null 2>&1; then
+    rm -f "$backup"
+    return 0
+  fi
+  cp "$backup" "$zshrc"
+  rm -f "$backup"
+  log_error "shell smoke failed after inserting zfetch $plugin — reverted .zshrc"
+  return 1
 }
 
 # --- summary --------------------------------------------------------------------
