@@ -370,3 +370,48 @@ EOF
   [[ "$output" == *$'\033[2m'* ]] # real escape byte
   [[ "$output" != *'\033'* ]]     # never the 4-char literal
 }
+
+# ---- Brewfile OS conditionals (#37) ----
+# Entries inside `if OS.mac?` / `elsif OS.linux?` blocks are declared only for
+# that OS; a flat grep counts them everywhere (false "missing: xclip" on macOS).
+setup_os_block_fixture() {
+  mkdir -p "$SANDBOX/dotfiles/brew"
+  cat >"$SANDBOX/dotfiles/brew/Brewfile.core" <<'BREWFILE'
+if OS.mac?
+  brew 'mac-only'
+  cask 'mac-cask'
+elsif OS.linux?
+  brew 'xclip'
+end
+brew 'everywhere'
+BREWFILE
+}
+
+os_block_missing() {
+  run env DOTFILES="$SANDBOX/dotfiles" HOMEBREW_CACHE="$SANDBOX/brew-cache" REPO="$REPO" bash -c '
+    source "$REPO/bin/lib/common.sh"
+    source "$REPO/bin/lib/reconcile.sh"
+    dot_profile() { echo personal; }
+    dot_docker_runtime() { echo docker-desktop; }
+    brew() { :; } # nothing installed
+    uname() { echo '"$1"'; }
+    reconcile_brew_missing
+  '
+}
+
+@test "brew: a linux-only Brewfile entry is not missing on macOS" {
+  setup_os_block_fixture
+  os_block_missing Darwin
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"mac-only"* && "$output" == *"mac-cask"* ]]
+  [[ "$output" == *"everywhere"* ]]
+  [[ "$output" != *"xclip"* ]] # linux branch — not declared here
+}
+
+@test "brew: a mac-only Brewfile entry is not missing on Linux" {
+  setup_os_block_fixture
+  os_block_missing Linux
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"xclip"* && "$output" == *"everywhere"* ]]
+  [[ "$output" != *"mac-only"* && "$output" != *"mac-cask"* ]]
+}

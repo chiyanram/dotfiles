@@ -91,10 +91,26 @@ _reconcile_brew_canonical() {
   ' <(printf '%s\n' "$map") -
 }
 
+# stdin → stdout: keep only the Brewfile lines active on THIS OS. Entries in
+# the other OS's `if OS.mac?` / `elsif OS.linux?` branch are not declared here
+# (issue #37: a flat grep reported linux-only xclip as missing on macOS).
+# Assumes the repo's Brewfile convention: one top-level OS conditional, no
+# nesting — `end` closes the block.
+_reconcile_brew_os_lines() {
+  local os="OS.linux?"
+  if [ "$(uname)" = "Darwin" ]; then os="OS.mac?"; fi
+  awk -v os="$os" '
+    /^[[:space:]]*if OS\./    { in_block = 1; keep = index($0, os) > 0; next }
+    /^[[:space:]]*elsif OS\./ { if (in_block) { keep = index($0, os) > 0; next } }
+    /^[[:space:]]*end[[:space:]]*$/ { if (in_block) { in_block = 0; next } }
+    !in_block || keep { print }
+  '
+}
+
 # Brewfile content on stdin → declared names: formulas canonicalized, casks as-is.
 _reconcile_brew_declared_names() {
   local content
-  content="$(cat)"
+  content="$(_reconcile_brew_os_lines)"
   printf '%s\n' "$content" | _reconcile_brew_names brew | _reconcile_brew_canonical
   printf '%s\n' "$content" | _reconcile_brew_names cask
 }
