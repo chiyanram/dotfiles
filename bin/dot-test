@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # Description: Run all dotfiles checks — lint, format, syntax, smoke, and bats tests
 
+# The gate always tests the tree it lives in — an inherited DOTFILES (e.g. from
+# .zshenv) would silently point every check at another checkout (issue #30).
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
-DOTFILES="${DOTFILES:-$(cd "$script_dir/.." && pwd -P)}"
+DOTFILES="$(cd "$script_dir/.." && pwd -P)"
+# shellcheck disable=SC1091
 source "$DOTFILES/bin/lib/common.sh"
 
 failed=0

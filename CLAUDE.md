@@ -77,6 +77,7 @@ Personal dotfiles for my macOS laptop (backend engineer: JVM toolchain via SDKMA
 ### Tests
 
 - Tests are bats; `dot test` is the merge gate (shellcheck, shfmt, prettier-markdown, bash syntax, zsh smoke, bats) — run it before claiming green
+- `dot-test` always tests its own tree, ignoring an inherited `DOTFILES` env var — in a worktree, run `./bin/dot-test` (the PATH `dot test` is the main checkout's and tests main)
 - Tests must be bash-3.2-safe too: the macOS CI job installs no modern bash, so bats runs under system bash 3.2 — no bash-4+ features (`$BASHPID`, etc.)
 - shfmt house style is `-i 2 -ci` — enforced by `dot test` and CI but NOT by pre-commit, so hooks passing ≠ CI passing
 - Markdown is formatted by prettier: a pre-commit hook auto-formats `.md` on commit, and `dot test` runs the same pinned prettier in `--check` mode — keep the version in `bin/dot-test` in sync with the `mirrors-prettier` rev in `.pre-commit-config.yaml`
