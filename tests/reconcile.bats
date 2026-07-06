@@ -87,6 +87,50 @@ sdkman_undeclared() {
   '
 }
 
+# ---- missing direction (declared but not installed) ----
+@test "brew: a declared package that is installed only as a dependency is NOT missing" {
+  mkdir -p "$SANDBOX/dotfiles/brew"
+  printf "brew 'git'\nbrew 'python'\nbrew 'absent-tool'\n" >"$SANDBOX/dotfiles/brew/Brewfile.core"
+  run env DOTFILES="$SANDBOX/dotfiles" REPO="$REPO" bash -c '
+    source "$REPO/bin/lib/common.sh"
+    source "$REPO/bin/lib/reconcile.sh"
+    dot_profile() { echo personal; }
+    dot_docker_runtime() { echo docker-desktop; }
+    brew() {
+      case "$1 ${2:-}" in
+        "leaves ") printf "%s\n" git ;;                      # python is a dep, not a leaf
+        "list --formula") printf "%s\n" git python ;;        # ...but it IS installed
+        "list --cask") printf "%s\n" docker-desktop ;;
+      esac
+    }
+    reconcile_brew_missing
+  '
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"absent-tool"* ]] # truly missing
+  [[ "$output" != *"python"* ]]      # installed as dep — not missing
+  [[ "$output" != *"git"* ]]
+}
+
+@test "summary: per-domain drift counts on one line each" {
+  mkdir -p "$SANDBOX/dotfiles/home" "$SANDBOX/dotfiles/sdkman" "$SANDBOX/dotfiles/brew" "$SANDBOX/dotfiles/config"
+  printf 'zfetch a/b\n' >"$SANDBOX/dotfiles/home/.zshrc"
+  printf 'gradle\n' >"$SANDBOX/dotfiles/sdkman/toolchain"
+  : >"$SANDBOX/dotfiles/brew/Brewfile.core"
+  mkdir -p "$SANDBOX/plugins/c/d/.git" # one orphan plugin clone
+  run env DOTFILES="$SANDBOX/dotfiles" ZPLUGDIR="$SANDBOX/plugins" \
+    SDKMAN_DIR="$SANDBOX/.sdkman" HOME="$SANDBOX/home" REPO="$REPO" bash -c '
+    source "$REPO/bin/lib/common.sh"
+    source "$REPO/bin/lib/reconcile.sh"
+    dot_profile() { echo personal; }
+    dot_docker_runtime() { echo docker-desktop; }
+    brew() { :; }
+    reconcile_summary
+  '
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"plugins"*"1 undeclared"* ]] # the orphan clone
+  [[ "$output" == *"sdkman"*"1 missing"* ]]     # gradle declared, none installed
+}
+
 # ---- symlinks domain (report-only) ----
 symlinks_env() {
   env HOME="$SANDBOX/home" XDG_CONFIG_HOME="$SANDBOX/home/.config" \

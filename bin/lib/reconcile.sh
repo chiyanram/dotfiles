@@ -79,6 +79,19 @@ reconcile_brew_undeclared() {
     grep -vxF -f <(printf '%s\n' "$excluded") 2>/dev/null || true
 }
 
+# Missing = declared but not installed. Diff against `brew list` (ALL installed),
+# not `leaves`: a declared formula that is also some other formula's dependency
+# isn't a leaf, and must not be reported as missing.
+reconcile_brew_missing() {
+  local installed
+  installed="$(
+    brew list --formula 2>/dev/null
+    brew list --cask 2>/dev/null
+  )"
+  reconcile_brew_declared |
+    grep -vxF -f <(printf '%s\n' "$installed") 2>/dev/null || true
+}
+
 # --- sdkman domain ------------------------------------------------------------
 # Declared = candidates named in sdkman/toolchain; actual = installed candidate
 # dirs under $SDKMAN_DIR/candidates. Undeclared = installed candidates the
@@ -104,6 +117,20 @@ reconcile_sdkman_undeclared() {
   declared="$(reconcile_sdkman_declared)"
   reconcile_sdkman_actual |
     grep -vxF -f <(printf '%s\n' "$declared") 2>/dev/null || true
+}
+
+reconcile_sdkman_missing() {
+  local actual
+  actual="$(reconcile_sdkman_actual)"
+  reconcile_sdkman_declared |
+    grep -vxF -f <(printf '%s\n' "$actual") 2>/dev/null || true
+}
+
+reconcile_plugins_missing() {
+  local actual
+  actual="$(reconcile_plugins_actual)"
+  reconcile_plugins_declared |
+    grep -vxF -f <(printf '%s\n' "$actual") 2>/dev/null || true
 }
 
 # --- symlinks domain (report-only) ---------------------------------------------
@@ -153,4 +180,25 @@ reconcile_symlinks_dangling() {
       done < <(git -C "$DOTFILES" log --diff-filter=D --name-only --pretty=format: -- home/ 2>/dev/null | sort -u)
     fi
   } | sort -u
+}
+
+# --- summary --------------------------------------------------------------------
+# One line per domain that has drift ("<domain>: N undeclared, M missing"), empty
+# when everything converges. For dot-doctor / dot-migrate to surface cheaply.
+
+_reconcile_count() { grep -c . 2>/dev/null || true; }
+
+reconcile_summary() {
+  local domain undeclared missing
+  for domain in brew sdkman plugins symlinks; do
+    if [ "$domain" = "symlinks" ]; then
+      undeclared="$(reconcile_symlinks_dangling | _reconcile_count)"
+      missing="$(reconcile_symlinks_missing | _reconcile_count)"
+    else
+      undeclared="$("reconcile_${domain}_undeclared" | _reconcile_count)"
+      missing="$("reconcile_${domain}_missing" | _reconcile_count)"
+    fi
+    [ "$((undeclared + missing))" -eq 0 ] && continue
+    printf '%s: %s undeclared, %s missing\n' "$domain" "$undeclared" "$missing"
+  done
 }
