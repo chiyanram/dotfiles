@@ -131,6 +131,58 @@ sdkman_undeclared() {
   [[ "$output" == *"sdkman"*"1 missing"* ]]     # gradle declared, none installed
 }
 
+# ---- dot-reconcile driver ----
+setup_driver_fixture() {
+  mkdir -p "$SANDBOX/bin" "$SANDBOX/home/.config" "$SANDBOX/dotfiles/brew" \
+    "$SANDBOX/dotfiles/sdkman" "$SANDBOX/dotfiles/home" "$SANDBOX/dotfiles/config"
+  printf "brew 'git'\n" >"$SANDBOX/dotfiles/brew/Brewfile.core"
+  printf 'gradle\n' >"$SANDBOX/dotfiles/sdkman/toolchain"
+  printf 'zfetch a/b\n' >"$SANDBOX/dotfiles/home/.zshrc"
+  mkdir -p "$SANDBOX/plugins/c/orphan/.git"                   # orphan plugin clone
+  cat >"$SANDBOX/bin/brew" <<'EOF'
+#!/bin/bash
+case "$1 ${2:-}" in
+  "leaves ") printf '%s\n' git htop ;;
+  "list --formula") printf '%s\n' git htop ;;
+  "list --cask") : ;;
+esac
+EOF
+  chmod +x "$SANDBOX/bin/brew"
+}
+
+run_driver() {
+  run env PATH="$SANDBOX/bin:/usr/bin:/bin" HOME="$SANDBOX/home" \
+    XDG_CONFIG_HOME="$SANDBOX/home/.config" DOTFILES="$SANDBOX/dotfiles" \
+    ZPLUGDIR="$SANDBOX/plugins" SDKMAN_DIR="$SANDBOX/.sdkman" TERM=dumb \
+    bash "$REPO/bin/dot-reconcile" "$@"
+}
+
+@test "driver: full report covers all domains and their drift" {
+  setup_driver_fixture
+  run_driver
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Homebrew"* && "$output" == *"htop"* ]]  # undeclared brew leaf
+  [[ "$output" == *"SDKMAN"* && "$output" == *"gradle"* ]]  # missing declared candidate
+  [[ "$output" == *"plugins"* && "$output" == *"c/orphan"* ]]
+  [[ "$output" == *"Symlinks"* && "$output" == *".zshrc"* ]] # declared home file unlinked
+}
+
+@test "driver: scoping to one domain reports only that domain" {
+  setup_driver_fixture
+  run_driver brew
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"htop"* ]]
+  [[ "$output" != *"c/orphan"* && "$output" != *"SDKMAN"* ]]
+}
+
+@test "driver: --help documents domains and exits 0; unknown domain fails" {
+  run_driver --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"brew"* && "$output" == *"symlinks"* ]]
+  run_driver nonsense
+  [ "$status" -ne 0 ]
+}
+
 # ---- symlinks domain (report-only) ----
 symlinks_env() {
   env HOME="$SANDBOX/home" XDG_CONFIG_HOME="$SANDBOX/home/.config" \

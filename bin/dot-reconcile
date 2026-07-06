@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# Description: Report drift between the repo's declared state and this machine.
+
+set -Eeuo pipefail
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
+# DOTFILES is the *managed state* root (Brewfiles, toolchain, home/, config/);
+# libs load from the script's own dir so a test can point DOTFILES at a fixture.
+DOTFILES="${DOTFILES:-$(cd "$script_dir/.." && pwd -P)}"
+
+# source helpers — both libs are shellcheck'd directly by `dot test`, no need to follow
+# shellcheck disable=SC1091
+source "$script_dir/lib/common.sh"
+# shellcheck disable=SC1091
+source "$script_dir/lib/reconcile.sh"
+command_name=$(basename "${BASH_SOURCE[0]}")
+
+DOMAINS="brew sdkman plugins symlinks"
+
+usage() {
+  cat <<EOF
+  $(fmt_key "Usage:") $(fmt_key "$command_name") $(fmt_value "[domain]")
+
+  Report drift between the repo's declared state (Brewfiles, sdkman/toolchain,
+  .zshrc plugins, config/home links) and what is actually on this machine.
+  Read-only: nothing is installed or removed. Domains: $DOMAINS (default: all).
+
+Options:
+    -h, --help       Show this help message
+EOF
+}
+
+# Print a report block: header + one indented line per input line; nothing when
+# the input is empty. Usage: _section <color> <label> <hint> <<< "$lines"
+_section() {
+  local color="$1" label="$2" hint="$3" line printed=false
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    if [ "$printed" = false ]; then
+      printf "  %b%s%b%s\n" "$color" "$label" "$RESET" "${hint:+  ${DIM}${hint}${RESET}}"
+      printed=true
+    fi
+    printf "    %s\n" "$line"
+  done
+}
+
+report_brew() {
+  fmt_title_underline "Homebrew"
+  reconcile_brew_undeclared | _section "$YELLOW" "undeclared (installed, in no Brewfile)" ""
+  reconcile_brew_missing | _section "$RED" "missing (declared, not installed)" "→ dot homebrew bundle"
+  reconcile_brew_declared_elsewhere | _section "$DIM" "declared in another profile (informational)" ""
+}
+
+report_sdkman() {
+  fmt_title_underline "SDKMAN"
+  reconcile_sdkman_undeclared | _section "$YELLOW" "undeclared (installed, not in toolchain)" ""
+  reconcile_sdkman_missing | _section "$RED" "missing (declared, not installed)" "→ dot sdkman install"
+}
+
+report_plugins() {
+  fmt_title_underline "Zsh plugins"
+  reconcile_plugins_undeclared | _section "$YELLOW" "undeclared (cloned, not in .zshrc)" ""
+  reconcile_plugins_missing | _section "$RED" "missing (declared, not cloned)" "→ open a new shell (zfetch clones on startup)"
+}
+
+report_symlinks() {
+  fmt_title_underline "Symlinks"
+  reconcile_symlinks_dangling | _section "$YELLOW" "dangling (source removed from repo)" "→ dot clean"
+  reconcile_symlinks_missing | _section "$RED" "unhealthy (state + target)" "→ dot link (see: dot link --status)"
+}
+
+main() {
+  case "${1:-}" in
+    -h | --help)
+      usage
+      exit 0
+      ;;
+  esac
+
+  local scope="${1:-}" domain matched=false
+  for domain in $DOMAINS; do
+    if [ -z "$scope" ] || [ "$scope" = "$domain" ]; then
+      "report_$domain"
+      matched=true
+    fi
+  done
+  if [ "$matched" = false ]; then
+    log_error "Unknown domain: $scope (expected one of: $DOMAINS)"
+    echo
+    usage
+    exit 1
+  fi
+
+  echo
+  local summary
+  summary="$(reconcile_summary)"
+  if [ -n "$summary" ]; then
+    log_warning "Drift found — resolve with the hints above (prune/adopt arrive with dot reconcile v2)"
+  else
+    log_success "No drift — this machine matches the repo's declared state"
+  fi
+}
+
+# Only run main when executed directly (sourcing for tests must not report).
+if [[ "${BASH_SOURCE[0]:-$0}" == "${0}" ]]; then main "$@"; fi

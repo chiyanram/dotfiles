@@ -57,8 +57,11 @@ reconcile_brew_declared_elsewhere() {
   local active other dir="$DOTFILES/brew"
   active="$(dot_profile)"
   for other in personal work; do
+    # guard-clause continues: a trailing failed `[ ... ] && cmd` would make the
+    # loop (and via pipefail, the pipeline) exit non-zero under callers' set -e
     [ "$other" = "$active" ] && continue
-    [ -f "$dir/Brewfile.$other" ] && cat "$dir/Brewfile.$other"
+    [ -f "$dir/Brewfile.$other" ] || continue
+    cat "$dir/Brewfile.$other"
   done | _reconcile_brew_names | sort -u
 }
 
