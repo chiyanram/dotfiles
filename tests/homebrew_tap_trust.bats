@@ -1,4 +1,3 @@
-#!/usr/bin/env bats
 # dot-homebrew bundle — Homebrew 6 tap-trust handling (#17).
 # Untrusted third-party taps hard-fail `brew bundle` even for a core-only
 # Brewfile. Policy: auto-trust only taps with packages installed from them
