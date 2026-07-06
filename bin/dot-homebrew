@@ -20,7 +20,8 @@ usage() {
 Options:
     -h, --help       Show this help message
     install          Install Homebrew on this machine
-    bundle           Install Homebrew packages
+    bundle           Install Homebrew packages (auto-trusts taps with packages
+                     installed from them; warns about unused untrusted taps)
 EOF
 }
 
@@ -58,6 +59,49 @@ homebrew_install() {
   fi
 }
 
+# True when any installed keg or cask records $1 as its source tap in an
+# INSTALL_RECEIPT.json ($2 = cellar dir, $3 = caskroom dir). Unmatched globs
+# stay literal; -s keeps grep quiet about the resulting missing files.
+homebrew_tap_in_use() {
+  local tap="$1" cellar="$2" caskroom="$3"
+  grep -qs "\"tap\"[[:space:]]*:[[:space:]]*\"$tap\"" \
+    "$cellar"/*/*/INSTALL_RECEIPT.json \
+    "$caskroom"/*/.metadata/INSTALL_RECEIPT.json
+}
+
+# Homebrew 6 enforces tap-trust: formulae/casks from untrusted third-party taps
+# refuse to load, which hard-fails `brew bundle` even for a core-only Brewfile
+# when resolution touches a tap formula (#17: tenv -> hashicorp/tap/terraform).
+# Policy: auto-trust only taps with packages installed from them (revealed
+# dependence); warn about the rest. Fresh machine has no taps -> no-op.
+# Never fails the bundle step.
+homebrew_trust_taps() {
+  # Pre-tap-trust Homebrew (< 6) has no `trust` command — nothing to do.
+  if ! brew trust --json=v1 >/dev/null 2>&1; then
+    return 0
+  fi
+
+  local cellar caskroom tap info
+  cellar="$(brew --cellar 2>/dev/null)" || cellar=""
+  caskroom="$(brew --caskroom 2>/dev/null)" || caskroom=""
+
+  while IFS= read -r tap; do
+    [[ -z "$tap" ]] && continue
+    case "$tap" in homebrew/*) continue ;; esac # official taps are implicitly trusted
+    # tap-info prints a bare Trusted/Untrusted line while trust is enforced.
+    info="$(brew tap-info "$tap" 2>/dev/null)" || info=""
+    grep -qx "Untrusted" <<<"$info" || continue
+    if homebrew_tap_in_use "$tap" "$cellar" "$caskroom"; then
+      log_info "Trusting tap $tap (packages installed from it)"
+      brew trust --tap "$tap" ||
+        log_warning "Could not trust $tap — bundle may fail (try: brew trust --tap $tap)"
+    else
+      log_warning "Untrusted tap $tap has nothing installed from it — leaving it untrusted. Trust it (brew trust --tap $tap) or remove it (brew untap $tap)."
+    fi
+  done < <(brew tap 2>/dev/null)
+  return 0
+}
+
 homebrew_bundle() {
   if ! command -v brew &>/dev/null; then
     log_error "Homebrew is not installed. Exiting."
@@ -65,6 +109,8 @@ homebrew_bundle() {
   fi
 
   fmt_title_underline "Installing Homebrew packages (profile: $(dot_profile))"
+
+  homebrew_trust_taps
 
   local bf
   # shellcheck disable=SC2119  # dot_brewfiles takes an optional profile arg; calling with no arg is intentional
