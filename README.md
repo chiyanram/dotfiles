@@ -238,6 +238,8 @@ dot homebrew bundle         # Install everything for the active profile
 
 Spans CLI tools (git, neovim, ripgrep, fzf, kubectl, helm, k9s, jq, git-delta, …), GUI casks (ghostty, intellij-idea, claude-code, jdk-mission-control), and profile-specific infra (the Docker runtime, dive, lazydocker).
 
+Homebrew 6 refuses to load formulae/casks from untrusted third-party taps, which can abort the whole bundle even though the Brewfiles declare no taps (formula resolution may touch a machine-local tap). Before bundling, `dot homebrew bundle` therefore auto-trusts each untrusted tap that has packages installed from it, and warns about untrusted taps with nothing installed (trust them with `brew trust --tap <tap>` or remove them with `brew untap <tap>`). A fresh machine has no taps, so this is a no-op on day 0.
+
 ### Health Check
 
 Verify your setup is complete:
