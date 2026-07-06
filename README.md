@@ -133,7 +133,8 @@ When a real file sits where a link should go, `dot link` refuses by default; res
 
 `dot-*` scripts are auto-discovered from `$PATH`, so **`dot help` is the authoritative, always-current list** (any table here would only go stale). The main families:
 
-- **`dot doctor`** — health check (config links, shell, plugins, tools); `--strict` fails on any warning
+- **`dot doctor`** — health check (config links, shell, plugins, tools, drift summary); `--strict` fails on any warning
+- **`dot reconcile [domain]`** — read-only drift report vs the repo's declared state: installed-but-undeclared and declared-but-missing, per domain (brew, sdkman, plugins, symlinks)
 - **`dot update <all|brew|nvim|zsh|sdkman|dotfiles>`** — update installed things (reports what actually _changed_)
 - **`dot sdkman <install|plan|env>`** — the JVM toolchain (see [Java / Backend](#java--backend-sdkman))
 - **`dot homebrew <install|bundle>`** — Homebrew itself + Brewfile packages
