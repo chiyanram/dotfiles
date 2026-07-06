@@ -78,3 +78,33 @@ brew_undeclared() {
   [[ "$output" != *"terraform-docs"* ]] # declared elsewhere (work)
   [[ "$output" != *"docker-desktop"* ]] # config-driven docker runtime
 }
+
+# ---- sdkman domain ----
+sdkman_undeclared() {
+  run env DOTFILES="$SANDBOX/dotfiles" SDKMAN_DIR="$SANDBOX/.sdkman" REPO="$REPO" bash -c '
+    source "$REPO/bin/lib/reconcile.sh"
+    reconcile_sdkman_undeclared
+  '
+}
+
+@test "sdkman: an installed candidate the toolchain does not declare is undeclared" {
+  mkdir -p "$SANDBOX/dotfiles/sdkman"
+  cat >"$SANDBOX/dotfiles/sdkman/toolchain" <<'EOF'
+# toolchain
+gradle
+kotlin
+java latest default
+java 21
+EOF
+  mkdir -p "$SANDBOX/.sdkman/candidates/gradle/8.5" \
+    "$SANDBOX/.sdkman/candidates/kotlin/2.0" \
+    "$SANDBOX/.sdkman/candidates/java/21.0.1-tem" \
+    "$SANDBOX/.sdkman/candidates/scala/3.4"
+
+  sdkman_undeclared
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"scala"* ]] # ad-hoc `sdk install scala` → undeclared
+  [[ "$output" != *"gradle"* ]]
+  [[ "$output" != *"kotlin"* ]]
+  [[ "$output" != *"java"* ]]
+}

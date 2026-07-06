@@ -78,3 +78,30 @@ reconcile_brew_undeclared() {
   reconcile_brew_actual |
     grep -vxF -f <(printf '%s\n' "$excluded") 2>/dev/null || true
 }
+
+# --- sdkman domain ------------------------------------------------------------
+# Declared = candidates named in sdkman/toolchain; actual = installed candidate
+# dirs under $SDKMAN_DIR/candidates. Undeclared = installed candidates the
+# toolchain doesn't declare (e.g. an ad-hoc `sdk install scala`). Version-level
+# java drift (an installed java the toolchain doesn't pin) is a deferred
+# refinement — this is candidate-level.
+
+reconcile_sdkman_declared() {
+  local tc="${SDKMAN_TOOLCHAIN:-$DOTFILES/sdkman/toolchain}"
+  [ -f "$tc" ] || return 0
+  sed 's/#.*//' "$tc" | awk 'NF {print $1}' | sort -u
+}
+
+reconcile_sdkman_actual() {
+  local dir="${SDKMAN_DIR:-$HOME/.sdkman}/candidates"
+  [ -d "$dir" ] || return 0
+  find "$dir" -mindepth 1 -maxdepth 1 -type d 2>/dev/null |
+    sed "s|^${dir%/}/||" | sort -u
+}
+
+reconcile_sdkman_undeclared() {
+  local declared
+  declared="$(reconcile_sdkman_declared)"
+  reconcile_sdkman_actual |
+    grep -vxF -f <(printf '%s\n' "$declared") 2>/dev/null || true
+}
