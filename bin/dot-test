@@ -43,6 +43,16 @@ check_shfmt() {
   bash_scripts | xargs shfmt -i 2 -ci -d
 }
 
+check_prettier_md() {
+  command -v npx >/dev/null || {
+    log_warning "npx not installed, skipping prettier (markdown)"
+    return 0
+  }
+  # Read-only check (like shfmt -d). Pinned to the same prettier as the
+  # pre-commit prettier hook (.pre-commit-config.yaml) so the two never disagree.
+  git -C "$DOTFILES" ls-files -z '*.md' | xargs -0 npx --yes prettier@3.9.4 --check
+}
+
 check_zsh_syntax() {
   command -v zsh >/dev/null || {
     log_warning "zsh not installed, skipping"
@@ -88,6 +98,7 @@ main() {
   fmt_title_underline "Running dotfiles checks"
   run_check "shellcheck" check_shellcheck
   run_check "shfmt" check_shfmt
+  run_check "prettier (markdown)" check_prettier_md
   run_check "zsh syntax" check_zsh_syntax
   run_check "zsh smoke" check_zsh_smoke
   run_check "bats tests" check_bats

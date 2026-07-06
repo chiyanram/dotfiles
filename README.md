@@ -75,12 +75,12 @@ dot doctor                      # Verify everything
 
 These files are sourced automatically if they exist:
 
-| File | Purpose |
-|------|---------|
-| `~/.gitconfig-local` | Git name, email, signing key |
-| `~/.localrc` | Machine-specific shell config (e.g., `HOMEBREW_DOCKER_RUNTIME`) |
-| `~/.zshrc.local` | Additional shell config |
-| `~/.zshenv.local` | Machine-specific env vars |
+| File                 | Purpose                                                         |
+| -------------------- | --------------------------------------------------------------- |
+| `~/.gitconfig-local` | Git name, email, signing key                                    |
+| `~/.localrc`         | Machine-specific shell config (e.g., `HOMEBREW_DOCKER_RUNTIME`) |
+| `~/.zshrc.local`     | Additional shell config                                         |
+| `~/.zshenv.local`    | Machine-specific env vars                                       |
 
 ## The `dot` Command
 
@@ -97,22 +97,23 @@ dot unlink [package]        # Unlink all or specific package
 
 > **Important:** This command won't be in `$PATH` until ZSH is configured.
 > Until then, run from the repo root:
+>
 > ```bash
 > bin/dot <command> <subcommand>
 > ```
 
 ### Built-in Commands
 
-| Command | Description |
-|---------|-------------|
-| `dot link all` | Symlink every config/home package into place |
-| `dot link <pkg>` | Link a specific package (e.g., `dot link nvim`) |
+| Command             | Description                                                        |
+| ------------------- | ------------------------------------------------------------------ |
+| `dot link all`      | Symlink every config/home package into place                       |
+| `dot link <pkg>`    | Link a specific package (e.g., `dot link nvim`)                    |
 | `dot link --status` | Show link health (OK/MISSING/WRONG/REAL); exits non-zero if broken |
-| `dot restore` | Undo the last `dot link` run (removes/repoints what it created) |
-| `dot unlink all` | Remove all symlinks |
-| `dot backup` | Timestamped backup of existing dotfiles |
-| `dot clean` | Remove broken/stale symlinks |
-| `dot help` | List all commands (built-in + auto-discovered `dot-*`) |
+| `dot restore`       | Undo the last `dot link` run (removes/repoints what it created)    |
+| `dot unlink all`    | Remove all symlinks                                                |
+| `dot backup`        | Timestamped backup of existing dotfiles                            |
+| `dot clean`         | Remove broken/stale symlinks                                       |
+| `dot help`          | List all commands (built-in + auto-discovered `dot-*`)             |
 
 **Safe linking — preview, apply, undo.** `dot link` never blindly overwrites:
 
@@ -133,7 +134,7 @@ When a real file sits where a link should go, `dot link` refuses by default; res
 `dot-*` scripts are auto-discovered from `$PATH`, so **`dot help` is the authoritative, always-current list** (any table here would only go stale). The main families:
 
 - **`dot doctor`** — health check (config links, shell, plugins, tools); `--strict` fails on any warning
-- **`dot update <all|brew|nvim|zsh|sdkman|dotfiles>`** — update installed things (reports what actually *changed*)
+- **`dot update <all|brew|nvim|zsh|sdkman|dotfiles>`** — update installed things (reports what actually _changed_)
 - **`dot sdkman <install|plan|env>`** — the JVM toolchain (see [Java / Backend](#java--backend-sdkman))
 - **`dot homebrew <install|bundle>`** — Homebrew itself + Brewfile packages
 - **`dot profile <show|set|set-config>`** — personal/work profile + per-machine config
@@ -156,19 +157,19 @@ Managed via `dot link`. Each directory in `config/` becomes a symlink in `~/.con
 
 Each directory under `config/` is a package (the list below is a snapshot — `ls config/` is authoritative):
 
-| Package | Description |
-|---------|-------------|
-| `aerospace` | Tiling window manager for macOS |
-| `atuin` | Shell history database (Ctrl-R) |
-| `ghostty` | Terminal emulator (Catppuccin theme) |
-| `git` | Git configuration and global ignore |
-| `lazygit` | Git TUI |
-| `mise` | Node/Python runtime manager (reads `.nvmrc`/`.python-version`) |
-| `nvim` | Neovim (Lua config, lazy.nvim plugin manager) |
-| `ripgrep` | Ripgrep configuration |
-| `sesh` | Terminal session manager |
-| `starship` | Cross-shell prompt (Java/K8s/Docker aware) |
-| `tmux` | Terminal multiplexer |
+| Package     | Description                                                    |
+| ----------- | -------------------------------------------------------------- |
+| `aerospace` | Tiling window manager for macOS                                |
+| `atuin`     | Shell history database (Ctrl-R)                                |
+| `ghostty`   | Terminal emulator (Catppuccin theme)                           |
+| `git`       | Git configuration and global ignore                            |
+| `lazygit`   | Git TUI                                                        |
+| `mise`      | Node/Python runtime manager (reads `.nvmrc`/`.python-version`) |
+| `nvim`      | Neovim (Lua config, lazy.nvim plugin manager)                  |
+| `ripgrep`   | Ripgrep configuration                                          |
+| `sesh`      | Terminal session manager                                       |
+| `starship`  | Cross-shell prompt (Java/K8s/Docker aware)                     |
+| `tmux`      | Terminal multiplexer                                           |
 
 Zsh rc files (`.zshrc`, `.zprofile`, `.zsh_aliases`, `.zsh_functions`, `.docker_aliases`) live under `home/` and symlink directly into `$HOME`.
 
@@ -196,12 +197,12 @@ vimu
 
 Custom keybindings with `⌃-a` prefix (remapped from `⌃-b`). Session management via `tm` command.
 
-| Key | Action |
-|-----|--------|
-| `h/j/k/l` | Navigate panes |
-| `H/J/K/L` | Resize panes |
-| `-` | Vertical split |
-| `\|` | Horizontal split |
+| Key       | Action           |
+| --------- | ---------------- |
+| `h/j/k/l` | Navigate panes   |
+| `H/J/K/L` | Resize panes     |
+| `-`       | Vertical split   |
+| `\|`      | Horizontal split |
 
 Set `TMUX_MINIMAL=1` in `~/.localrc` to auto-hide the status bar with a single window.
 
