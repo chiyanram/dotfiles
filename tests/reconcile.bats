@@ -356,3 +356,17 @@ EOF
   [[ "$output" != *"kotlin"* ]]
   [[ "$output" != *"java"* ]]
 }
+
+# ---- report rendering ----
+@test "report: section hints render ANSI colors, never literal escape text (#36)" {
+  # colors are backslash-text needing %b; force them on (bats has no tty)
+  run bash -c '
+    export SETUP_COLORS_COMPLETE=1
+    DIM="\033[2m" RESET="\033[0m" YELLOW="\033[33m"
+    source "'"$REPO"'/bin/dot-reconcile"
+    printf "item\n" | _section "$YELLOW" "label" "→ dot homebrew bundle"
+  '
+  [ "$status" -eq 0 ]
+  [[ "$output" == *$'\033[2m'* ]] # real escape byte
+  [[ "$output" != *'\033'* ]]     # never the 4-char literal
+}
