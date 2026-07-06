@@ -1,7 +1,9 @@
 # shellcheck shell=bash
-# Read-only drift-detection core for `dot reconcile` (design approach B):
-# per-domain adapters, sourced by dot-reconcile, dot-doctor, dot-migrate.
+# Drift-detection core for `dot reconcile` (design approach B): per-domain
+# adapters, sourced by dot-reconcile, dot-doctor, dot-migrate. Detection is
+# read-only; the prune verbs at the bottom are invoked ONLY by dot-reconcile.
 # Functions only — no side effects at source time; safe under the caller's set -e.
+# Requires common.sh (classify_link, managed_targets, run_sdk) sourced first.
 
 # --- plugins domain -----------------------------------------------------------
 # zfetch clones each `zfetch owner/repo ...` line in the repo's .zshrc to
@@ -235,6 +237,38 @@ reconcile_symlinks_dangling() {
       done < <(git -C "$DOTFILES" log --diff-filter=D --name-only --pretty=format: -- home/ 2>/dev/null | sort -u)
     fi
   } | sort -u
+}
+
+# --- prune verbs (ph2, #24) ------------------------------------------------------
+# One item per call; destructive. dot-reconcile is the ONLY caller and validates
+# every name against the domain's undeclared set first (that check — computed
+# canonical-vs-canonical via the alias map — is what guarantees a declared or
+# declared-elsewhere package can never reach these). Symlinks have no prune verb:
+# dangling links are `dot clean`'s job (decided, epic #22).
+
+reconcile_brew_prune() {
+  if brew list --cask 2>/dev/null | grep -qxF "$1"; then
+    brew uninstall --cask "$1"
+  else
+    brew uninstall "$1"
+  fi
+}
+
+# A candidate may hold several versions; uninstall each. `current` is SDKMAN's
+# active-version symlink, not an install — skip it.
+reconcile_sdkman_prune() {
+  local dir="${SDKMAN_DIR:-$HOME/.sdkman}/candidates/$1" version
+  for version in "$dir"/*; do
+    [ -d "$version" ] || continue
+    [ -L "$version" ] && continue
+    run_sdk uninstall "$1" "${version##*/}" || return 1
+  done
+}
+
+reconcile_plugins_prune() {
+  local zpd="${ZPLUGDIR:-${XDG_DATA_HOME:-$HOME/.local/share}/zsh/plugins}"
+  rm -rf "${zpd:?}/${1:?}"
+  rmdir "$zpd/${1%%/*}" 2>/dev/null || true # owner dir, if now empty
 }
 
 # --- summary --------------------------------------------------------------------
