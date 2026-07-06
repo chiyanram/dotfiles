@@ -38,3 +38,16 @@ setup() {
   ! grep -q 'TYPED-INPUT' "$RUN_LOG"
   rm -f "$RUN_LOG"
 }
+
+@test "run_with_spinner surfaces a sudo banner for every prompt, not just the first" {
+  # A step can invoke sudo more than once (brew: once per cask, or a retry after
+  # the 5-minute prompt timeout). Every prompt must pause the spinner and print
+  # the banner — a once-only pause leaves later prompts erased by the spinner's
+  # \r redraw, so the run reads as hung (issue #19's 40m Homebrew step).
+  # A symlink named "sudo" fakes the real thing for the descendant scan: comm is
+  # the invoked path on macOS ("…/sudo") and its basename on Linux ("sudo").
+  ln -s "$(command -v sleep)" "$BATS_TEST_TMPDIR/sudo"
+  run run_with_spinner "'$BATS_TEST_TMPDIR/sudo' 3; sleep 1; '$BATS_TEST_TMPDIR/sudo' 3" 0 "test"
+  [ "$status" -eq 0 ]
+  [ "$(grep -c 'needs your password' <<<"$output")" -ge 2 ]
+}

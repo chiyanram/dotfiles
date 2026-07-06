@@ -62,7 +62,7 @@ Personal dotfiles for my macOS laptop (backend engineer: JVM toolchain via SDKMA
 - All scripts source `$DOTFILES/bin/lib/common.sh` for shared utilities
 - Use `set -Eeuo pipefail` in all bash scripts
 - Use `log_success`, `log_error`, `log_warning`, `log_info` from common.sh
-- Use `run_with_spinner` for long operations — it detaches the child's stdin (`</dev/null`) so an unattended step is deterministically non-interactive regardless of job-control context (a prompting tool like SDKMAN's `sdk upgrade` reads EOF and takes its default); never rely on an interactive prompt in a `dot-*` step
+- Use `run_with_spinner` for long operations — it detaches the child's stdin (`</dev/null`) so an unattended step is deterministically non-interactive regardless of job-control context (a prompting tool like SDKMAN's `sdk upgrade` reads EOF and takes its default); never rely on an interactive prompt in a `dot-*` step. The one exception is sudo, which prompts on `/dev/tty`, not stdin: the spinner scans for a sudo descendant every tick and pauses with a password banner for **every** prompt (a step may sudo repeatedly, e.g. brew once per cask) — a missed pause means the `\r` redraw erases `Password:` and the step reads as hung
 - Use `fmt_title_underline` for section headers
 - Use `printf` with `%b` for ANSI color variables (not `%s`)
 - Use `return 1` in functions, not `exit 1` (kills entire script under set -e)
