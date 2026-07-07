@@ -124,6 +124,14 @@ _reconcile_brew_declared_raw() {
 
 reconcile_brew_declared() { _reconcile_brew_declared_raw | _reconcile_brew_declared_names | sort -u; }
 
+# Doctor's cut of the declared set: formulas for THIS OS in their declared
+# spelling, Brewfile order. No casks (a cask is an app, not a binary to probe)
+# and no alias canonicalization — doctor's brew_cmd_for maps declared spellings
+# (kubectl) to binaries; brew's canonical name (kubernetes-cli) would miss (#42).
+reconcile_brew_declared_formulas() {
+  _reconcile_brew_declared_raw | _reconcile_brew_os_lines | _reconcile_brew_names brew
+}
+
 reconcile_brew_declared_elsewhere() {
   local active other dir="$DOTFILES/brew"
   active="$(dot_profile)"

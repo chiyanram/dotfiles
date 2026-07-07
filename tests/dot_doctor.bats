@@ -76,3 +76,24 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   [ "$status" -ne 0 ]
   [[ "$output" == *"Unknown option"* ]]
 }
+
+@test "doctor's Homebrew checklist respects Brewfile OS conditionals (#42)" {
+  [[ "$(uname)" == "Darwin" ]] || skip "dot doctor inspection is macOS-only"
+  # Fixture DOTFILES: doctor must derive its checklist from the reconcile
+  # declared pipeline, so a linux-only formula never shows up on macOS.
+  mkdir -p "$SANDBOX/dotfiles/bin/lib" "$SANDBOX/dotfiles/brew" "$SANDBOX/dotfiles/home" "$SANDBOX/.config"
+  cp "$REPO/bin/lib/common.sh" "$REPO/bin/lib/reconcile.sh" "$SANDBOX/dotfiles/bin/lib/"
+  touch "$SANDBOX/dotfiles/home/.zshrc"
+  cat >"$SANDBOX/dotfiles/brew/Brewfile.core" <<'BREWFILE'
+brew 'jq' # everywhere
+if OS.mac?
+  cask 'ghostty' # mac app
+elsif OS.linux?
+  brew 'xclip' # linux-only clipboard
+end
+BREWFILE
+  export HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/.config" DOTFILES="$SANDBOX/dotfiles" TERM=dumb
+  run env PATH="$DOCTOR_PATH" "$REPO/bin/dot-doctor"
+  [[ "$output" == *"jq"* ]]    # active-OS formula still checked
+  [[ "$output" != *"xclip"* ]] # linux-only formula must not appear (#37/#39 parity)
+}

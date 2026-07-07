@@ -415,3 +415,43 @@ os_block_missing() {
   [[ "$output" == *"xclip"* && "$output" == *"everywhere"* ]]
   [[ "$output" != *"mac-only"* && "$output" != *"mac-cask"* ]]
 }
+
+# ---- doctor's cut of the declared set (#42) ----
+# Doctor's tool checklist needs formulas for THIS OS in their declared spelling:
+# no casks (a cask is an app, not a binary to probe) and no alias
+# canonicalization (doctor's brew_cmd_for keys on the declared spelling).
+declared_formulas() {
+  run env DOTFILES="$SANDBOX/dotfiles" HOMEBREW_CACHE="$SANDBOX/brew-cache" REPO="$REPO" bash -c '
+    source "$REPO/bin/lib/common.sh"
+    source "$REPO/bin/lib/reconcile.sh"
+    dot_profile() { echo personal; }
+    dot_docker_runtime() { echo docker-desktop; }
+    uname() { echo '"$1"'; }
+    reconcile_brew_declared_formulas
+  '
+}
+
+@test "brew: declared formulas keep spelling, drop casks, respect OS blocks" {
+  mkdir -p "$SANDBOX/dotfiles/brew" "$SANDBOX/brew-cache/api"
+  # Alias map present: set-diffs canonicalize kubectl -> kubernetes-cli; this cut must not.
+  printf 'kubectl|kubernetes-cli\n' >"$SANDBOX/brew-cache/api/formula_aliases.txt"
+  cat >"$SANDBOX/dotfiles/brew/Brewfile.core" <<'BREWFILE'
+brew 'kubectl'
+brew 'tflint-ruby/tflint/tflint'
+cask 'ghostty'
+if OS.mac?
+  brew 'mac-only'
+elsif OS.linux?
+  brew 'xclip'
+end
+BREWFILE
+  declared_formulas Darwin
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"kubectl"* ]]                   # declared spelling...
+  [[ "$output" != *"kubernetes-cli"* ]]            # ...never canonicalized
+  [[ "$output" == *"tflint-ruby/tflint/tflint"* ]] # tap-qualified intact
+  [[ "$output" == *"mac-only"* ]]                  # active OS branch kept
+  [[ "$output" != *"xclip"* ]]                     # other OS branch dropped
+  [[ "$output" != *"ghostty"* ]]                   # casks excluded
+  [[ "$output" != *"docker-desktop"* ]]            # injected runtime cask excluded
+}
