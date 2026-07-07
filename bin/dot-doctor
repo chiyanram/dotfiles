@@ -254,23 +254,19 @@ check_home_links() {
   return "$issues"
 }
 
+# Dangling links whose repo source is gone — the shared reconcile scan covers
+# removed config packages AND deleted home files (git-history derived, #21),
+# which the old depth-1 config scan never saw. Paths shown ~/-relative: home
+# dangles like ~/.claude/settings.json aren't unambiguous by basename.
 check_stale_links() {
   local issues=0
-  if [ -d "$CONFIG_HOME" ]; then
-    while IFS= read -r -d '' link; do
-      if [ -L "$link" ] && [ ! -e "$link" ]; then
-        local link_target
-        link_target=$(readlink "$link")
-        if [[ "$link_target" == "$DOTFILES"* ]]; then
-          local name
-          name=$(basename "$link")
-          printf "  %b %b%-22s%b %bstale → %s%b\n" "${RED}${ERROR_ICON}" "$BOLD" "$name" "$RESET" "$RED" "$link_target" "$RESET"
-          log_info "    Fix: dot clean"
-          issues=$((issues + 1))
-        fi
-      fi
-    done < <(find "$CONFIG_HOME" -maxdepth 1 -type l -print0 2>/dev/null || true)
-  fi
+  local stale
+  while IFS= read -r stale; do
+    [ -n "$stale" ] || continue
+    printf "  %b %b%-22s%b %bstale → %s%b\n" "${RED}${ERROR_ICON}" "$BOLD" "~${stale#"$HOME"}" "$RESET" "$RED" "$(readlink "$stale")" "$RESET"
+    log_info "    Fix: dot clean"
+    issues=$((issues + 1))
+  done < <(reconcile_symlinks_dangling)
   return "$issues"
 }
 
