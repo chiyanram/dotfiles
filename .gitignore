@@ -44,3 +44,7 @@ id_rsa
 id_ed25519
 *.pem
 *.p12
+
+# Claude Code local state (skills ARE committed; machine state is not)
+.claude/settings.local.json
+.claude/worktrees/
