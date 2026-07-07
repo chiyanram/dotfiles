@@ -14,6 +14,7 @@ Mirrors my global instructions (dev-kit `AGENTS.md`) — repeated because these 
 Process:
 
 - **Every issue gets a branch.** Non-trivial work is tracked by a GitHub issue and done on its own branch (`<type>/<issue-number>-<brief-description>`) — never commit straight to `main`. No issue yet → log one first.
+- **Work in a worktree by default.** Concurrent Claude sessions run on this repo — do all branch work in an isolated worktree (`.claude/worktrees/`); the shared checkout stays on `main` and is never branch-switched. Inside a worktree the test gate is `./bin/dot-test` (see Tests).
 - **Commit small, focused pieces** on the branch, pushing as you go. One logical change per commit; never batch unrelated changes.
 - **Close the issue through a PR.** Open a PR with `Closes #N` in the body and squash-merge to `main`; the merge is what closes the issue (a `Closes #N` commit only takes effect once it lands on `main`).
 - **Every change updates its docs.** A behavior/command/config change updates the relevant docs (`README.md`, this file, `usage()` help) in the _same_ change — doc drift is a bug.
