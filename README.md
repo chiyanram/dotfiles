@@ -143,7 +143,8 @@ When a real file sits where a link should go, `dot link` refuses by default; res
 - **`dot homebrew <install|bundle>`** — Homebrew itself + Brewfile packages
 - **`dot profile <show|set|set-config>`** — personal/work profile + per-machine config
 - **`dot migrate`** — pull latest, clean, relink, install, health check (for an already-set-up machine)
-- **`dot git setup`**, **`dot macos defaults`**, **`dot shell change`** — one-off setup helpers
+- **`dot git <setup|add-identity|use>`** — git identity slots: `setup` the personal fallback, `add-identity` builds a slot (SSH key + host alias + remote-bound, SSH-signed email), `use <slot>` binds the current repo to a slot (rewrites `origin` to the slot alias so key/email/signing follow, and switches the `gh` account for GitHub slots)
+- **`dot macos defaults`**, **`dot shell change`** — one-off setup helpers
 
 ### Extending with Custom Commands
 

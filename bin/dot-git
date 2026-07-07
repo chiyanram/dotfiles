@@ -20,6 +20,8 @@ Options:
 Commands:
     setup            Setup the personal fallback identity (name, email, github user)
     add-identity     Build a git identity slot: SSH key + host alias + remote-bound, SSH-signed email
+    use <slot>       Bind the current repo to an existing slot: rewrite origin to the slot
+                     alias (key/email/signing follow) and, for GitHub slots, switch the gh account
 
 add-identity options:
     --name <slot>       Slot name, e.g. ee (required)
@@ -224,6 +226,128 @@ git_add_identity() {
   fi
 }
 
+# Resolve a slot name to its SSH alias (<host>-<name>) via the slot's hasconfig
+# include in ~/.gitconfig-identities. The include's `path = ~/.gitconfig-<name>`
+# uniquely names the slot, and the preceding includeIf embeds `git@<alias>:...`,
+# so pairing the two yields the alias. Prints the alias; returns 1 if not found.
+slot_alias() {
+  local name="$1" identities="$HOME/.gitconfig-identities"
+  [[ -f "$identities" ]] || return 1
+  awk -v slot="$name" '
+    /^[ \t]*\[includeIf / {
+      if (match($0, /git@[^:]+:/)) {
+        # Strip the leading "git@" (4 chars) and the trailing ":" (1 char).
+        alias = substr($0, RSTART + 4, RLENGTH - 5)
+      }
+      next
+    }
+    /path[ \t]*=/ {
+      p = $0
+      sub(/.*path[ \t]*=[ \t]*/, "", p)
+      if (p == "~/.gitconfig-" slot) {
+        print alias
+        found = 1
+        exit
+      }
+    }
+    END { if (!found) exit 1 }
+  ' "$identities"
+}
+
+# Extract owner/repo (keeping any trailing .git) from an origin URL, handling
+# HTTPS, ssh://, and scp-style (incl. already-aliased) forms. Prints owner/repo;
+# returns 1 on an unrecognized URL.
+origin_owner_repo() {
+  local url="$1" rest
+  case "$url" in
+    https://* | http://*)
+      rest="${url#*://}" # host/owner/repo.git
+      printf '%s\n' "${rest#*/}"
+      ;;
+    ssh://*)
+      rest="${url#ssh://}" # [user@]host[:port]/owner/repo.git
+      rest="${rest#*@}"    # drop user@ if present
+      printf '%s\n' "${rest#*/}"
+      ;;
+    *:*)
+      # scp-style: [user@]host:owner/repo.git (host alias never contains a colon).
+      printf '%s\n' "${url#*:}"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+git_use() {
+  local name="${1:-}"
+  if [[ -z "$name" ]]; then
+    log_error "Usage: $command_name use <slot>"
+    return 1
+  fi
+
+  if ! command -v git &>/dev/null; then
+    log_error "Git is not installed."
+    return 1
+  fi
+
+  if ! git rev-parse --is-inside-work-tree &>/dev/null; then
+    log_error "Not inside a git repository — run 'dot git use' from a repo."
+    return 1
+  fi
+
+  local alias
+  if ! alias="$(slot_alias "$name")" || [[ -z "$alias" ]]; then
+    log_error "No identity slot '$name' — create it first with: $command_name add-identity --name $name --host <host> --email <email>"
+    return 1
+  fi
+  local host="${alias%-"$name"}" # alias is <host>-<name>
+
+  local url
+  if ! url="$(git remote get-url origin 2>/dev/null)" || [[ -z "$url" ]]; then
+    log_error "No 'origin' remote in this repository — add one, then re-run: $command_name use $name"
+    return 1
+  fi
+
+  local ownerrepo
+  if ! ownerrepo="$(origin_owner_repo "$url")" || [[ -z "$ownerrepo" ]]; then
+    log_error "Could not parse owner/repo from origin URL: $url"
+    return 1
+  fi
+
+  local newurl="git@${alias}:${ownerrepo}"
+  git remote set-url origin "$newurl"
+
+  # Verify the bind: the hasconfig include should now select the slot fragment.
+  local slot_email resolved
+  slot_email="$(git config -f "$HOME/.gitconfig-$name" user.email 2>/dev/null || true)"
+  resolved="$(git config user.email 2>/dev/null || true)"
+  if [[ -n "$slot_email" && "$resolved" == "$slot_email" ]]; then
+    log_success "Bound this repo to slot '$name' — origin is $newurl, commits authored/signed as $resolved"
+  else
+    log_warning "origin rewritten to $newurl, but user.email resolved to '${resolved:-<unset>}' (expected '${slot_email:-<unknown>}')"
+  fi
+
+  # gh account sync: GitHub-only, and only when a gh CLI and a slot github user
+  # are both present. Never fail the whole command if the switch fails — the
+  # git-side bind already succeeded.
+  case "$host" in
+    github.com | github.*)
+      local slot_ghuser
+      slot_ghuser="$(git config -f "$HOME/.gitconfig-$name" github.user 2>/dev/null || true)"
+      if ! command -v gh &>/dev/null; then
+        log_info "gh not found — skipping GitHub account switch (git identity is already bound)."
+      elif [[ -z "$slot_ghuser" ]]; then
+        log_info "Slot '$name' has no github.user — skipping gh account switch."
+      elif gh auth switch --hostname "$host" --user "$slot_ghuser" >/dev/null 2>&1; then
+        log_success "Switched active gh account to '$slot_ghuser' on $host."
+      else
+        log_warning "Could not switch gh account to '$slot_ghuser' on $host — run 'gh auth switch --user $slot_ghuser' manually."
+      fi
+      ;;
+  esac
+}
+
 main() {
   if [ $# -lt 1 ]; then
     usage
@@ -241,6 +365,10 @@ main() {
     add-identity)
       shift
       git_add_identity "$@"
+      ;;
+    use)
+      shift
+      git_use "$@"
       ;;
     *)
       log_error "Unknown legacy command: $1"
