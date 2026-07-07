@@ -120,3 +120,91 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   [ "$status" -ne 0 ]
   [[ "$output" == *"Unknown"* ]]
 }
+
+@test "add-identity writes SSH signing config into the slot fragment" {
+  "$REPO/bin/dot-git" add-identity --name ee --host github.com \
+    --email me@work.test --key "$HOME/seedkey"
+
+  run git config -f "$HOME/.gitconfig-ee" gpg.format
+  [ "$output" = "ssh" ]
+  run git config -f "$HOME/.gitconfig-ee" user.signingkey
+  [ "$output" = "$HOME/seedkey.pub" ]
+  run git config -f "$HOME/.gitconfig-ee" commit.gpgsign
+  [ "$output" = "true" ]
+  run git config -f "$HOME/.gitconfig-ee" tag.gpgsign
+  [ "$output" = "true" ]
+
+  # Allowed-signers gains an <email> <keytype> <keydata> line for the slot.
+  run cat "$HOME/.config/git/allowed_signers"
+  [[ "$output" == *"me@work.test ssh-ed25519 "* ]]
+}
+
+@test "round-trip: a commit under the slot is SSH-signed and verifies against the slot key" {
+  "$REPO/bin/dot-git" add-identity --name ee --host github.com \
+    --email me@work.test --key "$HOME/seedkey"
+
+  mkdir -p "$HOME/bound"
+  git -C "$HOME/bound" init -q
+  git -C "$HOME/bound" remote add origin "git@github.com-ee:owner/repo.git"
+
+  # Fragment is active (remote uses the alias), so the commit is signed by the slot key.
+  git -C "$HOME/bound" commit -q --allow-empty -m "signed under ee"
+
+  run git -C "$HOME/bound" config user.email
+  [ "$output" = "me@work.test" ]
+
+  run git -C "$HOME/bound" verify-commit HEAD
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Good \"git\" signature for me@work.test"* ]]
+
+  run git -C "$HOME/bound" log --show-signature -1
+  [[ "$output" == *"Good \"git\" signature for me@work.test"* ]]
+}
+
+@test "negative: a commit signed by a different slot's key does not verify as this slot" {
+  "$REPO/bin/dot-git" add-identity --name ee --host github.com \
+    --email me@work.test --key "$HOME/seedkey"
+  # A second slot with its own key/email — its key is a valid signer, but bound to a
+  # DIFFERENT principal in allowed_signers.
+  ssh-keygen -t ed25519 -N "" -C "other@test" -f "$HOME/otherkey" >/dev/null 2>&1
+  "$REPO/bin/dot-git" add-identity --name pers --host github.com \
+    --email me@home2.test --key "$HOME/otherkey"
+
+  mkdir -p "$HOME/bound"
+  git -C "$HOME/bound" init -q
+  git -C "$HOME/bound" remote add origin "git@github.com-ee:owner/repo.git"
+  # Sign as the ee identity's email but with the WRONG (pers) key.
+  git -C "$HOME/bound" config user.signingkey "$HOME/otherkey.pub"
+  git -C "$HOME/bound" commit -q --allow-empty -m "mis-signed"
+
+  # committer email is still me@work.test (ee fragment) ...
+  run git -C "$HOME/bound" config user.email
+  [ "$output" = "me@work.test" ]
+  # ... but allowed_signers binds me@work.test to the ee key. The otherkey signature
+  # can never verify AS the ee identity: it is attributed to the pers principal that
+  # owns that key, so a forged ee commit is impossible.
+  run git -C "$HOME/bound" verify-commit HEAD
+  [[ "$output" != *'Good "git" signature for me@work.test'* ]]
+  [[ "$output" == *"me@home2.test"* ]]
+}
+
+@test "add-identity is idempotent — re-run does not duplicate signing artifacts" {
+  "$REPO/bin/dot-git" add-identity --name ee --host github.com \
+    --email me@work.test --key "$HOME/seedkey"
+  "$REPO/bin/dot-git" add-identity --name ee --host github.com \
+    --email me@work.test --key "$HOME/seedkey"
+
+  run bash -c "grep -c 'me@work.test ssh-ed25519' '$HOME/.config/git/allowed_signers'"
+  [ "$output" -eq 1 ]
+  # Fragment keys are single-valued (git config replaces, not appends).
+  run bash -c "grep -c 'gpgsign = true' '$HOME/.gitconfig-ee'"
+  [ "$output" -eq 2 ] # commit.gpgsign + tag.gpgsign, one each
+}
+
+@test "add-identity guidance says register the key as both Authentication and Signing" {
+  run "$REPO/bin/dot-git" add-identity --name ee --host github.com \
+    --email me@work.test --key "$HOME/seedkey"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Authentication"* ]]
+  [[ "$output" == *"Signing"* ]]
+}

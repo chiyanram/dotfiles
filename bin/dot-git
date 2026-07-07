@@ -19,7 +19,7 @@ Options:
 
 Commands:
     setup            Setup the personal fallback identity (name, email, github user)
-    add-identity     Build a git identity slot: SSH key + host alias + remote-bound email
+    add-identity     Build a git identity slot: SSH key + host alias + remote-bound, SSH-signed email
 
 add-identity options:
     --name <slot>       Slot name, e.g. ee (required)
@@ -166,11 +166,36 @@ git_add_identity() {
   } >>"$ssh_config"
   chmod 600 "$ssh_config"
 
-  # Per-slot git config fragment carrying the commit email (git config is idempotent).
+  local pubkey="${keypath}.pub"
+
+  # Per-slot git config fragment: commit email + SSH-format signing with this slot's
+  # key (git config is idempotent). Signing key == auth key, so a verified commit can
+  # never show the wrong identity.
   local fragment="$HOME/.gitconfig-$name"
   git config -f "$fragment" user.email "$email"
   if [[ -n "$github_user" ]]; then
     git config -f "$fragment" github.user "$github_user"
+  fi
+  git config -f "$fragment" gpg.format ssh
+  git config -f "$fragment" user.signingkey "$pubkey"
+  git config -f "$fragment" commit.gpgsign true
+  git config -f "$fragment" tag.gpgsign true
+
+  # Allowed-signers entry so signatures verify locally (git log --show-signature,
+  # git verify-commit). One idempotent `<email> <keytype> <keydata>` line per slot;
+  # gpg.ssh.allowedSignersFile points here as a neutral setting in config/git/config.
+  local allowed_signers="$HOME/.config/git/allowed_signers"
+  if [[ -f "$pubkey" ]]; then
+    mkdir -p "$(dirname "$allowed_signers")"
+    touch "$allowed_signers"
+    # Take only keytype+keydata (drop the trailing comment) so the principal binds to
+    # exactly one key regardless of the .pub file's comment.
+    local keytype keydata signer_line
+    read -r keytype keydata _ <"$pubkey"
+    signer_line="$email $keytype $keydata"
+    if ! grep -qF "$signer_line" "$allowed_signers"; then
+      printf '%s\n' "$signer_line" >>"$allowed_signers"
+    fi
   fi
 
   # hasconfig include that binds this email to the alias (idempotent append).
@@ -187,15 +212,15 @@ git_add_identity() {
     } >>"$identities"
   fi
 
-  log_success "Identity slot '$name' ready — remote-bound to $alias"
-  log_info "email: $email — commits in repos whose remote uses $alias are authored as this slot"
+  log_success "Identity slot '$name' ready — remote-bound to $alias, commits SSH-signed"
+  log_info "email: $email — commits in repos whose remote uses $alias are authored and signed as this slot"
 
-  local pubkey="${keypath}.pub"
   if [[ -f "$pubkey" ]]; then
-    log_info "Register this public key on the $host account for $alias:"
+    log_info "Register this public key on the $host account for $alias as BOTH an"
+    log_info "Authentication key AND a Signing key (or $host shows signatures as \"Unverified\"):"
     cat "$pubkey"
   else
-    log_warning "No public key found at $pubkey — register the matching public key on the $host account."
+    log_warning "No public key found at $pubkey — register the matching public key on the $host account as both an Authentication and a Signing key."
   fi
 }
 
