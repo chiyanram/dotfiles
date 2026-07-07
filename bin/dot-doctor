@@ -394,7 +394,7 @@ main() {
       local required="false"
       [[ "$required_tools" == *" $name "* ]] && required="true"
       check_tool "$name" "$cmd" "$required"
-    done < <(grep -hE "^[[:space:]]*brew '" "${brewfiles[@]}" | sed "s/.*brew '\\([^']*\\)'.*/\\1/")
+    done < <(reconcile_brew_declared_formulas)
   else
     log_warning "No Brewfiles found under $DOTFILES/brew/"
   fi
