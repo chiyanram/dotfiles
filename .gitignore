@@ -20,6 +20,10 @@ brew/*.lock.json
 # Plans (ephemeral, not for git)
 plan_*.md
 
+# Local-markdown issue staging (durable on disk, never committed;
+# graduates to GitHub Issues, then the .scratch copy is deleted)
+.scratch/
+
 # Legacy
 npm-debug.log
 
@@ -36,8 +40,10 @@ npm-debug.log
 # Machine-local config (never committed — secrets / identity live here)
 *.local
 *-local
-.gitconfig-work
-.gitconfig-work-include
+# Generated git identity slots — the identities file and per-slot fragments
+# (~/.gitconfig-identities, ~/.gitconfig-<slot>) carry client name/email/key path.
+.gitconfig-identities
+.gitconfig-*
 
 # SSH keys / certs (defense in depth)
 id_rsa
