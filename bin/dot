@@ -282,60 +282,42 @@ cmd_link_clean() {
   fmt_title_underline "Cleaning up broken symlinks"
 
   local broken_count=0
+  # Paths the managed scan already handled, so the dangling scan below never
+  # reports the same link twice in a --dry-run (newline-framed for exact match).
+  local handled=$'\n'
 
-  # Check config directory symlinks
-  if [ -d "$CONFIG_HOME" ]; then
-    while IFS= read -r -d '' link; do
-      if [ -L "$link" ] && [ ! -e "$link" ]; then
-        broken_count=$((broken_count + 1))
-        if [ "$dry_run" = true ]; then
-          log_warning "[DRY RUN] Would remove broken symlink: ~${link#"$HOME"}"
-        else
-          [ "$verbose" = true ] && log_info "Removing broken symlink: ~${link#"$HOME"}"
-          rm "$link"
-        fi
+  # Broken managed links (config packages + home files): the target is still a
+  # symlink but its repo source no longer resolves. Same contract as dot clean —
+  # foreign links (not pointing into $DOTFILES) are never ours to remove.
+  local source target label
+  while IFS=$'\t' read -r source target label; do
+    if [ -L "$target" ] && [ ! -e "$target" ]; then
+      broken_count=$((broken_count + 1))
+      handled+="$target"$'\n'
+      if [ "$dry_run" = true ]; then
+        log_warning "[DRY RUN] Would remove broken symlink: ~${target#"$HOME"}"
+      else
+        [ "$verbose" = true ] && log_info "Removing broken symlink: ~${target#"$HOME"}"
+        rm "$target"
       fi
-    done < <(find "$CONFIG_HOME" -type l -print0 2>/dev/null || true)
-  fi
+    fi
+  done < <(managed_targets)
 
-  # Check home directory symlinks created from $DOTFILES/home
-  if [ -d "$DOTFILES/home" ]; then
-    # Get all directories that contain files in $DOTFILES/home
-    local home_dirs=()
-    while IFS= read -r -d '' file; do
-      local dir_path
-      dir_path="$HOME/$(dirname "${file#"$DOTFILES"/home/}")"
-      # Add to array if not already present
-      local found=0
-      local d
-      for d in "${home_dirs[@]+"${home_dirs[@]}"}"; do
-        [[ "$d" == "$dir_path" ]] && found=1 && break
-      done
-      [[ "$found" -eq 0 ]] && home_dirs+=("$dir_path")
-    done < <(find "$DOTFILES/home" -type f -print0)
-
-    # Now check for broken symlinks only in those directories
-    for dir in "${home_dirs[@]}"; do
-      if [ -d "$dir" ]; then
-        while IFS= read -r -d '' link; do
-          if [ -L "$link" ] && [ ! -e "$link" ]; then
-            # Check if this broken symlink points to our dotfiles directory
-            local link_target
-            link_target=$(readlink "$link")
-            if [[ "$link_target" == "$DOTFILES"* ]]; then
-              broken_count=$((broken_count + 1))
-              if [ "$dry_run" = true ]; then
-                log_warning "[DRY RUN] Would remove broken symlink: ~${link#"$HOME"}"
-              else
-                [ "$verbose" = true ] && log_info "Removing broken symlink: ~${link#"$HOME"}"
-                rm "$link"
-              fi
-            fi
-          fi
-        done < <(find "$dir" -maxdepth 1 -type l -print0 2>/dev/null || true)
-      fi
-    done
-  fi
+  # Dangling links into $DOTFILES whose source is gone entirely: removed config
+  # packages, plus home links whose repo file was DELETED — derived from git
+  # history (shared reconcile scan), since no current repo file names them.
+  local stale
+  while IFS= read -r stale; do
+    [ -n "$stale" ] || continue
+    [[ "$handled" == *$'\n'"$stale"$'\n'* ]] && continue
+    broken_count=$((broken_count + 1))
+    if [ "$dry_run" = true ]; then
+      log_warning "[DRY RUN] Would remove broken symlink: ~${stale#"$HOME"}"
+    else
+      [ "$verbose" = true ] && log_info "Removing broken symlink: ~${stale#"$HOME"}"
+      rm "$stale"
+    fi
+  done < <(reconcile_symlinks_dangling)
 
   echo
   if [ "$broken_count" -eq 0 ]; then

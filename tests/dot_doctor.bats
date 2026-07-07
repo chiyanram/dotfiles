@@ -65,6 +65,26 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   [[ "$output" == *"dot reconcile"* ]]
 }
 
+@test "doctor names a deleted-source home dangle in the stale section (#46)" {
+  [[ "$(uname)" == "Darwin" ]] || skip "dot doctor inspection is macOS-only"
+  # Fixture DOTFILES git repo where home/.claude/settings.json was linked, then
+  # deleted from the repo — only git history can name the dangle (#21 shape).
+  mkdir -p "$SANDBOX/dotfiles/bin/lib" "$SANDBOX/dotfiles/home/.claude" "$SANDBOX/.claude" "$SANDBOX/.config"
+  cp "$REPO/bin/lib/common.sh" "$REPO/bin/lib/reconcile.sh" "$SANDBOX/dotfiles/bin/lib/"
+  touch "$SANDBOX/dotfiles/home/.zshrc"
+  printf '{}\n' >"$SANDBOX/dotfiles/home/.claude/settings.json"
+  git -C "$SANDBOX/dotfiles" init -q
+  git -C "$SANDBOX/dotfiles" -c user.email=t@t -c user.name=t add -A
+  git -C "$SANDBOX/dotfiles" -c user.email=t@t -c user.name=t commit -qm init
+  ln -s "$SANDBOX/dotfiles/home/.claude/settings.json" "$SANDBOX/.claude/settings.json"
+  git -C "$SANDBOX/dotfiles" rm -q home/.claude/settings.json
+  git -C "$SANDBOX/dotfiles" -c user.email=t@t -c user.name=t commit -qm "remove claude"
+  export HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/.config" DOTFILES="$SANDBOX/dotfiles" TERM=dumb
+  run env PATH="$DOCTOR_PATH" "$REPO/bin/dot-doctor"
+  [[ "$output" == *"stale"* ]]
+  [[ "$output" == *".claude/settings.json"* ]]
+}
+
 @test "doctor --help documents --strict and exits 0" {
   run env DOTFILES="$REPO" TERM=dumb "$REPO/bin/dot-doctor" --help
   [ "$status" -eq 0 ]
