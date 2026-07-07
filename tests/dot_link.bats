@@ -126,3 +126,24 @@ teardown() { teardown_sandbox; }
   [ "$(cat "$DOTFILES/home/.demorc")" = "machine-specific config" ]
   [ "$(cat "$HOME/.demorc")" = "machine-specific config" ]
 }
+
+# managed_targets is the single enumerator of managed files (#44); the optional
+# kind argument lets each consumer take just the slice it acts on.
+@test "managed_targets config emits only config packages" {
+  run bash -c "source '$DOTFILES/bin/lib/common.sh' && managed_targets config"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"config/demo"* ]]
+  [[ "$output" != *".demorc"* ]]
+}
+
+@test "managed_targets home emits only home files" {
+  run bash -c "source '$DOTFILES/bin/lib/common.sh' && managed_targets home"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *".demorc"* ]]
+  [[ "$output" != *"config/demo"* ]]
+}
+
+@test "managed_targets rejects an unknown kind" {
+  run bash -c "source '$DOTFILES/bin/lib/common.sh' && managed_targets bogus"
+  [ "$status" -ne 0 ]
+}

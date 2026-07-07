@@ -202,64 +202,55 @@ CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 
 check_config_links() {
   local issues=0
-  for config in "$DOTFILES/config"/*; do
-    [[ -d "$config" ]] || continue
-    local name target
-    name=$(basename "$config")
-    target="$CONFIG_HOME/$name"
-    if [ -L "$target" ]; then
-      local actual
-      actual=$(readlink "$target")
-      if [ "$actual" = "$config" ]; then
+  local source target label name
+  while IFS=$'\t' read -r source target label; do
+    name=$(basename "$source")
+    case "$(classify_link "$source" "$target")" in
+      ok)
         printf "  %b %b%-22s%b %blinked%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "$name" "$RESET" "$DIM" "$RESET"
-      else
-        printf "  %b %b%-22s%b %bwrong target → %s%b\n" "${RED}${ERROR_ICON}" "$BOLD" "$name" "$RESET" "$RED" "$actual" "$RESET"
+        ;;
+      wrong)
+        printf "  %b %b%-22s%b %bwrong target → %s%b\n" "${RED}${ERROR_ICON}" "$BOLD" "$name" "$RESET" "$RED" "$(readlink "$target")" "$RESET"
         log_info "    Fix: dot link $name --force"
         issues=$((issues + 1))
-      fi
-    elif [ -e "$target" ]; then
-      printf "  %b %b%-22s%b %breal file/dir (not a symlink)%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "$name" "$RESET" "$YELLOW" "$RESET"
-      log_info "    Fix: dot backup && dot link $name --force"
-      issues=$((issues + 1))
-    else
-      printf "  %b %b%-22s%b %bnot linked%b\n" "${RED}${ERROR_ICON}" "$BOLD" "$name" "$RESET" "$RED" "$RESET"
-      log_info "    Fix: dot link $name"
-      issues=$((issues + 1))
-    fi
-  done
+        ;;
+      real)
+        printf "  %b %b%-22s%b %breal file/dir (not a symlink)%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "$name" "$RESET" "$YELLOW" "$RESET"
+        log_info "    Fix: dot backup && dot link $name --force"
+        issues=$((issues + 1))
+        ;;
+      missing)
+        printf "  %b %b%-22s%b %bnot linked%b\n" "${RED}${ERROR_ICON}" "$BOLD" "$name" "$RESET" "$RED" "$RESET"
+        log_info "    Fix: dot link $name"
+        issues=$((issues + 1))
+        ;;
+    esac
+  done < <(managed_targets config)
   return "$issues"
 }
 
 check_home_links() {
   local issues=0
-  if [ ! -d "$DOTFILES/home" ]; then
-    return 0
-  fi
-  while IFS= read -r -d '' file; do
-    local relative_path target_path
-    relative_path="${file#"$DOTFILES"/home/}"
-    target_path="$HOME/$relative_path"
-    if [ -L "$target_path" ]; then
-      local actual
-      actual=$(readlink "$target_path")
-      if [ "$actual" = "$file" ]; then
-        # shellcheck disable=SC2088  # tilde is intentional display label
-        printf "  %b %b%-22s%b %blinked%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "~/$relative_path" "$RESET" "$DIM" "$RESET"
-      else
-        # shellcheck disable=SC2088  # tilde is intentional display label
-        printf "  %b %b%-22s%b %bwrong target%b\n" "${RED}${ERROR_ICON}" "$BOLD" "~/$relative_path" "$RESET" "$RED" "$RESET"
+  local source target label
+  while IFS=$'\t' read -r source target label; do
+    case "$(classify_link "$source" "$target")" in
+      ok)
+        printf "  %b %b%-22s%b %blinked%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "$label" "$RESET" "$DIM" "$RESET"
+        ;;
+      wrong)
+        printf "  %b %b%-22s%b %bwrong target%b\n" "${RED}${ERROR_ICON}" "$BOLD" "$label" "$RESET" "$RED" "$RESET"
         issues=$((issues + 1))
-      fi
-    elif [ -e "$target_path" ]; then
-      # shellcheck disable=SC2088  # tilde is intentional display label
-      printf "  %b %b%-22s%b %breal file (not a symlink)%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "~/$relative_path" "$RESET" "$YELLOW" "$RESET"
-      issues=$((issues + 1))
-    else
-      # shellcheck disable=SC2088  # tilde is intentional display label
-      printf "  %b %b%-22s%b %bnot linked%b\n" "${RED}${ERROR_ICON}" "$BOLD" "~/$relative_path" "$RESET" "$RED" "$RESET"
-      issues=$((issues + 1))
-    fi
-  done < <(find "$DOTFILES/home" -type f -print0)
+        ;;
+      real)
+        printf "  %b %b%-22s%b %breal file (not a symlink)%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "$label" "$RESET" "$YELLOW" "$RESET"
+        issues=$((issues + 1))
+        ;;
+      missing)
+        printf "  %b %b%-22s%b %bnot linked%b\n" "${RED}${ERROR_ICON}" "$BOLD" "$label" "$RESET" "$RED" "$RESET"
+        issues=$((issues + 1))
+        ;;
+    esac
+  done < <(managed_targets home)
   return "$issues"
 }
 
