@@ -82,18 +82,15 @@ EOF
 cmd_clean() {
   fmt_title_underline "Cleaning up broken legacy symlinks..."
 
-  # Clean broken config symlinks (derived from config/ directory)
-  for config in "$DOTFILES/config"/*; do
-    [[ -d "$config" ]] || continue
-    # skip empty config packages (nothing to link)
-    [[ -n "$(ls -A "$config" 2>/dev/null)" ]] || continue
-    local target
-    target="$CONFIG_HOME/$(basename "$config")"
+  # Clean broken managed symlinks (config packages + home files): the target
+  # is still a symlink but its repo source no longer resolves.
+  local source target label
+  while IFS=$'\t' read -r source target label; do
     if [ -L "$target" ] && [ ! -e "$target" ]; then
       log_info "Removing broken symbolic link: ~${target#"$HOME"}"
       rm "$target"
     fi
-  done
+  done < <(managed_targets)
 
   # Clean dangling links into $DOTFILES whose source is gone: stale config-dir
   # links, plus home links whose repo file was DELETED — those are derived from
@@ -104,18 +101,6 @@ cmd_clean() {
     log_info "Removing stale symbolic link: ~${stale#"$HOME"} → $(readlink "$stale")"
     rm "$stale"
   done < <(reconcile_symlinks_dangling)
-
-  # Clean broken home directory symlinks
-  if [ -d "$DOTFILES/home" ]; then
-    while IFS= read -r -d '' file; do
-      relative_path="${file#"$DOTFILES"/home/}"
-      target_path="$HOME/$relative_path"
-      if [ -L "$target_path" ] && [ ! -e "$target_path" ]; then
-        log_info "Removing broken symbolic link: ~${target_path#"$HOME"}"
-        rm "$target_path"
-      fi
-    done < <(find "$DOTFILES/home" -type f -print0)
-  fi
 
   echo
   log_success "Done."
@@ -156,22 +141,13 @@ cmd_backup() {
 
   log_info "Creating backup in: $backup_path"
 
-  # Derive backup list from config/ directory (single source of truth)
+  # Derive backup list from managed targets (single source of truth),
+  # as paths relative to $HOME for the tar -C "$HOME" call below.
   files_to_backup=()
-  for config in "$DOTFILES/config"/*; do
-    [[ -d "$config" ]] || continue
-    # skip empty config packages (nothing to link)
-    [[ -n "$(ls -A "$config" 2>/dev/null)" ]] || continue
-    files_to_backup+=(".config/$(basename "$config")")
-  done
-
-  # Add home directory files to backup
-  if [ -d "$DOTFILES/home" ]; then
-    while IFS= read -r -d '' file; do
-      relative_path="${file#"$DOTFILES"/home/}"
-      files_to_backup+=("$relative_path")
-    done < <(find "$DOTFILES/home" -type f -print0)
-  fi
+  local source target label
+  while IFS=$'\t' read -r source target label; do
+    files_to_backup+=("${target#"$HOME"/}")
+  done < <(managed_targets)
 
   tmpfile=$(mktemp)
 
@@ -355,63 +331,51 @@ link_status() {
   local ok=0 missing=0 wrong=0 real=0
 
   # Config packages
-  for config in "$DOTFILES/config"/*; do
-    [[ -d "$config" ]] || continue
-    # skip empty config packages (nothing to link)
-    [[ -n "$(ls -A "$config" 2>/dev/null)" ]] || continue
-    local name target state
-    name=$(basename "$config")
-    target="$CONFIG_HOME/$name"
-    state=$(classify_link "$config" "$target")
-    # shellcheck disable=SC2088  # tilde is intentional display label, not expansion
+  local source target label state
+  while IFS=$'\t' read -r source target label; do
+    state=$(classify_link "$source" "$target")
     case "$state" in
       ok)
-        printf "  %b%-22s%b %b%s%b\n" "$GREEN" "[OK]" "$RESET" "$DIM" "~/.config/$name" "$RESET"
+        printf "  %b%-22s%b %b%s%b\n" "$GREEN" "[OK]" "$RESET" "$DIM" "$label" "$RESET"
         ok=$((ok + 1))
         ;;
       wrong)
-        printf "  %b%-22s%b %s → %s\n" "$YELLOW" "[WRONG]" "$RESET" "~/.config/$name" "$(readlink "$target")"
+        printf "  %b%-22s%b %s → %s\n" "$YELLOW" "[WRONG]" "$RESET" "$label" "$(readlink "$target")"
         wrong=$((wrong + 1))
         ;;
       real)
-        printf "  %b%-22s%b %s (real file/dir)\n" "$RED" "[REAL]" "$RESET" "~/.config/$name"
+        printf "  %b%-22s%b %s (real file/dir)\n" "$RED" "[REAL]" "$RESET" "$label"
         real=$((real + 1))
         ;;
       missing)
-        printf "  %b%-22s%b %s\n" "$RED" "[MISSING]" "$RESET" "~/.config/$name"
+        printf "  %b%-22s%b %s\n" "$RED" "[MISSING]" "$RESET" "$label"
         missing=$((missing + 1))
         ;;
     esac
-  done
+  done < <(managed_targets config)
 
   # Home files
-  if [ -d "$DOTFILES/home" ]; then
-    while IFS= read -r -d '' file; do
-      local relative_path target_path state
-      relative_path="${file#"$DOTFILES"/home/}"
-      target_path="$HOME/$relative_path"
-      state=$(classify_link "$file" "$target_path")
-      # shellcheck disable=SC2088  # tilde is intentional display label, not expansion
-      case "$state" in
-        ok)
-          printf "  %b%-22s%b %b%s%b\n" "$GREEN" "[OK]" "$RESET" "$DIM" "~/$relative_path" "$RESET"
-          ok=$((ok + 1))
-          ;;
-        wrong)
-          printf "  %b%-22s%b %s → %s\n" "$YELLOW" "[WRONG]" "$RESET" "~/$relative_path" "$(readlink "$target_path")"
-          wrong=$((wrong + 1))
-          ;;
-        real)
-          printf "  %b%-22s%b %s (real file)\n" "$RED" "[REAL]" "$RESET" "~/$relative_path"
-          real=$((real + 1))
-          ;;
-        missing)
-          printf "  %b%-22s%b %s\n" "$RED" "[MISSING]" "$RESET" "~/$relative_path"
-          missing=$((missing + 1))
-          ;;
-      esac
-    done < <(find "$DOTFILES/home" -type f -print0)
-  fi
+  while IFS=$'\t' read -r source target label; do
+    state=$(classify_link "$source" "$target")
+    case "$state" in
+      ok)
+        printf "  %b%-22s%b %b%s%b\n" "$GREEN" "[OK]" "$RESET" "$DIM" "$label" "$RESET"
+        ok=$((ok + 1))
+        ;;
+      wrong)
+        printf "  %b%-22s%b %s → %s\n" "$YELLOW" "[WRONG]" "$RESET" "$label" "$(readlink "$target")"
+        wrong=$((wrong + 1))
+        ;;
+      real)
+        printf "  %b%-22s%b %s (real file)\n" "$RED" "[REAL]" "$RESET" "$label"
+        real=$((real + 1))
+        ;;
+      missing)
+        printf "  %b%-22s%b %s\n" "$RED" "[MISSING]" "$RESET" "$label"
+        missing=$((missing + 1))
+        ;;
+    esac
+  done < <(managed_targets home)
 
   echo
   printf "  %b%d ok%b  %b%d missing%b  %b%d wrong%b  %b%d real%b\n" \
