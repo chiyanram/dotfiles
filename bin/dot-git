@@ -6,6 +6,9 @@ DOTFILES="${DOTFILES:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
 
 # source helpers
 source "$DOTFILES/bin/lib/common.sh"
+# Identity-slot detection + shared repo discovery (used by `use` and `migrate`).
+# shellcheck disable=SC1091
+source "$DOTFILES/bin/lib/git-slots.sh"
 command_name=$(basename "${BASH_SOURCE[0]}")
 
 usage() {
@@ -22,6 +25,9 @@ Commands:
     add-identity     Build a git identity slot: SSH key + host alias + remote-bound, SSH-signed email
     use <slot>       Bind the current repo to an existing slot: rewrite origin to the slot
                      alias (key/email/signing follow) and, for GitHub slots, switch the gh account
+    migrate          Interactively onboard existing repos under the audit roots onto slots:
+                     per mis-set repo, offer a slot and rebind its origin on confirm (git-side
+                     only — no gh switch; run 'use' later to align gh)
     install-guard    Activate the Identity Guard globally by pointing core.hooksPath at the
                      committed pre-commit hook (written to ~/.gitconfig-local, never committed)
 
@@ -281,6 +287,39 @@ origin_owner_repo() {
   esac
 }
 
+# Rebind a repo's origin to a slot's alias — the DURABLE, git-side half of
+# `dot git use`, shared with `dot git migrate` (which does only this; it never
+# touches the global `gh` account). Given a repo dir and a slot NAME, resolves
+# the alias, rewrites origin to git@<alias>:owner/repo, and prints the new URL.
+# Emits no logging so each caller frames its own messages; on failure it touches
+# nothing and returns a distinct code:
+#   3  unknown slot   4  no origin remote   5  unparseable origin URL
+bind_repo_to_slot() {
+  local repo_dir="$1" name="$2" alias url ownerrepo newurl
+  alias="$(slot_alias "$name")" || return 3
+  [[ -n "$alias" ]] || return 3
+  url="$(git -C "$repo_dir" remote get-url origin 2>/dev/null)" || return 4
+  [[ -n "$url" ]] || return 4
+  ownerrepo="$(origin_owner_repo "$url")" || return 5
+  [[ -n "$ownerrepo" ]] || return 5
+  newurl="git@${alias}:${ownerrepo}"
+  git -C "$repo_dir" remote set-url origin "$newurl" || return 1
+  printf '%s\n' "$newurl"
+}
+
+# Verify a bind: print a success/warning line comparing the repo's resolved
+# user.email against the slot fragment's. Shared by `use` and `migrate`.
+_report_bind() {
+  local repo_dir="$1" name="$2" newurl="$3" label="$4" slot_email resolved
+  slot_email="$(git config -f "$HOME/.gitconfig-$name" user.email 2>/dev/null || true)"
+  resolved="$(git -C "$repo_dir" config user.email 2>/dev/null || true)"
+  if [[ -n "$slot_email" && "$resolved" == "$slot_email" ]]; then
+    log_success "$label — origin is $newurl, commits authored/signed as $resolved"
+  else
+    log_warning "origin rewritten to $newurl, but user.email resolved to '${resolved:-<unset>}' (expected '${slot_email:-<unknown>}')"
+  fi
+}
+
 git_use() {
   local name="${1:-}"
   if [[ -z "$name" ]]; then
@@ -298,6 +337,11 @@ git_use() {
     return 1
   fi
 
+  local repo
+  repo="$(git rev-parse --show-toplevel 2>/dev/null || printf '.')"
+
+  # Resolve the alias up front for the gh-switch host and precise error text
+  # (bind_repo_to_slot is silent; it re-resolves internally).
   local alias
   if ! alias="$(slot_alias "$name")" || [[ -z "$alias" ]]; then
     log_error "No identity slot '$name' — create it first with: $command_name add-identity --name $name --host <host> --email <email>"
@@ -305,30 +349,25 @@ git_use() {
   fi
   local host="${alias%-"$name"}" # alias is <host>-<name>
 
-  local url
-  if ! url="$(git remote get-url origin 2>/dev/null)" || [[ -z "$url" ]]; then
-    log_error "No 'origin' remote in this repository — add one, then re-run: $command_name use $name"
-    return 1
-  fi
+  local newurl rc=0
+  newurl="$(bind_repo_to_slot "$repo" "$name")" || rc=$?
+  case "$rc" in
+    0) ;;
+    4)
+      log_error "No 'origin' remote in this repository — add one, then re-run: $command_name use $name"
+      return 1
+      ;;
+    5)
+      log_error "Could not parse owner/repo from origin URL: $(git -C "$repo" remote get-url origin 2>/dev/null || true)"
+      return 1
+      ;;
+    *)
+      log_error "Could not bind this repo to slot '$name'."
+      return 1
+      ;;
+  esac
 
-  local ownerrepo
-  if ! ownerrepo="$(origin_owner_repo "$url")" || [[ -z "$ownerrepo" ]]; then
-    log_error "Could not parse owner/repo from origin URL: $url"
-    return 1
-  fi
-
-  local newurl="git@${alias}:${ownerrepo}"
-  git remote set-url origin "$newurl"
-
-  # Verify the bind: the hasconfig include should now select the slot fragment.
-  local slot_email resolved
-  slot_email="$(git config -f "$HOME/.gitconfig-$name" user.email 2>/dev/null || true)"
-  resolved="$(git config user.email 2>/dev/null || true)"
-  if [[ -n "$slot_email" && "$resolved" == "$slot_email" ]]; then
-    log_success "Bound this repo to slot '$name' — origin is $newurl, commits authored/signed as $resolved"
-  else
-    log_warning "origin rewritten to $newurl, but user.email resolved to '${resolved:-<unset>}' (expected '${slot_email:-<unknown>}')"
-  fi
+  _report_bind "$repo" "$name" "$newurl" "Bound this repo to slot '$name'"
 
   # gh account sync: GitHub-only, and only when a gh CLI and a slot github user
   # are both present. Never fail the whole command if the switch fails — the
@@ -348,6 +387,81 @@ git_use() {
       fi
       ;;
   esac
+}
+
+# Interactive, one-pass onboarding of EXISTING repos onto slots. Walks the same
+# repos `dot doctor` audits (git_slot_audit_dirs) and, per mis-set repo:
+#   misset-use  a slot exists for the host -> prompt (default yes), then bind
+#               the durable git-side remote (reusing bind_repo_to_slot).
+#   misset-add  no slot for the host -> print the add-identity remedy and skip.
+# Everything else (bound / no-origin / unknown / unparseable) is left untouched.
+# Migrate does the git-side rebind ONLY — it never runs `gh auth switch`, because
+# the active gh account is a single global and thrashing it across many repos is
+# wrong; gh aligns later when you `dot git use` (or work) in a specific repo.
+# Re-runnable and non-destructive: the only change ever made is a remote rewrite,
+# and an already-bound repo classifies as `bound` so a second pass offers nothing.
+git_migrate() {
+  if ! command -v git &>/dev/null; then
+    log_error "Git is not installed."
+    return 1
+  fi
+
+  fmt_title_underline "Migrating repos onto identity slots"
+  log_info "Scanning repos under the audit roots. Migrate rebinds the git remote only —"
+  log_info "run 'dot git use <slot>' in a repo later to also align its gh account."
+
+  # The repo stream is on fd 3, NOT stdin: the per-repo prompt's `read` must draw
+  # from the real stdin (the user's answers), not consume the dir list.
+  local gitdir repo url status kind rest slot host newurl reply rc
+  local bound=0 skipped=0 needs_add=0
+  while IFS= read -r gitdir <&3; do
+    [[ -n "$gitdir" ]] || continue
+    repo="${gitdir%/.git}"
+    url="$(git -C "$repo" config --get remote.origin.url 2>/dev/null || true)"
+    [[ -n "$url" ]] || continue # no origin (scratch) -> skip silently
+    status="$(git_slot_status "$url")"
+    kind="${status%%:*}"
+    case "$kind" in
+      misset-use)
+        rest="${status#misset-use:}"
+        slot="${rest%%:*}"
+        host="${rest#*:}"
+        printf '\n'
+        log_info "repo:   ~${repo#"$HOME"}"
+        log_info "origin: $url"
+        log_info "slot:   $slot ($host)"
+        reply=""
+        read -rp "Bind this repo to slot '$slot'? [Y/n] " reply || reply=""
+        case "$reply" in
+          [Nn] | [Nn][Oo])
+            log_info "skipped ~${repo#"$HOME"} (unchanged)"
+            skipped=$((skipped + 1))
+            ;;
+          *)
+            rc=0
+            newurl="$(bind_repo_to_slot "$repo" "$slot")" || rc=$?
+            if [[ "$rc" -eq 0 && -n "$newurl" ]]; then
+              _report_bind "$repo" "$slot" "$newurl" "Bound ~${repo#"$HOME"} to slot '$slot'"
+              bound=$((bound + 1))
+            else
+              log_warning "Could not rebind ~${repo#"$HOME"} — left unchanged"
+              skipped=$((skipped + 1))
+            fi
+            ;;
+        esac
+        ;;
+      misset-add)
+        host="${status#misset-add:}"
+        log_warning "~${repo#"$HOME"} on $host has no slot — create one first, then re-run migrate:"
+        log_info "  $command_name add-identity --name <slot> --host $host --email <you@example.com>"
+        needs_add=$((needs_add + 1))
+        ;;
+      *) : ;; # none | bound | unknown | unparseable -> leave untouched
+    esac
+  done 3< <(git_slot_audit_dirs)
+
+  printf '\n'
+  log_success "migrate complete — bound $bound, skipped $skipped, need add-identity $needs_add"
 }
 
 # Activate the Identity Guard: point core.hooksPath at the committed hook directory.
@@ -397,6 +511,10 @@ main() {
     use)
       shift
       git_use "$@"
+      ;;
+    migrate)
+      shift
+      git_migrate "$@"
       ;;
     install-guard)
       shift

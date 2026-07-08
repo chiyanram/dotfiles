@@ -320,28 +320,9 @@ check_zsh_plugins() {
 # and warn on gh-account drift. Performs NO writes; non-gating like the Drift
 # section (informational, --strict included).
 
-# Print the roots to scan, one per line: the hardcoded conventional set plus any
-# `git_audit_roots` override (whitespace/newline-separated), which AUGMENTS the
-# defaults rather than replacing them — a missed default is never silently lost.
-_audit_roots() {
-  local r override
-  for r in work workspace dev dotfiles personal clients; do
-    printf '%s\n' "$HOME/$r"
-  done
-  override="$(dot_config git_audit_roots)"
-  [[ -n "$override" ]] && printf '%s\n' "$override" | tr '[:space:]' '\n'
-}
-
-# Print the `.git` directory of every repo under the existing roots (absent roots
-# are skipped silently). maxdepth 3 covers root/.git, root/repo/.git and one org
-# level (root/org/repo/.git); -prune stops the descent into a found repo.
-_audit_git_dirs() {
-  local root
-  while IFS= read -r root; do
-    [[ -n "$root" && -d "$root" ]] || continue
-    find "$root" -maxdepth 3 -type d -name .git -prune 2>/dev/null
-  done < <(_audit_roots) | sort -u
-}
+# Repo discovery (roots + `.git` walk) is shared with `dot git migrate` via
+# git-slots.sh (git_slot_audit_roots / git_slot_audit_dirs) so the sweep and the
+# interactive onboarding can never scan a different set of repos.
 
 check_identity_audit() {
   if ! command -v git &>/dev/null; then
@@ -397,7 +378,7 @@ check_identity_audit() {
         ;;
       *) : ;; # none | unparseable | unknown -> fine
     esac
-  done < <(_audit_git_dirs)
+  done < <(git_slot_audit_dirs)
 
   if [[ "$issues" -eq 0 ]]; then
     log_success "no identity or gh-account drift across audited repos"

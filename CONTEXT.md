@@ -55,3 +55,14 @@ slot's). It never writes and never gates the exit code — the Guard is the
 enforcer; the audit is the proactive convenience sweep. The mis-set decision is
 shared with the Guard via `bin/lib/git-slots.sh`, so the two can never disagree.
 _Avoid_: calling it enforcement (it only reports).
+
+**Migration**:
+The interactive one-pass onboarding (`dot git migrate`) that walks the same repos
+as the Identity Audit (shared discovery in `bin/lib/git-slots.sh`) and, per mis-set
+repo, offers a slot and rebinds `origin` on confirmation (reusing `dot git use`'s
+`bind_repo_to_slot`). It does the **durable git-side rebind only** — unlike
+`dot git use` it never runs `gh auth switch`, because the active `gh` account is a
+single global and thrashing it across many repos is wrong; gh aligns later when you
+`use` (or work in) a specific repo. Re-runnable and non-destructive: the only change
+ever made is a remote-URL rewrite, and an already-bound repo is left untouched.
+_Avoid_: switching the gh account during migrate; touching remote-less repos.
