@@ -1,0 +1,175 @@
+#!/usr/bin/env bash
+# Identity Guard — global pre-commit hook (installed via core.hooksPath). Blocks a
+# commit whose origin is on a known host with no matching identity slot, printing the
+# exact `dot git use <slot>` / `dot git add-identity` remedy; a repo with no origin
+# (scratch) is allowed. Then it DELEGATES to any repo-local pre-commit hook so a
+# global core.hooksPath does not silently shadow an existing hook.
+#
+# Because it is installed via core.hooksPath, it must NEVER re-invoke the hook through
+# core.hooksPath (that would resolve back to itself — infinite self-call). It resolves
+# the repo-local hook explicitly as <absolute-git-dir>/hooks/pre-commit and refuses to
+# run anything whose realpath equals its own.
+set -Eeuo pipefail
+
+# --- locate self + logging -------------------------------------------------
+
+# Canonicalize a path: follow file symlinks (BSD-safe — no `readlink -f`), then
+# resolve the containing directory. Used for the anti-recursion check below.
+_gc_realpath() {
+  local p="$1" target
+  while [[ -L "$p" ]]; do
+    target="$(readlink "$p")"
+    case "$target" in
+      /*) p="$target" ;;
+      *) p="$(dirname "$p")/$target" ;;
+    esac
+  done
+  printf '%s\n' "$(cd "$(dirname "$p")" && pwd -P)/$(basename "$p")"
+}
+
+_guard_real="$(_gc_realpath "${BASH_SOURCE[0]}")"
+_guard_dir="$(dirname "$_guard_real")"
+
+# common.sh lives at <repo>/bin/lib/common.sh; the hook is <repo>/config/git/hooks/.
+# Degrade to plain logging if it isn't reachable (the guard must still work).
+_common="$_guard_dir/../../../bin/lib/common.sh"
+if [[ -f "$_common" ]]; then
+  # shellcheck source=/dev/null
+  source "$_common"
+else
+  log_error() { printf 'error: %s\n' "$1" >&2; }
+fi
+
+# --- slot lookup helpers ---------------------------------------------------
+# Slots are encoded in ~/.gitconfig-identities as includeIf lines whose glob embeds
+# `git@<host>-<name>:` (see `dot git add-identity`). The alias is `<host>-<name>`.
+
+# Print every slot alias (`<host>-<name>`), one per line.
+_guard_slot_aliases() {
+  local f="$HOME/.gitconfig-identities"
+  [[ -f "$f" ]] || return 0
+  sed -n 's/.*git@\([^:]*\):.*/\1/p' "$f"
+}
+
+# Exit 0 if <alias> is a defined slot alias.
+_guard_alias_exists() {
+  local target="$1" a
+  while IFS= read -r a; do
+    [[ "$a" == "$target" ]] && return 0
+  done < <(_guard_slot_aliases)
+  return 1
+}
+
+# Print the slot names defined for <host> (alias `<host>-<name>` -> `<name>`).
+_guard_slots_for_host() {
+  local host="$1" a
+  while IFS= read -r a; do
+    [[ -n "$a" ]] || continue
+    case "$a" in
+      "$host"-*) printf '%s\n' "${a#"$host"-}" ;;
+    esac
+  done < <(_guard_slot_aliases)
+}
+
+# Extract the URL host token from an origin URL (may itself be a slot alias for an
+# scp-style URL). Returns 1 on an unrecognized URL.
+_guard_host_token() {
+  local url="$1" rest
+  case "$url" in
+    https://* | http://*)
+      rest="${url#*://}"
+      printf '%s\n' "${rest%%/*}"
+      ;;
+    ssh://*)
+      rest="${url#ssh://}" # [user@]host[:port]/owner/repo
+      rest="${rest#*@}"    # drop user@
+      rest="${rest%%/*}"   # host[:port]
+      printf '%s\n' "${rest%%:*}"
+      ;;
+    *:*)
+      rest="${url%%:*}" # [user@]host
+      printf '%s\n' "${rest#*@}"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+# --- identity check --------------------------------------------------------
+# Return 0 to allow, non-zero to block (printing the remedy).
+_guard_identity_check() {
+  local origin_url host_token host first_slot
+
+  origin_url="$(git config --get remote.origin.url 2>/dev/null || true)"
+  # 1. No origin remote (scratch repo) -> allow.
+  [[ -z "$origin_url" ]] && return 0
+
+  if ! host_token="$(_guard_host_token "$origin_url")" || [[ -z "$host_token" ]]; then
+    # Unparseable remote -> don't get in the way.
+    return 0
+  fi
+
+  # 2. Origin already uses an existing slot alias -> allow.
+  _guard_alias_exists "$host_token" && return 0
+
+  # 3. Not on a slot. host_token is the real host for a plain URL.
+  host="$host_token"
+  first_slot="$(_guard_slots_for_host "$host" | head -n 1)"
+
+  local is_forge=1
+  case "$host" in
+    github.com | gitlab.com | bitbucket.org) is_forge=0 ;;
+  esac
+
+  # Known host = a default forge OR a host that already has >=1 slot.
+  if [[ "$is_forge" -eq 0 || -n "$first_slot" ]]; then
+    if [[ -n "$first_slot" ]]; then
+      log_error "Identity Guard: origin is on '$host' but this repo is bound to no identity slot."
+      log_error "A slot exists for $host — bind this repo, then re-commit:"
+      log_error "    dot git use $first_slot"
+    else
+      log_error "Identity Guard: origin is on '$host' but no identity slot exists for it."
+      log_error "Create one and bind this repo, then re-commit:"
+      log_error "    dot git add-identity --name <slot> --host $host --email <you@example.com>"
+      log_error "    dot git use <slot>"
+    fi
+    return 1
+  fi
+
+  # Unknown host (not a forge, no slot) -> allow.
+  return 0
+}
+
+# --- delegation ------------------------------------------------------------
+# After the identity check passes, run the repo's OWN pre-commit hook (a plain hook
+# or the pre-commit framework's, both at .git/hooks/pre-commit) so core.hooksPath
+# doesn't silently shadow it. Resolve it EXPLICITLY as <absolute-git-dir>/hooks/
+# pre-commit — never `git rev-parse --git-path hooks/pre-commit`, which returns the
+# core.hooksPath guard (i.e. this file) and would self-recurse forever.
+_guard_delegate() {
+  local git_dir local_hook local_real
+  git_dir="$(git rev-parse --absolute-git-dir 2>/dev/null || true)"
+  [[ -n "$git_dir" ]] || return 0
+
+  local_hook="$git_dir/hooks/pre-commit"
+  [[ -x "$local_hook" ]] || return 0
+
+  # Anti-recursion: never re-run ourselves, even via a symlink at .git/hooks/pre-commit.
+  local_real="$(_gc_realpath "$local_hook")"
+  [[ "$local_real" == "$_guard_real" ]] && return 0
+
+  # Pass through the original args + stdin; the local hook's exit becomes ours (a
+  # non-zero exit blocks the commit). exec replaces this process, so its status
+  # propagates verbatim.
+  exec "$local_hook" "$@"
+}
+
+main() {
+  _guard_identity_check || exit $?
+
+  _guard_delegate "$@"
+  exit 0
+}
+
+main "$@"

@@ -22,6 +22,8 @@ Commands:
     add-identity     Build a git identity slot: SSH key + host alias + remote-bound, SSH-signed email
     use <slot>       Bind the current repo to an existing slot: rewrite origin to the slot
                      alias (key/email/signing follow) and, for GitHub slots, switch the gh account
+    install-guard    Activate the Identity Guard globally by pointing core.hooksPath at the
+                     committed pre-commit hook (written to ~/.gitconfig-local, never committed)
 
 add-identity options:
     --name <slot>       Slot name, e.g. ee (required)
@@ -348,6 +350,32 @@ git_use() {
   esac
 }
 
+# Activate the Identity Guard: point core.hooksPath at the committed hook directory.
+# The path is machine-specific and absolute, so it goes in ~/.gitconfig-local — never
+# in the committed config/git/config (which is shared across machines).
+git_install_guard() {
+  if ! command -v git &>/dev/null; then
+    log_error "Git is not installed."
+    return 1
+  fi
+
+  local hook_dir="$DOTFILES/config/git/hooks"
+  if [[ ! -d "$hook_dir" ]]; then
+    log_error "Hook directory not found: $hook_dir"
+    return 1
+  fi
+  hook_dir="$(cd "$hook_dir" && pwd -P)"
+
+  if [[ ! -x "$hook_dir/pre-commit" ]]; then
+    log_error "Guard hook missing or not executable: $hook_dir/pre-commit"
+    return 1
+  fi
+
+  git config -f "$HOME/.gitconfig-local" core.hooksPath "$hook_dir"
+  log_success "Identity Guard installed — core.hooksPath -> $hook_dir"
+  log_info "Written to ~/.gitconfig-local (machine-local, not committed)."
+}
+
 main() {
   if [ $# -lt 1 ]; then
     usage
@@ -369,6 +397,10 @@ main() {
     use)
       shift
       git_use "$@"
+      ;;
+    install-guard)
+      shift
+      git_install_guard "$@"
       ;;
     *)
       log_error "Unknown legacy command: $1"
