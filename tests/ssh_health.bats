@@ -1,12 +1,34 @@
 setup() {
   REPO="$(cd "$BATS_TEST_DIRNAME/.." && pwd -P)"
   export TERM=dumb
+  # Pin DOTFILES so the doctor sources THIS tree's libs, not an inherited one.
+  export DOTFILES="$REPO"
   DOCTOR="$REPO/bin/dot-doctor"
 }
 
 # Source the doctor (guarded so main does not run) and call the pure predicate.
 run_status() {
-  run bash -c "source '$DOCTOR'; _ssh_github_status '$1' '$2'; echo rc=\$?"
+  run bash -c "source '$DOCTOR'; _ssh_host_status '$1' '$2'; echo rc=\$?"
+}
+
+# The pure gate deciding whether doctor runs its GitLab SSH check.
+gitlab_gate() {
+  run bash -c "source '$DOCTOR'; _gitlab_ssh_check_enabled \"\$@\"" _ "$@"
+}
+
+@test "gitlab ssh check runs when glab is authenticated" {
+  gitlab_gate true false
+  [ "$status" -eq 0 ]
+}
+
+@test "gitlab ssh check runs when a gitlab slot exists" {
+  gitlab_gate false true
+  [ "$status" -eq 0 ]
+}
+
+@test "gitlab ssh check is skipped when neither glab-auth nor a gitlab slot is present" {
+  gitlab_gate false false
+  [ "$status" -ne 0 ]
 }
 
 @test "ssh status is missing when the key file is absent" {
