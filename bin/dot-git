@@ -47,7 +47,8 @@ add-identity options:
 register-key options:
     --host <host>       Host to register the key on, e.g. gitlab.com (required)
     --key <path>        Public (or private) key to register (default ~/.ssh/id_ed25519.pub)
-    --title <title>     Key title on the host (default: the machine name)
+    --name <slot>       Slot name for the title/alias (default: derived from the key filename)
+    --title <title>     Override the composed title "<name> @ <machine> · <alias> [· auth|sign]"
 EOF
 }
 
@@ -151,6 +152,29 @@ _register_key_plan() {
   esac
 }
 
+# Pure: compose an SSH-key title "<name> @ <machine> · <alias>[ · <usage>]".
+# usage is optional — empty for glab's single auth+signing key, "auth"/"sign"
+# for gh's two separate keys so they're distinguishable on the account.
+_register_key_title() {
+  local name="$1" machine="$2" alias="$3" usage="${4:-}"
+  if [[ -n "$usage" ]]; then
+    printf '%s @ %s · %s · %s\n' "$name" "$machine" "$alias" "$usage"
+  else
+    printf '%s @ %s · %s\n' "$name" "$machine" "$alias"
+  fi
+}
+
+# Pure: the identity name for a default (no-slot) key, derived from its filename.
+# id_ed25519_<name> -> <name>; anything else (e.g. a plain id_ed25519) -> personal.
+_register_key_derive_name() {
+  local base="${1##*/}" # basename
+  base="${base%.pub}"   # strip a trailing .pub
+  case "$base" in
+    id_ed25519_?*) printf '%s\n' "${base#id_ed25519_}" ;;
+    *) printf 'personal\n' ;;
+  esac
+}
+
 # Run one `<cli> ssh-key add <key> --title <title> <extra...>`, treating an
 # "already registered" response as benign so register-key is idempotent. Built as
 # an argv array (never eval'd), so a title with spaces can't split the command.
@@ -190,7 +214,7 @@ _register_key_paste() {
 # a key, never a repo. Registers as auth+signing; falls back to print-and-paste
 # when no CLI is authenticated.
 git_register_key() {
-  local host="" key="" title=""
+  local host="" key="" title="" name=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --host)
@@ -203,6 +227,10 @@ git_register_key() {
         ;;
       --title)
         title="${2:-}"
+        shift 2
+        ;;
+      --name)
+        name="${2:-}"
         shift 2
         ;;
       *)
@@ -223,8 +251,18 @@ git_register_key() {
     log_error "SSH public key not found: $key"
     return 1
   fi
-  if [[ -z "$title" ]]; then
-    title="$(scutil --get ComputerName 2>/dev/null || hostname -s 2>/dev/null || printf 'dotfiles')"
+  # Compose the key title "<name> @ <machine> · <alias>[ · <usage>]". A slot
+  # (--name from add-identity) uses its <host>-<name> alias; a default key derives
+  # its name from the filename and uses the bare host. --title overrides all this.
+  local machine name_slug alias
+  machine="$(hostname -s 2>/dev/null | tr '[:upper:]' '[:lower:]')"
+  [[ -n "$machine" ]] || machine="dotfiles"
+  if [[ -n "$name" ]]; then
+    name_slug="$name"
+    alias="${host}-${name}"
+  else
+    name_slug="$(_register_key_derive_name "$key")"
+    alias="$host"
   fi
 
   fmt_title_underline "Registering SSH key on $host"
@@ -247,13 +285,14 @@ git_register_key() {
 
   case "$(_register_key_plan "$host" "$cli_present" "$cli_authed")" in
     github)
-      # gh treats auth and signing as separate keys -> two calls.
-      _register_key_upload gh "$key" "$title" --type authentication
-      _register_key_upload gh "$key" "$title" --type signing
+      # gh treats auth and signing as separate keys -> two calls with distinct
+      # `· auth` / `· sign` titles so they're tellable apart on the account.
+      _register_key_upload gh "$key" "${title:-$(_register_key_title "$name_slug" "$machine" "$alias" auth)}" --type authentication
+      _register_key_upload gh "$key" "${title:-$(_register_key_title "$name_slug" "$machine" "$alias" sign)}" --type signing
       ;;
     gitlab)
-      # glab's --usage-type defaults to auth_and_signing -> one call suffices.
-      _register_key_upload glab "$key" "$title" --usage-type auth_and_signing
+      # glab's --usage-type defaults to auth_and_signing -> one call, no usage suffix.
+      _register_key_upload glab "$key" "${title:-$(_register_key_title "$name_slug" "$machine" "$alias" "")}" --usage-type auth_and_signing
       ;;
     paste)
       _register_key_paste "$host" "$key"
@@ -401,7 +440,7 @@ git_add_identity() {
     # uploads to the host CLI's *currently authenticated* account (falling back to
     # print-and-paste when none is), so for a distinct client account make that
     # account the active gh/glab login before running add-identity.
-    git_register_key --host "$host" --key "$keypath"
+    git_register_key --host "$host" --key "$keypath" --name "$name"
   else
     log_warning "No public key found at $pubkey — register the matching public key on the $host account as both an Authentication and a Signing key."
   fi

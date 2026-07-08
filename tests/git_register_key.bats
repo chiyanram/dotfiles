@@ -40,6 +40,35 @@ plan() {
   [ "$output" = "paste" ]
 }
 
+# --- Seam B2: pure title composition + no-slot name derivation -------------
+
+title() {
+  run bash -c "source '$DOTGIT'; _register_key_title \"\$@\"" _ "$@"
+}
+derive_name() {
+  run bash -c "source '$DOTGIT'; _register_key_derive_name \"\$@\"" _ "$@"
+}
+
+@test "title: composes name @ machine · alias · usage" {
+  title personal work-laptop github.com-personal sign
+  [ "$output" = "personal @ work-laptop · github.com-personal · sign" ]
+}
+
+@test "title: omits the usage suffix when usage is empty (glab single key)" {
+  title personal work-laptop gitlab.com-personal ""
+  [ "$output" = "personal @ work-laptop · gitlab.com-personal" ]
+}
+
+@test "derive-name: id_ed25519_<name> yields <name>" {
+  derive_name /home/me/.ssh/id_ed25519_work.pub
+  [ "$output" = "work" ]
+}
+
+@test "derive-name: a plain default key yields personal" {
+  derive_name /home/me/.ssh/id_ed25519.pub
+  [ "$output" = "personal" ]
+}
+
 # --- Seam D: `dot git register-key` drives the host CLI end to end ----------
 
 teardown() {
@@ -93,8 +122,20 @@ EOF
   [ "$output" -ge 1 ]
   # glab invoked to add the default key as auth_and_signing
   run cat "$STUB_LOG"
-  [[ "$output" == *"glab ssh-key add $HOME/.ssh/id_ed25519.pub --title"* ]]
-  [[ "$output" == *"--usage-type auth_and_signing"* ]]
+  # default key (no slot) -> name "personal", bare-host alias, no usage suffix
+  [[ "$output" == *"glab ssh-key add $HOME/.ssh/id_ed25519.pub --title personal @ "* ]]
+  [[ "$output" == *"· gitlab.com --usage-type auth_and_signing"* ]]
+}
+
+@test "register-key on github registers two keys titled · auth and · sign" {
+  sandbox
+  stub_cli gh 0
+  run "$REPO/bin/dot-git" register-key --host github.com
+  [ "$status" -eq 0 ]
+  run cat "$STUB_LOG"
+  [[ "$output" == *"--title personal @ "* ]]
+  [[ "$output" == *"· github.com · auth --type authentication"* ]]
+  [[ "$output" == *"· github.com · sign --type signing"* ]]
 }
 
 @test "add-identity registers the new slot key on the host" {
@@ -107,8 +148,9 @@ EOF
     --email me@work.test --key "$HOME/seedkey"
   [ "$status" -eq 0 ]
   run cat "$STUB_LOG"
-  [[ "$output" == *"glab ssh-key add $HOME/seedkey.pub --title"* ]]
-  [[ "$output" == *"--usage-type auth_and_signing"* ]]
+  # slot (--name work-gl) -> host-name alias in the title
+  [[ "$output" == *"glab ssh-key add $HOME/seedkey.pub --title work-gl @ "* ]]
+  [[ "$output" == *"· gitlab.com-work-gl --usage-type auth_and_signing"* ]]
 }
 
 @test "register-key prints the key for manual paste when the CLI is unauthenticated" {
