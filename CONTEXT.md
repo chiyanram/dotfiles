@@ -44,6 +44,17 @@ reverse. A row is `<action>\t<target>\t<prev>`, where `prev` is whatever
 _Avoid_: Log, history (Manifest is specifically the undo mechanism, consumed
 exactly once by `dot restore`, not a durable audit trail).
 
+**Config Leak**:
+A file that lands inside a tracked, symlinked `config/*`/`home/*` directory as an
+unintended byproduct of the tool it's symlinked for writing runtime/generated state
+to its own directory — since the symlink means `$HOME/.config/<pkg>/...` and
+`config/<pkg>/...` are the same location on disk. Detected via `git status`'s
+untracked-file view, since the leak physically exists in the repo's own working
+tree — no custom scanning needed.
+_Avoid_: Drift (reserved for declared-vs-actual mismatches in the Brewfile/SDKMAN/
+symlink domains — a leak is a different failure mode: an unexpected file existing,
+not a state disagreeing with a declaration).
+
 ### Git identity
 
 **Identity Slot**:
