@@ -112,8 +112,8 @@ dot unlink [package]        # Unlink all or specific package
 | `dot link all`      | Symlink every config/home package into place                       |
 | `dot link <pkg>`    | Link a specific package (e.g., `dot link nvim`)                    |
 | `dot link --status` | Show link health (OK/MISSING/WRONG/REAL); exits non-zero if broken |
-| `dot restore`       | Undo the last `dot link` run (removes/repoints what it created)    |
-| `dot unlink all`    | Remove all symlinks                                                |
+| `dot restore`       | Undo the last `dot link` or `dot unlink` run                       |
+| `dot unlink all`    | Remove all symlinks (never touches one that isn't ours)            |
 | `dot backup`        | Timestamped backup of existing dotfiles                            |
 | `dot clean`         | Remove broken/stale symlinks                                       |
 | `dot help`          | List all commands (built-in + auto-discovered `dot-*`)             |

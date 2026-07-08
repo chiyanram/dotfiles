@@ -36,6 +36,23 @@ teardown() { teardown_sandbox; }
   [ ! -e "$HOME/.demorc" ]
 }
 
+@test "unlink all leaves a foreign symlink alone (not ours to remove)" {
+  ln -s /somewhere/else "$XDG_CONFIG_HOME/demo"
+  run "$DOT" unlink all
+  [ "$status" -eq 0 ]
+  [ -L "$XDG_CONFIG_HOME/demo" ]
+  [ "$(readlink "$XDG_CONFIG_HOME/demo")" = "/somewhere/else" ]
+  [[ "$output" == *"not ours"* ]]
+}
+
+@test "unlink <pkg> leaves a real file alone and warns" {
+  printf 'not a symlink\n' >"$XDG_CONFIG_HOME/demo"
+  run "$DOT" unlink demo
+  [ "$status" -eq 0 ]
+  [ ! -L "$XDG_CONFIG_HOME/demo" ]
+  [ "$(cat "$XDG_CONFIG_HOME/demo")" = "not a symlink" ]
+}
+
 @test "link all skips an empty config package (no symlink created)" {
   mkdir -p "$DOTFILES/config/emptypkg"
   run "$DOT" link all
