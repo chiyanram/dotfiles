@@ -51,8 +51,9 @@ A named git identity bundled as a set that always travels together — an SSH
 key (used for both auth _and_ commit signing via `gpg.format=ssh`), an SSH host
 alias that selects that key, and a gitconfig fragment carrying the commit email
 and signing config. A slot is keyed by **account**, not by org — one slot spans
-every org that account can reach (e.g. the `ee` slot covers EE-corp _and_ any
-client org that simply adds your EE account). A client becomes its **own** slot
+every org that account can reach (e.g. the `ee` slot covers your employer's org
+_and_ any client org that simply adds your work account). A client becomes its
+**own** slot
 only when it issues you a distinct account/email.
 _Avoid_: Account, profile, persona (reserve "account" for the remote GitHub/GitLab account a slot pushes to).
 

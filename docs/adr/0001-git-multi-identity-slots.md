@@ -2,9 +2,9 @@
 
 ## Context
 
-This is a consultancy work laptop (Equal Experts). Multiple git identities coexist
-and the set changes over time: `personal` (github.com/chiyanram), `ee`
-(github.com, `@equalexperts.com`), and one identity per client engagement — all
+This is a consultancy work laptop. Multiple git identities coexist and the set
+changes over time: `personal` (github.com/chiyanram), `ee` (github.com, a work
+account), and one identity per client engagement — all
 currently on github.com, i.e. the same-host, multiple-account case. The danger is
 not auth failure but **misattribution**: a commit stamped with the wrong email,
 especially one client's email landing in another client's or a public personal
