@@ -62,11 +62,13 @@ $(fmt_key "Available Commands:")
         -n, --dry-run             Preview the plan (CREATE/SKIP/REPLACE/CONFLICT); non-zero on conflict
         --status                  Show link status without making changes
         -v, --verbose             Show detailed output
-    unlink                        Unlink dotfiles packages
+    unlink                        Unlink dotfiles packages (never removes a symlink that isn't ours;
+                                  a real file or a symlink pointing elsewhere is left alone with a warning)
         all                       Unlink all
         <pkg>                     Unlink a specific package
         -v, --verbose             Show detailed output
-    restore                       Undo the last 'dot link' run (removes/repoints created symlinks)
+    restore                       Undo the last 'dot link' or 'dot unlink' run (removes/repoints
+                                  created symlinks, or recreates unlinked ones)
         [manifest]                Restore a specific manifest instead of the newest
 EOF
 
@@ -185,53 +187,6 @@ cmd_backup() {
   fi
 
   rm -f "$tmpfile"
-}
-
-link_home_files() {
-  local operation="$1"
-  local verbose="$2"
-  local force="${3:-false}"
-
-  if [ ! -d "$DOTFILES/home" ]; then
-    return 0
-  fi
-
-  while IFS= read -r -d '' file; do
-    local relative_path="${file#"$DOTFILES"/home/}"
-    local target_path="$HOME/$relative_path"
-    local target_dir
-    target_dir="$(dirname "$target_path")"
-
-    if [ "$operation" = "link" ]; then
-      # Create parent directories if needed
-      if [ ! -d "$target_dir" ]; then
-        [ "$verbose" = true ] && log_info "Creating directory: $target_dir"
-        mkdir -p "$target_dir"
-      fi
-
-      if [ "$force" = true ] && [ -e "$target_path" ]; then
-        if [ -L "$target_path" ]; then
-          [ "$verbose" = true ] && log_info "Replacing symlink: ~${target_path#"$HOME"}"
-          rm "$target_path"
-          ln -s "$file" "$target_path"
-        else
-          log_warning "~${target_path#"$HOME"} is a real file, not a symlink. Skipping (backup first with: dot backup)"
-        fi
-      elif [ -e "$target_path" ]; then
-        log_warning "~${target_path#"$HOME"} already exists... Skipping."
-      else
-        [ "$verbose" = true ] && log_info "Linking $relative_path"
-        ln -s "$file" "$target_path"
-      fi
-    else # unlink
-      if [ -L "$target_path" ]; then
-        [ "$verbose" = true ] && log_info "Unlinking $target_path"
-        rm "$target_path"
-      elif [ -e "$target_path" ]; then
-        log_warning "Skipping \"$target_path\" because it is not a symlink"
-      fi
-    fi
-  done < <(find "$DOTFILES/home" -type f -print0)
 }
 
 cmd_link_clean() {
@@ -486,25 +441,31 @@ link_apply() {
   esac
 }
 
-link_config() {
-  local config="$1" target="$2" verbose="$3" force="$4"
-  local name
-  name=$(basename "$config")
-
-  if [ "$force" = true ] && [ -e "$target" ]; then
-    if [ -L "$target" ]; then
-      [ "$verbose" = true ] && log_info "Replacing symlink: ~${target#"$HOME"}"
+# unlink_apply <source> <target> <label> <verbose> — the unlink-direction
+# sibling of link_apply, sharing classify_link so the two directions can never
+# disagree about a target's state. Deliberately narrower than link_apply: unlink
+# has no force/backup/adopt equivalent. `wrong` (points anywhere but the
+# expected source) is always refused, whether truly foreign or a stale pointer
+# left by a renamed package — unlink never guesses, only removes what it's sure
+# is ours. Append an undo record to the active manifest, same convention as
+# link_apply (no-op when DOT_MANIFEST is unset).
+unlink_apply() {
+  local source="$1" target="$2" label="$3" verbose="$4"
+  # shellcheck disable=SC2088  # tilde in labels is display, not expansion
+  case "$(classify_link "$source" "$target")" in
+    missing) ;;
+    ok)
+      [ "$verbose" = true ] && log_info "UNLINK  $label"
       rm "$target"
-      ln -s "$config" "$target"
-    else
-      log_warning "~${target#"$HOME"} is a real file/directory, not a symlink. Skipping (backup first with: dot backup)"
-    fi
-  elif [ -e "$target" ]; then
-    log_warning "~${target#"$HOME"} already exists... Skipping."
-  else
-    [ "$verbose" = true ] && log_info "Linking $name"
-    ln -s "$config" "$target"
-  fi
+      manifest_record "delete" "$target" "$source"
+      ;;
+    wrong)
+      log_warning "$label points elsewhere ($(readlink "$target")) — not ours, leaving it"
+      ;;
+    real)
+      log_warning "$label is a real file/dir, not a symlink — leaving it"
+      ;;
+  esac
 }
 
 cmd_link() {
@@ -601,21 +562,21 @@ cmd_link() {
       fi
       unset DOT_MANIFEST
     else # unlink
-      for config in "$DOTFILES/config"/*; do
-        if [ -d "$config" ]; then
-          # skip empty config packages (nothing to link)
-          [[ -n "$(ls -A "$config" 2>/dev/null)" ]] || continue
-          local target
-          target="$CONFIG_HOME/$(basename "$config")"
-          if [ -L "$target" ]; then
-            [ "$verbose" = true ] && log_info "Unlinking $target"
-            rm "$target"
-          elif [ -e "$target" ]; then
-            log_warning "Skipping \"$target\" because it is not a symlink"
-          fi
-        fi
-      done
-      link_home_files "unlink" "$verbose" "$force"
+      # Record every mutation to a per-run manifest so `dot restore` can undo
+      # it — same convention as `link all`, via the SAME walk + classifier so
+      # the two directions can never disagree about what's managed.
+      mkdir -p "$STATE_DIR"
+      DOT_MANIFEST="$STATE_DIR/manifest-$(date +%Y%m%d_%H%M%S)-$$.tsv"
+      local source target label
+      while IFS=$'\t' read -r source target label; do
+        unlink_apply "$source" "$target" "$label" "$verbose"
+      done < <(managed_targets)
+      if [ -s "$DOT_MANIFEST" ]; then
+        log_info "Recorded $(wc -l <"$DOT_MANIFEST" | tr -d ' ') change(s) — undo with: dot restore"
+      else
+        rm -f "$DOT_MANIFEST"
+      fi
+      unset DOT_MANIFEST
     fi
   else
     # Handle specific package
@@ -626,16 +587,22 @@ cmd_link() {
         log_warning "Package $pkg is empty, skipping"
         return 0
       fi
+      # Single-package gets the same manifest tracking as `all` — previously
+      # silently un-undoable via `dot restore`.
+      mkdir -p "$STATE_DIR"
+      DOT_MANIFEST="$STATE_DIR/manifest-$(date +%Y%m%d_%H%M%S)-$$.tsv"
+      # shellcheck disable=SC2088  # tilde in labels is display, not expansion
       if [ "$operation" = "link" ]; then
-        link_config "$DOTFILES/config/$pkg" "$target" "$verbose" "$force"
+        link_apply "$DOTFILES/config/$pkg" "$target" "~/.config/$pkg" "$verbose" "$force" "$backup" "$adopt"
       else # unlink
-        if [ -L "$target" ]; then
-          [ "$verbose" = true ] && log_info "Unlinking $target"
-          rm "$target"
-        elif [ -e "$target" ]; then
-          log_warning "Skipping \"$target\" because it is not a symlink"
-        fi
+        unlink_apply "$DOTFILES/config/$pkg" "$target" "~/.config/$pkg" "$verbose"
       fi
+      if [ -s "$DOT_MANIFEST" ]; then
+        log_info "Recorded $(wc -l <"$DOT_MANIFEST" | tr -d ' ') change(s) — undo with: dot restore"
+      else
+        rm -f "$DOT_MANIFEST"
+      fi
+      unset DOT_MANIFEST
     else
       log_error "Package $pkg not found in config directory"
       return 1
@@ -691,6 +658,17 @@ cmd_restore() {
           restored=$((restored + 1))
         else
           log_warning "skip ~${target#"$HOME"} — link or backup missing"
+        fi
+        ;;
+      delete)
+        # prev holds what unlink_apply removed; recreate it, unless something
+        # now occupies the path (never clobber — same guard as replace/backup).
+        if [ ! -e "$target" ]; then
+          ln -s "$prev" "$target"
+          log_info "recreated ~${target#"$HOME"} → $prev"
+          restored=$((restored + 1))
+        else
+          log_warning "skip ~${target#"$HOME"} — something now exists there"
         fi
         ;;
     esac

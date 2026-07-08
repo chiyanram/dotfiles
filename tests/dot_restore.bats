@@ -22,6 +22,63 @@ manifests() { ls "$STATE"/manifest-*.tsv 2>/dev/null; }
   [ -z "$(manifests)" ] # consumed manifest removed
 }
 
+@test "unlink all writes a manifest and restore recreates the symlinks it removed" {
+  "$DOT" link all
+  rm -f "$STATE"/manifest-*.tsv # isolate: only the unlink step's manifest matters here
+
+  run "$DOT" unlink all
+  [ "$status" -eq 0 ]
+  [ ! -e "$XDG_CONFIG_HOME/demo" ]
+  [ ! -e "$HOME/.demorc" ]
+  [ -n "$(manifests)" ] # a manifest was recorded for the unlink
+
+  run "$DOT" restore
+  [ "$status" -eq 0 ]
+  [ -L "$XDG_CONFIG_HOME/demo" ]
+  [ "$(readlink "$XDG_CONFIG_HOME/demo")" = "$DOTFILES/config/demo" ]
+  [ -L "$HOME/.demorc" ]
+  [ "$(readlink "$HOME/.demorc")" = "$DOTFILES/home/.demorc" ]
+}
+
+@test "link <pkg> writes a manifest and restore undoes it (previously silent, un-undoable)" {
+  run "$DOT" link demo
+  [ "$status" -eq 0 ]
+  [ -L "$XDG_CONFIG_HOME/demo" ]
+  [ -n "$(manifests)" ]
+
+  run "$DOT" restore
+  [ "$status" -eq 0 ]
+  [ ! -e "$XDG_CONFIG_HOME/demo" ]
+}
+
+@test "link <pkg> -b backs up a real file then links; restore puts the original back" {
+  mkdir -p "$XDG_CONFIG_HOME/demo"
+  printf 'my real config\n' >"$XDG_CONFIG_HOME/demo/demo.conf"
+  run "$DOT" link demo -b
+  [ "$status" -eq 0 ]
+  [ -L "$XDG_CONFIG_HOME/demo" ]
+
+  run "$DOT" restore
+  [ "$status" -eq 0 ]
+  [ ! -L "$XDG_CONFIG_HOME/demo" ]
+  [ "$(cat "$XDG_CONFIG_HOME/demo/demo.conf")" = "my real config" ]
+}
+
+@test "unlink <pkg> writes a manifest and restore recreates the symlink" {
+  "$DOT" link demo
+  rm -f "$STATE"/manifest-*.tsv # isolate: only the unlink step's manifest matters here
+
+  run "$DOT" unlink demo
+  [ "$status" -eq 0 ]
+  [ ! -e "$XDG_CONFIG_HOME/demo" ]
+  [ -n "$(manifests)" ]
+
+  run "$DOT" restore
+  [ "$status" -eq 0 ]
+  [ -L "$XDG_CONFIG_HOME/demo" ]
+  [ "$(readlink "$XDG_CONFIG_HOME/demo")" = "$DOTFILES/config/demo" ]
+}
+
 @test "restore repoints a symlink that link -f replaced, back to its old target" {
   ln -s /old/target "$HOME/.demorc"
   run "$DOT" link all -f
