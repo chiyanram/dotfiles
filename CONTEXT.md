@@ -5,6 +5,45 @@ specific to this repo's conventions — not general shell/git concepts.
 
 ## Language
 
+### Link management
+
+**Managed Target**:
+A source/target/label triple `dot link`/`dot unlink` know about — a config
+package (`config/<pkg>` → `~/.config/<pkg>`) or a home file (`home/<rel>` →
+`~/<rel>`). Enumerated by `managed_targets`, the single source of truth for
+"what does `dot link` manage."
+_Avoid_: Symlink, config file (a Managed Target is the source/target _pairing_,
+not either path alone).
+
+**Link State**:
+The four-way classification `classify_link` assigns to a Managed Target —
+`missing`, `ok`, `wrong`, or `real` — shared by every command that inspects or
+acts on links (`link_plan`, `link_status`, `link_apply`, `unlink_apply`) so they
+can never disagree about a target's state. `wrong` means "points somewhere other
+than the expected source" — this includes a truly foreign symlink _and_ a stale
+pointer left by a renamed package; both are treated identically as "not ours to
+touch."
+_Avoid_: Broken, dangling (those describe a different condition — a symlink whose
+target no longer resolves at all, handled separately by `dot clean`).
+
+**Apply Function**:
+`link_apply` or `unlink_apply` — performs the real filesystem mutation for one
+Managed Target, deciding via its Link State, and recording an undo row to the
+active Manifest. The two directions are separate functions sharing only
+`classify_link`, not one function with a mode flag, since the two directions
+need materially different parameters (`link_apply` needs `force`/`backup`/
+`adopt`; `unlink_apply` needs none of them).
+_Avoid_: Handler, action (too generic — this term ties specifically to the
+classify-then-mutate-then-record shape).
+
+**Manifest**:
+The per-run undo log (`$STATE_DIR/manifest-<timestamp>-<pid>.tsv`) an Apply
+Function appends a row to after every mutation; `dot restore` replays it in
+reverse. A row is `<action>\t<target>\t<prev>`, where `prev` is whatever
+`<target>` should become on undo (empty means "remove it").
+_Avoid_: Log, history (Manifest is specifically the undo mechanism, consumed
+exactly once by `dot restore`, not a durable audit trail).
+
 ### Git identity
 
 **Identity Slot**:
