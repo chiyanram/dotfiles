@@ -300,4 +300,7 @@ main() {
   step_summary
 }
 
-main "$@"
+# Only run when executed directly; sourcing for tests must not run main.
+if [[ "${BASH_SOURCE[0]:-$0}" == "${0}" ]]; then
+  main "$@"
+fi
