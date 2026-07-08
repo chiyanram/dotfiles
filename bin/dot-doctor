@@ -444,7 +444,7 @@ main() {
   local brew_skip=" bash zsh grep font-symbols-only-nerd-font "
 
   # Required tools (everything else is optional)
-  local required_tools=" git neovim tmux starship fzf fd ripgrep zoxide bat eza gh lazygit git-delta jq "
+  local required_tools=" git neovim tmux starship fzf fd ripgrep zoxide bat eza gh lazygit git-delta jq pre-commit "
 
   local -a brewfiles=()
   local bf
