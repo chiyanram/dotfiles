@@ -394,6 +394,39 @@ check_identity_audit() {
   return 0
 }
 
+# --- config leaks -----------------------------------------------------------
+# config/*/home/* are symlinked from $HOME back into the repo's own working
+# tree, so a tool writing runtime/generated state into $HOME/.config/<pkg>/...
+# creates an untracked file directly inside the repo (e.g. git's
+# allowed_signers, #58). Detection is just `git status` over those paths — the
+# repo's own .gitignore is the false-positive carve-out, for free. Report-only,
+# non-gating like the Drift and Identity Audit sections (--strict included):
+# there is no "missing" counterpart to a leak, so this has no exit-code role.
+
+check_config_leaks() {
+  if ! command -v git &>/dev/null; then
+    log_info "git not found — skipping config-leak scan"
+    return 0
+  fi
+
+  local leaks
+  leaks="$(git -C "$DOTFILES" status --porcelain --untracked-files=normal -- config/ home/ 2>/dev/null || true)"
+
+  if [[ -z "$leaks" ]]; then
+    log_success "no config leaks in config/ or home/"
+    return 0
+  fi
+
+  local line path
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    path="${line:3}"
+    log_warning "config leak: $path (untracked file inside a symlinked dir)"
+  done <<<"$leaks"
+  log_info "A leaked file is runtime/generated state a tool wrote into its own symlinked config dir — relocate it out of config/home, or add a .gitignore entry if it's expected."
+  return 0
+}
+
 main() {
   local strict=false
   while [[ $# -gt 0 ]]; do
@@ -506,6 +539,13 @@ main() {
   else
     log_success "machine matches the repo's declared state"
   fi
+  echo
+
+  # Config leaks: untracked runtime state a tool wrote into a symlinked
+  # config/*/home/* dir (#69). Non-gating like Drift and Identity Audit — it
+  # never affects the exit code, --strict included.
+  fmt_title_underline "Config Leaks"
+  check_config_leaks
   echo
 
   # Summary
