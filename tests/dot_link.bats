@@ -3,6 +3,19 @@ load test_helper
 setup() { setup_sandbox; }
 teardown() { teardown_sandbox; }
 
+@test "bare 'dot link' errors with usage, not an unbound-variable crash" {
+  run "$DOT" link
+  [ "$status" -ne 0 ]
+  [[ "$output" != *"unbound variable"* ]]
+  [[ "$output" == *"--status"* || "$output" == *"Usage"* || "$output" == *"usage"* ]]
+}
+
+@test "bare 'dot unlink' errors with usage, not an unbound-variable crash" {
+  run "$DOT" unlink
+  [ "$status" -ne 0 ]
+  [[ "$output" != *"unbound variable"* ]]
+}
+
 @test "link all symlinks a config package into XDG_CONFIG_HOME" {
   run "$DOT" link all
   [ "$status" -eq 0 ]
