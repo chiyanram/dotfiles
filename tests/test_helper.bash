@@ -23,6 +23,10 @@ setup_sandbox() {
 
   cp "$repo_root/bin/dot" "$DOTFILES/bin/dot"
   cp "$repo_root/bin/lib/common.sh" "$DOTFILES/bin/lib/common.sh"
+  cp "$repo_root/bin/lib/profile.sh" "$DOTFILES/bin/lib/profile.sh"
+  cp "$repo_root/bin/lib/brew.sh" "$DOTFILES/bin/lib/brew.sh"
+  cp "$repo_root/bin/lib/links.sh" "$DOTFILES/bin/lib/links.sh"
+  cp "$repo_root/bin/lib/sdkman.sh" "$DOTFILES/bin/lib/sdkman.sh"
   cp "$repo_root/bin/lib/reconcile.sh" "$DOTFILES/bin/lib/reconcile.sh"
   printf 'demo config\n' >"$DOTFILES/config/demo/demo.conf"
   printf 'demo home rc\n' >"$DOTFILES/home/.demorc"

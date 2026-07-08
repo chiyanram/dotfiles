@@ -6,6 +6,8 @@ DOTFILES="${DOTFILES:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
 
 # source helpers
 source "$DOTFILES/bin/lib/common.sh"
+# shellcheck disable=SC1091
+source "$DOTFILES/bin/lib/sdkman.sh"
 command_name=$(basename "${BASH_SOURCE[0]}")
 
 TOOLCHAIN_FILE="${SDKMAN_TOOLCHAIN:-$DOTFILES/sdkman/toolchain}"

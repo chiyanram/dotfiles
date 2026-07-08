@@ -21,6 +21,8 @@ else
   echo "Error: Unable to source common.sh"
   exit 1
 fi
+# shellcheck disable=SC1091
+source "$DOTFILES/bin/lib/links.sh"
 # Drift detection (shared with dot-reconcile) — cmd_clean uses its dangling scan.
 # shellcheck disable=SC1091
 source "$DOTFILES/bin/lib/reconcile.sh"
@@ -321,7 +323,7 @@ link_status() {
   [ $((missing + wrong + real)) -eq 0 ]
 }
 
-# classify_link and managed_targets live in bin/lib/common.sh (shared with
+# classify_link and managed_targets live in bin/lib/links.sh (shared with
 # dot-reconcile's symlink drift detection).
 
 # link_plan — preview what `dot link all` would do, classifying each managed

@@ -5,6 +5,8 @@ set -Eeuo pipefail
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
 DOTFILES="${DOTFILES:-$(cd "$script_dir/.." && pwd -P)}"
 source "$DOTFILES/bin/lib/common.sh"
+# shellcheck disable=SC1091
+source "$DOTFILES/bin/lib/profile.sh"
 
 usage() {
   cat <<EOF

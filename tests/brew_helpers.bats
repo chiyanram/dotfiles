@@ -9,7 +9,7 @@ setup() {
   printf "brew 'git'\n" >"$DOTFILES/brew/Brewfile.core"
   printf "# personal\n" >"$DOTFILES/brew/Brewfile.personal"
   printf "# work\n" >"$DOTFILES/brew/Brewfile.work"
-  source "$REPO/bin/lib/common.sh"
+  source "$REPO/bin/lib/brew.sh"
 }
 
 teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }

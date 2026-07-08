@@ -33,7 +33,11 @@ Personal dotfiles for my macOS laptop (backend engineer: JVM toolchain via SDKMA
 
 - `bin/dot` is the main entry point. Built-in commands: link, unlink, backup, restore, clean, help
 - `bin/dot-*` are external commands discovered via PATH — `dot help` lists them; don't enumerate them in docs (the list goes stale)
-- `bin/lib/common.sh` provides shared utilities (colors, logging, spinners)
+- `bin/lib/common.sh` — colors, logging, fmt helpers, spinner, and the step runner (the truly common core)
+- `bin/lib/profile.sh` — machine profile (personal|work) and per-machine config (`dot_profile`, `dot_config`)
+- `bin/lib/brew.sh` — Homebrew profile-bundle resolution and Docker runtime (`dot_brewfiles`, `dot_docker_runtime`)
+- `bin/lib/links.sh` — link resolver (`classify_link`, `managed_targets`) shared by `dot link` and `dot reconcile`
+- `bin/lib/sdkman.sh` — `run_sdk`, the PATH-bash subprocess wrapper around SDKMAN
 - `config/` directories are symlinked to `~/.config/` via `dot link`
 - `home/` files are symlinked to `~/` preserving directory structure
 - `home/.zshenv` sets XDG dirs, DOTFILES path, and is the shell entry point
@@ -60,7 +64,7 @@ Personal dotfiles for my macOS laptop (backend engineer: JVM toolchain via SDKMA
 ### Shell Scripts
 
 - All `dot-*` scripts must have `# Description:` comment on line 2 for auto-discovery
-- All scripts source `$DOTFILES/bin/lib/common.sh` for shared utilities
+- Every script sources `$DOTFILES/bin/lib/common.sh` for colors/logging/fmt/spinner/step, plus whichever of `profile.sh`/`brew.sh`/`links.sh`/`sdkman.sh` it calls functions from directly. A lib that depends on another self-sources it (e.g. `brew.sh` sources `profile.sh`), so callers never need to know the dependency graph — only what they call directly
 - Use `set -Eeuo pipefail` in all bash scripts
 - Use `log_success`, `log_error`, `log_warning`, `log_info` from common.sh
 - Use `run_with_spinner` for long operations — it detaches the child's stdin (`</dev/null`) so an unattended step is deterministically non-interactive regardless of job-control context (a prompting tool like SDKMAN's `sdk upgrade` reads EOF and takes its default); never rely on an interactive prompt in a `dot-*` step. The one exception is sudo, which prompts on `/dev/tty`, not stdin: the spinner scans for a sudo descendant every tick and pauses with a password banner for **every** prompt (a step may sudo repeatedly, e.g. brew once per cask) — a missed pause means the `\r` redraw erases `Password:` and the step reads as hung

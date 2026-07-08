@@ -9,6 +9,9 @@
 # whose glob embeds `git@<host>-<name>:` (see `dot git add-identity`); the alias
 # is `<host>-<name>`. bash-3.2-safe (no assoc arrays / mapfile).
 
+# shellcheck disable=SC1091
+source "$(dirname "${BASH_SOURCE[0]}")/profile.sh"
+
 # Extract the host token from an origin URL (may itself be a slot alias for an
 # scp-style URL). Prints the token; returns 1 on an unrecognized URL.
 git_url_host_token() {
@@ -132,8 +135,8 @@ git_slot_status() {
 # --- repo discovery --------------------------------------------------------
 # Shared by BOTH `dot doctor`'s identity audit and `dot git migrate` so the
 # proactive sweep and the interactive onboarding walk the exact same repos.
-# Read-only (find/read), but depends on common.sh's `dot_config` for the
-# override — callers source common.sh first (same convention as reconcile.sh).
+# Read-only (find/read), but depends on bin/lib/profile.sh's `dot_config` for
+# the override — self-sourced below, so callers don't need to know that.
 
 # Print the roots to scan, one per line: the hardcoded conventional set plus any
 # `git_audit_roots` override (whitespace/newline-separated), which AUGMENTS the
