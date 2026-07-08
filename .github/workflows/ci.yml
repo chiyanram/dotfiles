@@ -26,6 +26,7 @@ jobs:
           sudo curl -fsSL -o /usr/local/bin/shfmt \
             "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/shfmt_${SHFMT_VERSION}_linux_amd64"
           sudo chmod +x /usr/local/bin/shfmt
+          pip install pre-commit
       - name: Run dot test
         run: ./bin/dot-test
 
@@ -38,20 +39,6 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - name: Install tools
-        run: brew install bats-core shfmt shellcheck
+        run: brew install bats-core shfmt shellcheck pre-commit
       - name: Run dot test
         run: ./bin/dot-test
-
-  pre-commit:
-    name: pre-commit hooks
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.12"
-      - name: Run pre-commit
-        run: |
-          pip install pre-commit
-          pre-commit run --all-files --show-diff-on-failure
