@@ -31,10 +31,13 @@ EOF
 
 teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
 
-# Create an ee slot (github.com) with a passphrase-less seed key.
+# Create an ee slot (github.com) with a passphrase-less seed key. add-identity
+# now auto-registers the slot key via the stubbed gh, so reset GH_LOG afterward:
+# every test here observes what `use` does, not slot creation.
 _add_ee_slot() {
   "$REPO/bin/dot-git" add-identity --name ee --host github.com \
     --email me@work.test --github-user workuser --key "$HOME/seedkey" >/dev/null
+  : >"$GH_LOG"
 }
 
 # mkrepo <dir> <origin-url> — init a repo and set its origin.
