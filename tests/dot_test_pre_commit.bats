@@ -92,6 +92,11 @@ EOF
   _seed_shebang_fixture "executable"
 
   run bash -c "source '$DOTFILES/bin/dot-test'; check_pre_commit"
+  echo "DEBUG status=$status" >&2
+  echo "DEBUG output=$output" >&2
+  echo "DEBUG ls-files=$(git -C "$DOTFILES" ls-files -s bin/fixture.sh)" >&2
+  echo "DEBUG stat=$(ls -la "$DOTFILES/bin/fixture.sh")" >&2
+  echo "DEBUG core.fileMode=$(git -C "$DOTFILES" config core.fileMode)" >&2
   teardown_sandbox
   [ "$status" -eq 0 ]
 }
