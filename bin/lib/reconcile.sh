@@ -3,7 +3,11 @@
 # adapters, sourced by dot-reconcile, dot-doctor, dot-migrate. Detection is
 # read-only; the prune/adopt verbs at the bottom are invoked ONLY by dot-reconcile.
 # Functions only — no side effects at source time; safe under the caller's set -e.
+# Self-sources bin/lib/brew.sh (dot_brewfiles, dot_docker_runtime*, dot_profile).
 # Requires common.sh (classify_link, managed_targets, run_sdk) sourced first.
+
+# shellcheck disable=SC1091
+source "$(dirname "${BASH_SOURCE[0]}")/brew.sh"
 
 # --- plugins domain -----------------------------------------------------------
 # zfetch clones each `zfetch owner/repo ...` line in the repo's .zshrc to

@@ -70,7 +70,7 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   # Fixture DOTFILES git repo where home/.claude/settings.json was linked, then
   # deleted from the repo — only git history can name the dangle (#21 shape).
   mkdir -p "$SANDBOX/dotfiles/bin/lib" "$SANDBOX/dotfiles/home/.claude" "$SANDBOX/.claude" "$SANDBOX/.config"
-  cp "$REPO/bin/lib/common.sh" "$REPO/bin/lib/reconcile.sh" "$SANDBOX/dotfiles/bin/lib/"
+  cp "$REPO/bin/lib/common.sh" "$REPO/bin/lib/profile.sh" "$REPO/bin/lib/brew.sh" "$REPO/bin/lib/reconcile.sh" "$SANDBOX/dotfiles/bin/lib/"
   touch "$SANDBOX/dotfiles/home/.zshrc"
   printf '{}\n' >"$SANDBOX/dotfiles/home/.claude/settings.json"
   git -C "$SANDBOX/dotfiles" init -q
@@ -102,7 +102,7 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   # Fixture DOTFILES: doctor must derive its checklist from the reconcile
   # declared pipeline, so a linux-only formula never shows up on macOS.
   mkdir -p "$SANDBOX/dotfiles/bin/lib" "$SANDBOX/dotfiles/brew" "$SANDBOX/dotfiles/home" "$SANDBOX/.config"
-  cp "$REPO/bin/lib/common.sh" "$REPO/bin/lib/reconcile.sh" "$SANDBOX/dotfiles/bin/lib/"
+  cp "$REPO/bin/lib/common.sh" "$REPO/bin/lib/profile.sh" "$REPO/bin/lib/brew.sh" "$REPO/bin/lib/reconcile.sh" "$SANDBOX/dotfiles/bin/lib/"
   touch "$SANDBOX/dotfiles/home/.zshrc"
   cat >"$SANDBOX/dotfiles/brew/Brewfile.core" <<'BREWFILE'
 brew 'jq' # everywhere

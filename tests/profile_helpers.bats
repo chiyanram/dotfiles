@@ -4,7 +4,7 @@ setup() {
   export HOME="$SANDBOX"
   export XDG_CONFIG_HOME="$SANDBOX/.config"
   export TERM=dumb
-  source "$REPO/bin/lib/common.sh"
+  source "$REPO/bin/lib/profile.sh"
 }
 
 teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }

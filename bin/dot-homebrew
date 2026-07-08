@@ -6,6 +6,10 @@ DOTFILES="${DOTFILES:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
 
 # source helpers
 source "$DOTFILES/bin/lib/common.sh"
+# shellcheck disable=SC1091
+source "$DOTFILES/bin/lib/profile.sh"
+# shellcheck disable=SC1091
+source "$DOTFILES/bin/lib/brew.sh"
 command_name=$(basename "${BASH_SOURCE[0]}")
 
 usage() {

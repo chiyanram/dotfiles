@@ -5,6 +5,10 @@ set -Eeuo pipefail
 
 DOTFILES="${DOTFILES:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)}"
 source "$DOTFILES/bin/lib/common.sh"
+# shellcheck disable=SC1091
+source "$DOTFILES/bin/lib/profile.sh"
+# shellcheck disable=SC1091
+source "$DOTFILES/bin/lib/brew.sh"
 
 DOT="$DOTFILES/bin/dot"
 
