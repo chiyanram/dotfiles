@@ -51,6 +51,15 @@ EOF
   fi
 
   git -C "$DOTFILES" init -q
+  # Force filemode tracking on: git auto-detects core.fileMode per-repo by
+  # probing the filesystem at `git init` time, and some CI tmpdirs (e.g. the
+  # mktemp -d sandbox root on GitHub's Ubuntu runners) probe false even
+  # though chmod +x/-x above genuinely changed the bit on disk. Without this,
+  # `git add` silently records every file as 100644 regardless of its real
+  # mode, so check-shebang-scripts-are-executable (which reads the mode git
+  # recorded, not the filesystem) sees "not executable" even after chmod +x —
+  # exactly the false failure seen on CI's Linux job but not macOS.
+  git -C "$DOTFILES" config core.fileMode true
   git -C "$DOTFILES" config user.email "test@example.com"
   git -C "$DOTFILES" config user.name "Test"
   git -C "$DOTFILES" add -A
