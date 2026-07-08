@@ -3,6 +3,16 @@ load test_helper
 setup() {
   REPO="$(cd "$BATS_TEST_DIRNAME/.." && pwd -P)"
   export TERM=dumb
+  # A `pip install --user` pre-commit (as CI's Ubuntu job installs it) resolves
+  # its own `pre_commit` module via the real $HOME's user site-packages at
+  # interpreter start, not via a self-contained venv the way Homebrew's
+  # pre-commit is (macOS never hits this: its shebang points at a bundled
+  # venv interpreter that doesn't consult $HOME at all). setup_sandbox
+  # overrides $HOME for isolation, which breaks that lookup and makes
+  # pre-commit crash with ModuleNotFoundError. Capture the real user
+  # site-packages dir now, under the real $HOME, so it can be restored via
+  # PYTHONPATH for the subshell that actually invokes pre-commit.
+  REAL_USER_SITE="$(python3 -c 'import site; print(site.getusersitepackages())' 2>/dev/null || true)"
 }
 
 # No file-level teardown(): only two of the three tests below ever call
@@ -76,7 +86,8 @@ EOF
   setup_sandbox
   _seed_shebang_fixture "not-executable"
 
-  run bash -c "source '$DOTFILES/bin/dot-test'; check_pre_commit"
+  run env PYTHONPATH="$REAL_USER_SITE${PYTHONPATH:+:$PYTHONPATH}" \
+    bash -c "source '$DOTFILES/bin/dot-test'; check_pre_commit"
   teardown_sandbox
   [ "$status" -ne 0 ]
 }
@@ -91,12 +102,8 @@ EOF
   setup_sandbox
   _seed_shebang_fixture "executable"
 
-  run bash -c "source '$DOTFILES/bin/dot-test'; check_pre_commit"
-  echo "DEBUG status=$status" >&2
-  echo "DEBUG output=$output" >&2
-  echo "DEBUG ls-files=$(git -C "$DOTFILES" ls-files -s bin/fixture.sh)" >&2
-  echo "DEBUG stat=$(ls -la "$DOTFILES/bin/fixture.sh")" >&2
-  echo "DEBUG core.fileMode=$(git -C "$DOTFILES" config core.fileMode)" >&2
+  run env PYTHONPATH="$REAL_USER_SITE${PYTHONPATH:+:$PYTHONPATH}" \
+    bash -c "source '$DOTFILES/bin/dot-test'; check_pre_commit"
   teardown_sandbox
   [ "$status" -eq 0 ]
 }
