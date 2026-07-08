@@ -134,26 +134,36 @@ _gitlab_ssh_check_enabled() {
   [[ "$glab_authed" == "true" || "$has_gitlab_slot" == "true" ]]
 }
 
+# Pure: classify a captured `ssh -T` output string into an auth-state token —
+# true | untrusted | false. Extracted so each forge's success/failure phrasing is
+# unit-testable (the live ssh call in check_ssh_host is the thin wrapper).
+_ssh_auth_from_output() {
+  local out="$1"
+  # GitHub says "...successfully authenticated..."; GitLab says "Welcome to
+  # GitLab, @user!" — match either so the shared check works for both forges.
+  if grep -qiE "successfully authenticated|welcome to gitlab" <<<"$out"; then
+    printf 'true\n'
+  elif grep -qiE "host key verification failed|no matching host key|known_hosts" <<<"$out"; then
+    # Fresh machine: the host isn't trusted yet, so BatchMode ssh can't accept the
+    # fingerprint — NOT a key/auth problem. Report it as its own state.
+    printf 'untrusted\n'
+  else
+    printf 'false\n'
+  fi
+}
+
 # Live check: a present key the host rejects is the half-configured state that
-# silently breaks pushes. `ssh -T git@<host>` exits non-zero and prints
-# "successfully authenticated" on success (it never opens a shell), or an auth
-# error on failure. Host-parameterized so GitHub and GitLab share one body.
+# silently breaks pushes. `ssh -T git@<host>` exits non-zero (the forge never
+# opens a shell); classify by OUTPUT, not exit code. Host-parameterized so
+# GitHub and GitLab share one body.
 check_ssh_host() {
   local host="$1" label="$2" add_hint="$3"
   local key="$HOME/.ssh/id_ed25519" auth_ok="false" status out
   if [[ -f "$key" ]]; then
-    # ssh -T always exits non-zero (the forge never opens a shell), so classify by
-    # OUTPUT, not exit code. Capture first to dodge the pipefail trap: `ssh | grep`
-    # returns ssh's non-zero even when grep matched, so auth would never register
-    # as ok under `set -Eeuo pipefail`.
+    # Capture first to dodge the pipefail trap: `ssh | grep` returns ssh's
+    # non-zero even when grep matched, so auth would never register as ok.
     out="$(ssh -T -o BatchMode=yes -o ConnectTimeout=5 "git@$host" 2>&1 || true)"
-    if grep -q "successfully authenticated" <<<"$out"; then
-      auth_ok="true"
-    elif grep -qiE "host key verification failed|no matching host key|known_hosts" <<<"$out"; then
-      # Fresh machine: the host isn't trusted yet, so BatchMode ssh can't accept
-      # the fingerprint — NOT a key/auth problem. Report it as its own state.
-      auth_ok="untrusted"
-    fi
+    auth_ok="$(_ssh_auth_from_output "$out")"
   fi
   status="$(_ssh_host_status "$key" "$auth_ok")" || true
   case "$status" in
