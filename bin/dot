@@ -50,14 +50,13 @@ Dotfiles management script.
 $(fmt_key "Available Commands:")
     help                          Show this help message
     clean                         Clean up broken symlinks
+        -n, --dry-run             Show what would be removed without actually removing
+        -v, --verbose             Show detailed output
     backup                        Backup dotfiles
         -d, --directory <dir>   Backup directory (default: ~/dotfiles-backup)
     link                          Link dotfiles packages to their respective locations
         all                       Link all
         <pkg>                     Link a specific package
-        clean                     Clean up broken symlinks
-            -n, --dry-run         Show what would be removed without actually removing
-            -v, --verbose         Show detailed output
         -f, --force               Replace existing symlinks (refuses to overwrite real files)
         -b, --backup              On a real file: move it to <target>.backup.<ts>, then link (undo: dot restore)
         --adopt                   On a real file: import it INTO the repo, then link (opt-in; changes git state)
