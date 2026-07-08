@@ -28,6 +28,10 @@ Commands:
     migrate          Interactively onboard existing repos under the audit roots onto slots:
                      per mis-set repo, offer a slot and rebind its origin on confirm (git-side
                      only — no gh switch; run 'use' later to align gh)
+    remove-identity <slot>
+                     Symmetric teardown of a slot: SSH alias, gitconfig fragment, hasconfig
+                     include, allowed_signers entry, and (if managed) its key pair. An adopted
+                     key (--key at add-identity time) is left on disk with a warning.
     install-guard    Activate the Identity Guard globally by pointing core.hooksPath at the
                      committed pre-commit hook (written to ~/.gitconfig-local, never committed)
 
@@ -88,6 +92,21 @@ ssh_config_drop_alias() {
     { skip = 0; print }
   ' "$ssh_config" >"$tmp"
   mv "$tmp" "$ssh_config"
+}
+
+# Drop a slot's `[includeIf ...] / path = ...` block from ~/.gitconfig-identities
+# (the exact two-line shape `dot git add-identity` appends). Mirrors
+# ssh_config_drop_alias but the block is fixed-length (2 lines), not indent-delimited.
+identities_drop_alias() {
+  local identities="$1" alias="$2"
+  local tmp
+  tmp="$(mktemp)"
+  awk -v includeif="[includeIf \"hasconfig:remote.*.url:git@${alias}:*/**\"]" '
+    $0 == includeif { skip = 1; next }
+    skip { skip = 0; next }
+    { print }
+  ' "$identities" >"$tmp"
+  mv "$tmp" "$identities"
 }
 
 git_add_identity() {
@@ -232,6 +251,69 @@ git_add_identity() {
   else
     log_warning "No public key found at $pubkey — register the matching public key on the $host account as both an Authentication and a Signing key."
   fi
+}
+
+git_remove_identity() {
+  local name="${1:-}"
+  if [[ -z "$name" ]]; then
+    log_error "Usage: $command_name remove-identity <slot>"
+    return 1
+  fi
+
+  local alias
+  if ! alias="$(slot_alias "$name")" || [[ -z "$alias" ]]; then
+    log_error "No identity slot '$name' to remove."
+    return 1
+  fi
+  local host="${alias%-"$name"}" # alias is <host>-<name>
+
+  fmt_title_underline "Tearing down identity slot: $name"
+
+  local fragment="$HOME/.gitconfig-$name"
+  local email signingkey privkey managed_privkey
+  email="$(git config -f "$fragment" user.email 2>/dev/null || true)"
+  signingkey="$(git config -f "$fragment" user.signingkey 2>/dev/null || true)"
+  privkey="${signingkey%.pub}"
+  managed_privkey="$HOME/.ssh/id_ed25519_$name"
+
+  local ssh_config="$HOME/.ssh/config"
+  [[ -f "$ssh_config" ]] && ssh_config_drop_alias "$ssh_config" "$alias"
+
+  local identities="$HOME/.gitconfig-identities"
+  [[ -f "$identities" ]] && identities_drop_alias "$identities" "$alias"
+
+  local allowed_signers="$HOME/.config/git/allowed_signers"
+  if [[ -f "$allowed_signers" && -n "$email" ]]; then
+    local tmp
+    tmp="$(mktemp)"
+    awk -v e="$email" '$1 != e' "$allowed_signers" >"$tmp"
+    mv "$tmp" "$allowed_signers"
+  fi
+
+  rm -f "$fragment"
+
+  if [[ -n "$privkey" ]]; then
+    if [[ "$privkey" == "$managed_privkey" ]]; then
+      rm -f "$privkey" "$privkey.pub"
+    else
+      log_warning "External key preserved (adopted, not managed by this slot): $privkey — delete it manually if it's no longer needed."
+    fi
+  fi
+
+  local gitdir repo url token
+  while IFS= read -r gitdir; do
+    [[ -n "$gitdir" ]] || continue
+    repo="${gitdir%/.git}"
+    url="$(git -C "$repo" config --get remote.origin.url 2>/dev/null || true)"
+    [[ -n "$url" ]] || continue
+    token="$(git_url_host_token "$url" 2>/dev/null || true)"
+    if [[ "$token" == "$alias" ]]; then
+      log_warning "~${repo#"$HOME"} still points at $alias — rebind it (dot git use <slot>) before the slot's key is gone for good."
+    fi
+  done < <(git_slot_audit_dirs)
+
+  log_success "Identity slot '$name' removed."
+  log_info "If it's no longer needed, revoke this slot's key from the $host account for $alias."
 }
 
 # Resolve a slot name to its SSH alias (<host>-<name>) via the slot's hasconfig
@@ -515,6 +597,10 @@ main() {
     migrate)
       shift
       git_migrate "$@"
+      ;;
+    remove-identity)
+      shift
+      git_remove_identity "$@"
       ;;
     install-guard)
       shift
