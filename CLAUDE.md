@@ -168,3 +168,7 @@ The five canonical triage roles use their default names (`needs-triage`, `needs-
 ### Domain docs
 
 Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+### Claude Code automations
+
+Repo-specific hooks (bash hygiene, identity-config guard), skills (issue/PR ritual, Brewfile edits, doctor triage), and subagents (bash-pitfalls, docs-drift, Brewfile review) live under `.claude/`. See `docs/agents/claude-automations.md`.
