@@ -38,30 +38,36 @@ setup_deleted_source_dangle() {
   [ -L "$HOME/.foreignrc" ] # foreign dangle untouched
 }
 
-# --- dot link clean shares cmd_clean's contract (#46) ---------------------------
+# --- dot clean: flags, counts, and dry-run (folded from dot link clean, #51) -----
 
-@test "link clean leaves a foreign broken symlink under ~/.config alone" {
+@test "clean leaves a foreign broken symlink under ~/.config alone" {
   mkdir -p "$XDG_CONFIG_HOME/someapp"
   ln -s "$HOME/nonexistent-foreign" "$XDG_CONFIG_HOME/someapp/broken"
-  run "$DOT" link clean
+  run "$DOT" clean
   [ "$status" -eq 0 ]
   [ -L "$XDG_CONFIG_HOME/someapp/broken" ] # not ours to remove
 }
 
-@test "link clean removes a deleted-source home dangle (git-history derived)" {
+@test "clean removes a deleted-source home dangle (git-history derived)" {
   setup_deleted_source_dangle
   [ -L "$HOME/.claude/settings.json" ] # dangle exists before
-  run "$DOT" link clean
+  run "$DOT" clean
   [ "$status" -eq 0 ]
   [ ! -e "$HOME/.claude/settings.json" ] && [ ! -L "$HOME/.claude/settings.json" ]
 }
 
-@test "link clean --dry-run counts a broken managed link once and removes nothing" {
+@test "clean --dry-run counts a broken managed link once and removes nothing" {
   # Broken managed config link: both the managed scan and the dangling scan see
   # it; the count must not double.
   ln -s "$DOTFILES/config/gone" "$XDG_CONFIG_HOME/demo"
-  run "$DOT" link clean --dry-run
+  run "$DOT" clean --dry-run
   [ "$status" -eq 0 ]
   [[ "$output" == *"1 broken symlink"* ]]
   [ -L "$XDG_CONFIG_HOME/demo" ] # dry run removes nothing
+}
+
+@test "link clean is no longer a recognized command (#51)" {
+  run "$DOT" link clean
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Package clean not found in config directory"* ]]
 }
