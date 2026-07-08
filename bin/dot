@@ -84,30 +84,76 @@ EOF
 }
 
 cmd_clean() {
-  fmt_title_underline "Cleaning up broken legacy symlinks..."
+  local verbose=false
+  local dry_run=false
 
-  # Clean broken managed symlinks (config packages + home files): the target
-  # is still a symlink but its repo source no longer resolves.
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -v | --verbose)
+        verbose=true
+        shift
+        ;;
+      -n | --dry-run)
+        dry_run=true
+        shift
+        ;;
+      *)
+        log_error "Unknown argument: $1"
+        return 1
+        ;;
+    esac
+  done
+
+  fmt_title_underline "Cleaning up broken symlinks"
+
+  local broken_count=0
+  # Paths the managed scan already handled, so the dangling scan below never
+  # reports the same link twice in a --dry-run (newline-framed for exact match).
+  local handled=$'\n'
+
+  # Broken managed links (config packages + home files): the target is still a
+  # symlink but its repo source no longer resolves. Foreign links (not pointing
+  # into $DOTFILES) are never ours to remove.
   local source target label
   while IFS=$'\t' read -r source target label; do
     if [ -L "$target" ] && [ ! -e "$target" ]; then
-      log_info "Removing broken symbolic link: ~${target#"$HOME"}"
-      rm "$target"
+      broken_count=$((broken_count + 1))
+      handled+="$target"$'\n'
+      if [ "$dry_run" = true ]; then
+        log_warning "[DRY RUN] Would remove broken symlink: ~${target#"$HOME"}"
+      else
+        [ "$verbose" = true ] && log_info "Removing broken symlink: ~${target#"$HOME"}"
+        rm "$target"
+      fi
     fi
   done < <(managed_targets)
 
-  # Clean dangling links into $DOTFILES whose source is gone: stale config-dir
-  # links, plus home links whose repo file was DELETED — those are derived from
-  # git history (shared reconcile scan), since no current repo file names them.
+  # Dangling links into $DOTFILES whose source is gone entirely: removed config
+  # packages, plus home links whose repo file was DELETED — derived from git
+  # history (shared reconcile scan), since no current repo file names them.
   local stale
   while IFS= read -r stale; do
     [ -n "$stale" ] || continue
-    log_info "Removing stale symbolic link: ~${stale#"$HOME"} → $(readlink "$stale")"
-    rm "$stale"
+    [[ "$handled" == *$'\n'"$stale"$'\n'* ]] && continue
+    broken_count=$((broken_count + 1))
+    if [ "$dry_run" = true ]; then
+      log_warning "[DRY RUN] Would remove broken symlink: ~${stale#"$HOME"}"
+    else
+      [ "$verbose" = true ] && log_info "Removing broken symlink: ~${stale#"$HOME"}"
+      rm "$stale"
+    fi
   done < <(reconcile_symlinks_dangling)
 
   echo
-  log_success "Done."
+  if [ "$broken_count" -eq 0 ]; then
+    log_success "No broken symlinks found"
+  else
+    if [ "$dry_run" = true ]; then
+      log_info "Found $broken_count broken symlink(s). Run without --dry-run to remove them."
+    else
+      log_success "Removed $broken_count broken symlink(s)"
+    fi
+  fi
 }
 
 cmd_backup() {
@@ -189,79 +235,6 @@ cmd_backup() {
   fi
 
   rm -f "$tmpfile"
-}
-
-cmd_link_clean() {
-  local verbose=false
-  local dry_run=false
-
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      -v | --verbose)
-        verbose=true
-        shift
-        ;;
-      -n | --dry-run)
-        dry_run=true
-        shift
-        ;;
-      *)
-        log_error "Unknown argument: $1"
-        exit 1
-        ;;
-    esac
-  done
-
-  fmt_title_underline "Cleaning up broken symlinks"
-
-  local broken_count=0
-  # Paths the managed scan already handled, so the dangling scan below never
-  # reports the same link twice in a --dry-run (newline-framed for exact match).
-  local handled=$'\n'
-
-  # Broken managed links (config packages + home files): the target is still a
-  # symlink but its repo source no longer resolves. Same contract as dot clean —
-  # foreign links (not pointing into $DOTFILES) are never ours to remove.
-  local source target label
-  while IFS=$'\t' read -r source target label; do
-    if [ -L "$target" ] && [ ! -e "$target" ]; then
-      broken_count=$((broken_count + 1))
-      handled+="$target"$'\n'
-      if [ "$dry_run" = true ]; then
-        log_warning "[DRY RUN] Would remove broken symlink: ~${target#"$HOME"}"
-      else
-        [ "$verbose" = true ] && log_info "Removing broken symlink: ~${target#"$HOME"}"
-        rm "$target"
-      fi
-    fi
-  done < <(managed_targets)
-
-  # Dangling links into $DOTFILES whose source is gone entirely: removed config
-  # packages, plus home links whose repo file was DELETED — derived from git
-  # history (shared reconcile scan), since no current repo file names them.
-  local stale
-  while IFS= read -r stale; do
-    [ -n "$stale" ] || continue
-    [[ "$handled" == *$'\n'"$stale"$'\n'* ]] && continue
-    broken_count=$((broken_count + 1))
-    if [ "$dry_run" = true ]; then
-      log_warning "[DRY RUN] Would remove broken symlink: ~${stale#"$HOME"}"
-    else
-      [ "$verbose" = true ] && log_info "Removing broken symlink: ~${stale#"$HOME"}"
-      rm "$stale"
-    fi
-  done < <(reconcile_symlinks_dangling)
-
-  echo
-  if [ "$broken_count" -eq 0 ]; then
-    log_success "No broken symlinks found"
-  else
-    if [ "$dry_run" = true ]; then
-      log_info "Found $broken_count broken symlink(s). Run without --dry-run to remove them."
-    else
-      log_success "Removed $broken_count broken symlink(s)"
-    fi
-  fi
 }
 
 link_status() {
@@ -474,12 +447,6 @@ cmd_link() {
   local operation="$1"
   local pkg="$2"
   shift 2 || true
-
-  # Handle 'dot link clean' syntax
-  if [ "$operation" = "link" ] && [ "$pkg" = "clean" ]; then
-    cmd_link_clean "$@"
-    return
-  fi
 
   # Handle 'dot link --status' (no pkg required)
   if [ "$operation" = "link" ] && [ "$pkg" = "--status" ]; then
