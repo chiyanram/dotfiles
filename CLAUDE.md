@@ -81,10 +81,11 @@ Personal dotfiles for my macOS laptop (backend engineer: JVM toolchain via SDKMA
 
 ### Tests
 
-- Tests are bats; `dot test` is the merge gate (shellcheck, shfmt, prettier-markdown, bash syntax, zsh smoke, bats) — run it before claiming green
+- Tests are bats; `dot test` is the merge gate (shellcheck, shfmt, prettier-markdown, bash syntax, zsh smoke, bats, `pre-commit run --all-files`) — run it before claiming green. It's the one true CI-equivalent local command: CI runs the same two jobs (`checks`, `checks-macos`), each just `./bin/dot-test`, and no separate `pre-commit hooks` CI job exists anymore — `dot test` passing locally means pre-commit's checks passed too (#59)
+- `check_pre_commit` hard-fails (not soft-skip-with-a-warning like the other checks) if `pre-commit` isn't installed — it's a mandatory `Brewfile.core` entry, so its absence means a broken dev setup, and a soft-skip would silently reopen the false-green gap this closes
 - `dot-test` always tests its own tree, ignoring an inherited `DOTFILES` env var — in a worktree, run `./bin/dot-test` (the PATH `dot test` is the main checkout's and tests main)
 - Tests must be bash-3.2-safe too: the macOS CI job installs no modern bash, so bats runs under system bash 3.2 — no bash-4+ features (`$BASHPID`, etc.)
-- shfmt house style is `-i 2 -ci` — enforced by `dot test` and CI but NOT by pre-commit, so hooks passing ≠ CI passing
+- shfmt house style is `-i 2 -ci` — enforced by `dot test` and CI, but shfmt itself is not one of pre-commit's own hooks (that specific asymmetry is unchanged; what changed is that `dot test` now runs pre-commit too, so it's a superset covering everything pre-commit checks)
 - Markdown is formatted by prettier: a pre-commit hook auto-formats `.md` on commit, and `dot test` runs the same pinned prettier in `--check` mode — keep the version in `bin/dot-test` in sync with the `mirrors-prettier` rev in `.pre-commit-config.yaml`
 
 ### Brewfile (`brew/Brewfile.*`)
@@ -137,7 +138,7 @@ dot link all -v           # Symlink everything
 dot doctor                # Verify all tools installed
 dot update all            # Update brew, nvim, zsh, sdkman, dotfiles
 dot backup -v             # Backup before changes
-dot test                  # Full gate: shellcheck, shfmt, prettier-markdown, bash syntax, zsh smoke, bats (CI runs exactly this)
+dot test                  # Full gate: shellcheck, shfmt, prettier-markdown, bash syntax, zsh smoke, bats, pre-commit (CI runs exactly this)
 bats tests/<file>.bats    # Run a single test file
 dot profile get           # Machine profile (personal|work) — stored in ~/.config/dotfiles/profile, selects Brewfile
 dot homebrew bundle       # Install all Brewfile packages
