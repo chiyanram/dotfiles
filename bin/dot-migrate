@@ -7,7 +7,7 @@ source "$DOTFILES/bin/lib/common.sh"
 # shellcheck disable=SC1091
 source "$DOTFILES/bin/lib/brew.sh"
 
-DOT="$DOTFILES/bin/dot"
+DOT="${DOT:-$DOTFILES/bin/dot}"
 
 main() {
   fmt_title_border "Dotfiles Migration"
