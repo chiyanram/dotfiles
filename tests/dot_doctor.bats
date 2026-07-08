@@ -97,6 +97,90 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   [[ "$output" == *"Unknown option"* ]]
 }
 
+@test "doctor reports no config leaks in a clean sandbox (#69)" {
+  [[ "$(uname)" == "Darwin" ]] || skip "dot doctor inspection is macOS-only"
+  mkdir -p "$SANDBOX/dotfiles/bin/lib" "$SANDBOX/dotfiles/config/git" "$SANDBOX/dotfiles/home" "$SANDBOX/.config"
+  cp "$REPO/bin/lib/common.sh" "$REPO/bin/lib/profile.sh" "$REPO/bin/lib/brew.sh" "$REPO/bin/lib/links.sh" "$REPO/bin/lib/sdkman.sh" "$REPO/bin/lib/reconcile.sh" "$REPO/bin/lib/git-slots.sh" "$SANDBOX/dotfiles/bin/lib/"
+  touch "$SANDBOX/dotfiles/home/.zshrc"
+  printf 'config\n' >"$SANDBOX/dotfiles/config/git/config"
+  git -C "$SANDBOX/dotfiles" init -q
+  git -C "$SANDBOX/dotfiles" -c user.email=t@t -c user.name=t add -A
+  git -C "$SANDBOX/dotfiles" -c user.email=t@t -c user.name=t commit -qm init
+  export HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/.config" DOTFILES="$SANDBOX/dotfiles" TERM=dumb
+  run env PATH="$DOCTOR_PATH" "$REPO/bin/dot-doctor"
+  [[ "$output" == *"Config Leaks"* ]]
+  [[ "$output" == *"no config"*"leak"* ]]
+}
+
+@test "doctor reports an untracked file inside a symlinked config/* dir as a leak (#69)" {
+  [[ "$(uname)" == "Darwin" ]] || skip "dot doctor inspection is macOS-only"
+  mkdir -p "$SANDBOX/dotfiles/bin/lib" "$SANDBOX/dotfiles/config/git" "$SANDBOX/dotfiles/home" "$SANDBOX/.config"
+  cp "$REPO/bin/lib/common.sh" "$REPO/bin/lib/profile.sh" "$REPO/bin/lib/brew.sh" "$REPO/bin/lib/links.sh" "$REPO/bin/lib/sdkman.sh" "$REPO/bin/lib/reconcile.sh" "$REPO/bin/lib/git-slots.sh" "$SANDBOX/dotfiles/bin/lib/"
+  touch "$SANDBOX/dotfiles/home/.zshrc"
+  printf 'config\n' >"$SANDBOX/dotfiles/config/git/config"
+  git -C "$SANDBOX/dotfiles" init -q
+  git -C "$SANDBOX/dotfiles" -c user.email=t@t -c user.name=t add -A
+  git -C "$SANDBOX/dotfiles" -c user.email=t@t -c user.name=t commit -qm init
+  # Simulate a tool writing runtime state into the symlinked config dir (the
+  # allowed_signers shape from #58) — an untracked file lands inside config/git/.
+  printf 'leaked-key-material\n' >"$SANDBOX/dotfiles/config/git/allowed_signers_leak"
+  export HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/.config" DOTFILES="$SANDBOX/dotfiles" TERM=dumb
+  run env PATH="$DOCTOR_PATH" "$REPO/bin/dot-doctor"
+  [[ "$output" == *"Config Leaks"* ]]
+  [[ "$output" == *"config/git/allowed_signers_leak"* ]]
+}
+
+@test "doctor does not report a .gitignore'd file as a config leak (#69)" {
+  [[ "$(uname)" == "Darwin" ]] || skip "dot doctor inspection is macOS-only"
+  mkdir -p "$SANDBOX/dotfiles/bin/lib" "$SANDBOX/dotfiles/config/git" "$SANDBOX/dotfiles/home" "$SANDBOX/.config"
+  cp "$REPO/bin/lib/common.sh" "$REPO/bin/lib/profile.sh" "$REPO/bin/lib/brew.sh" "$REPO/bin/lib/links.sh" "$REPO/bin/lib/sdkman.sh" "$REPO/bin/lib/reconcile.sh" "$REPO/bin/lib/git-slots.sh" "$SANDBOX/dotfiles/bin/lib/"
+  touch "$SANDBOX/dotfiles/home/.zshrc"
+  printf 'config\n' >"$SANDBOX/dotfiles/config/git/config"
+  printf '.DS_Store\n' >"$SANDBOX/dotfiles/.gitignore"
+  git -C "$SANDBOX/dotfiles" init -q
+  git -C "$SANDBOX/dotfiles" -c user.email=t@t -c user.name=t add -A
+  git -C "$SANDBOX/dotfiles" -c user.email=t@t -c user.name=t commit -qm init
+  # A file matching the repo's own .gitignore must be treated as a legitimate
+  # carve-out, not a leak — this is the free false-positive protection.
+  touch "$SANDBOX/dotfiles/config/git/.DS_Store"
+  export HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/.config" DOTFILES="$SANDBOX/dotfiles" TERM=dumb
+  run env PATH="$DOCTOR_PATH" "$REPO/bin/dot-doctor"
+  [[ "$output" == *"Config Leaks"* ]]
+  [[ "$output" != *".DS_Store"* ]]
+}
+
+@test "a config leak never gates the exit code, even under --strict (#69)" {
+  [[ "$(uname)" == "Darwin" ]] || skip "dot doctor inspection is macOS-only"
+  mkdir -p "$SANDBOX/dotfiles/bin/lib" "$SANDBOX/dotfiles/config/git" "$SANDBOX/dotfiles/home" "$SANDBOX/.config"
+  cp "$REPO/bin/lib/common.sh" "$REPO/bin/lib/profile.sh" "$REPO/bin/lib/brew.sh" "$REPO/bin/lib/links.sh" "$REPO/bin/lib/sdkman.sh" "$REPO/bin/lib/reconcile.sh" "$REPO/bin/lib/git-slots.sh" "$SANDBOX/dotfiles/bin/lib/"
+  touch "$SANDBOX/dotfiles/home/.zshrc"
+  printf 'config\n' >"$SANDBOX/dotfiles/config/git/config"
+  git -C "$SANDBOX/dotfiles" init -q
+  git -C "$SANDBOX/dotfiles" -c user.email=t@t -c user.name=t add -A
+  git -C "$SANDBOX/dotfiles" -c user.email=t@t -c user.name=t commit -qm init
+  printf 'leaked-key-material\n' >"$SANDBOX/dotfiles/config/git/allowed_signers_leak"
+  export HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/.config" DOTFILES="$SANDBOX/dotfiles" TERM=dumb
+  # Isolate this check's effect on the exit code: run without --strict first and
+  # capture status, then with --strict, and confirm the delta isn't caused by the
+  # leak (the leak line is present in both, and neither run fails solely from it —
+  # optional-tool warnings in this bare sandbox already make plain doctor's exit
+  # code non-zero, so what matters is that --strict adds no NEW failure for the leak).
+  run env PATH="$DOCTOR_PATH" "$REPO/bin/dot-doctor"
+  plain_status="$status"
+  [[ "$output" == *"config/git/allowed_signers_leak"* ]]
+  run env PATH="$DOCTOR_PATH" "$REPO/bin/dot-doctor" --strict
+  strict_status="$status"
+  [[ "$output" == *"config/git/allowed_signers_leak"* ]]
+  # Both plain and --strict already fail in a bare sandbox for unrelated reasons
+  # (missing tools) — the point is the leak's own log_warning call is a no-op for
+  # exit-code purposes. Verify by diffing: removing the leak must not change either status.
+  rm "$SANDBOX/dotfiles/config/git/allowed_signers_leak"
+  run env PATH="$DOCTOR_PATH" "$REPO/bin/dot-doctor"
+  [ "$status" -eq "$plain_status" ]
+  run env PATH="$DOCTOR_PATH" "$REPO/bin/dot-doctor" --strict
+  [ "$status" -eq "$strict_status" ]
+}
+
 @test "doctor's Homebrew checklist respects Brewfile OS conditionals (#42)" {
   [[ "$(uname)" == "Darwin" ]] || skip "dot doctor inspection is macOS-only"
   # Fixture DOTFILES: doctor must derive its checklist from the reconcile
