@@ -43,6 +43,11 @@ add-identity options:
     --email <email>     Commit email bound to this slot (required)
     --github-user <u>   GitHub username for this slot (optional)
     --key <path>        Adopt an existing SSH private key instead of generating one
+
+register-key options:
+    --host <host>       Host to register the key on, e.g. gitlab.com (required)
+    --key <path>        Public (or private) key to register (default ~/.ssh/id_ed25519.pub)
+    --title <title>     Key title on the host (default: the machine name)
 EOF
 }
 
