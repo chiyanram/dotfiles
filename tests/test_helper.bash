@@ -33,5 +33,7 @@ setup_sandbox() {
 }
 
 teardown_sandbox() {
-  [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"
+  if [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]]; then
+    rm -rf "$SANDBOX"
+  fi
 }
