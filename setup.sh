@@ -108,11 +108,12 @@ step_profile() {
 # (the first interactive ssh would otherwise prompt to accept the fingerprint).
 ensure_github_known_host() {
   local kh="$HOME/.ssh/known_hosts"
-  mkdir -p "$HOME/.ssh"
   if [[ -f "$kh" ]] && ssh-keygen -F github.com -f "$kh" >/dev/null 2>&1; then
-    return 0 # already trusted
+    return 0 # already trusted (quiet)
   fi
-  if ssh-keyscan -t rsa,ecdsa,ed25519 github.com 2>/dev/null >>"$kh"; then
+  # Delegate the keyscan+append to the shared helper (common.sh); keep the
+  # day-0 success/offline logging here.
+  if ensure_known_host github.com; then
     log_success "Trusted github.com host key (added to known_hosts)"
   else
     log_warning "Could not fetch github.com host key (offline?) — first git push may prompt"
@@ -140,8 +141,9 @@ step_ssh() {
     log_warning "ssh-add failed — retry: ssh-add --apple-use-keychain ~/.ssh/id_ed25519"
   if command -v gh &>/dev/null && gh auth status &>/dev/null; then
     if ask_yes_no "Add this key to GitHub via gh?"; then
-      gh ssh-key add "$HOME/.ssh/id_ed25519.pub" ||
-        log_warning "gh ssh-key add failed — add it manually below"
+      # One registration path (auth + signing) shared with `dot git register-key`.
+      "$DOT" git register-key --host github.com ||
+        log_warning "register-key failed — add it manually below"
     fi
   fi
   log_info "If not added above, add this public key to GitHub → Settings → SSH Keys:"

@@ -102,9 +102,10 @@ check_sdk() {
   fi
 }
 
-# Pure: classify SSH-to-GitHub state from a key path and a precomputed auth bool.
-# Prints one of: missing | auth-fail | ok. Returns 1 only for auth-fail.
-_ssh_github_status() {
+# Pure: classify SSH-to-host state from a key path and a precomputed auth bool.
+# Host-neutral (the caller supplies the auth result) — shared by the GitHub and
+# GitLab checks. Prints one of: missing | ok | untrusted | auth-fail.
+_ssh_host_status() {
   local key="${1:-}" auth_ok="${2:-false}"
   if [[ ! -f "$key" ]]; then
     printf '%s\n' "missing"
@@ -126,40 +127,49 @@ _ssh_github_status() {
   esac
 }
 
-# Live check: a present key that GitHub rejects is the half-configured state that
-# silently breaks pushes. `ssh -T git@github.com` exits 1 and prints "successfully
-# authenticated" on success (it never opens a shell), or an auth error on failure.
-check_ssh_github() {
+# Pure: should doctor run its GitLab SSH check? Yes when glab is authenticated OR
+# a gitlab.com slot exists — silent on pure-GitHub machines. Report-only either way.
+_gitlab_ssh_check_enabled() {
+  local glab_authed="${1:-false}" has_gitlab_slot="${2:-false}"
+  [[ "$glab_authed" == "true" || "$has_gitlab_slot" == "true" ]]
+}
+
+# Live check: a present key the host rejects is the half-configured state that
+# silently breaks pushes. `ssh -T git@<host>` exits non-zero and prints
+# "successfully authenticated" on success (it never opens a shell), or an auth
+# error on failure. Host-parameterized so GitHub and GitLab share one body.
+check_ssh_host() {
+  local host="$1" label="$2" add_hint="$3"
   local key="$HOME/.ssh/id_ed25519" auth_ok="false" status out
   if [[ -f "$key" ]]; then
-    # ssh -T git@github.com always exits non-zero (GitHub never opens a shell), so
-    # classify by OUTPUT, not exit code. Capture first to dodge the pipefail trap:
-    # `ssh | grep` returns ssh's non-zero even when grep matched, so auth would
-    # never register as ok under `set -Eeuo pipefail`.
-    out="$(ssh -T -o BatchMode=yes -o ConnectTimeout=5 git@github.com 2>&1 || true)"
+    # ssh -T always exits non-zero (the forge never opens a shell), so classify by
+    # OUTPUT, not exit code. Capture first to dodge the pipefail trap: `ssh | grep`
+    # returns ssh's non-zero even when grep matched, so auth would never register
+    # as ok under `set -Eeuo pipefail`.
+    out="$(ssh -T -o BatchMode=yes -o ConnectTimeout=5 "git@$host" 2>&1 || true)"
     if grep -q "successfully authenticated" <<<"$out"; then
       auth_ok="true"
     elif grep -qiE "host key verification failed|no matching host key|known_hosts" <<<"$out"; then
-      # Fresh machine: github.com isn't trusted yet, so BatchMode ssh can't accept
+      # Fresh machine: the host isn't trusted yet, so BatchMode ssh can't accept
       # the fingerprint — NOT a key/auth problem. Report it as its own state.
       auth_ok="untrusted"
     fi
   fi
-  status="$(_ssh_github_status "$key" "$auth_ok")" || true
+  status="$(_ssh_host_status "$key" "$auth_ok")" || true
   case "$status" in
     ok)
-      printf "  %b %b%-14s%b %b%s%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "ssh github" "$RESET" "$DIM" "authenticated" "$RESET"
+      printf "  %b %b%-14s%b %b%s%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "$label" "$RESET" "$DIM" "authenticated" "$RESET"
       ;;
     missing)
-      printf "  %b %b%-14s%b %b%s%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "ssh github" "$RESET" "$YELLOW" "no key — run ./setup.sh (optional)" "$RESET"
+      printf "  %b %b%-14s%b %b%s%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "$label" "$RESET" "$YELLOW" "no key — run ./setup.sh (optional)" "$RESET"
       optional_missing=$((optional_missing + 1))
       ;;
     untrusted)
-      printf "  %b %b%-14s%b %b%s%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "ssh github" "$RESET" "$YELLOW" "github.com host key not trusted — run ./setup.sh (or: ssh-keyscan github.com >> ~/.ssh/known_hosts)" "$RESET"
+      printf "  %b %b%-14s%b %b%s%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "$label" "$RESET" "$YELLOW" "$host host key not trusted — run ./setup.sh (or: ssh-keyscan $host >> ~/.ssh/known_hosts)" "$RESET"
       optional_missing=$((optional_missing + 1))
       ;;
     *)
-      printf "  %b %b%-14s%b %b%s%b\n" "${RED}${ERROR_ICON}" "$BOLD" "ssh github" "$RESET" "$RED" "key present but GitHub auth fails — add it: gh ssh-key add ~/.ssh/id_ed25519.pub" "$RESET"
+      printf "  %b %b%-14s%b %b%s%b\n" "${RED}${ERROR_ICON}" "$BOLD" "$label" "$RESET" "$RED" "key present but auth fails — add it: $add_hint" "$RESET"
       optional_missing=$((optional_missing + 1))
       ;;
   esac
@@ -515,9 +525,16 @@ main() {
   check_sdk "kotlin" "kotlin" "true"
   echo
 
-  # SSH / GitHub auth
+  # SSH auth. GitHub is checked unconditionally (it's the dotfiles origin); the
+  # GitLab check is gated so pure-GitHub machines stay silent.
   fmt_title_underline "SSH"
-  check_ssh_github
+  check_ssh_host github.com "ssh github" "dot git register-key --host github.com"
+  local glab_authed=false has_gitlab_slot=false
+  command -v glab &>/dev/null && glab auth status &>/dev/null && glab_authed=true
+  [[ -n "$(git_slots_for_host gitlab.com)" ]] && has_gitlab_slot=true
+  if _gitlab_ssh_check_enabled "$glab_authed" "$has_gitlab_slot"; then
+    check_ssh_host gitlab.com "ssh gitlab" "dot git register-key --host gitlab.com"
+  fi
   echo
 
   # Git identity audit (report-only sweep; the Identity Guard is the enforcer).
