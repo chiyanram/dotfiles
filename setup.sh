@@ -9,6 +9,8 @@ source "$DOTFILES/bin/lib/common.sh"
 source "$DOTFILES/bin/lib/profile.sh"
 # shellcheck disable=SC1091
 source "$DOTFILES/bin/lib/brew.sh"
+# shellcheck disable=SC1091
+source "$DOTFILES/bin/lib/sdkman.sh"
 
 DOT="$DOTFILES/bin/dot"
 
