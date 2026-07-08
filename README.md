@@ -2,6 +2,12 @@
 
 Personal configuration files for my development environment on macOS. These dotfiles are tailored for backend engineering (Java/Spring Boot, Kubernetes, Terraform) with a focus on productivity and clean tooling.
 
+> **Fork it, don't install it blind.** This is a personal, opinionated setup shared as a
+> working example — not a general-purpose installer. If you want to use it, fork the repo
+> and make it yours: swap the identity, profiles, and package lists for your own before
+> running anything below. There are no release tags or packages; `main` is the only
+> channel, gated by CI (`dot test`).
+
 ## Quick Start (Bare Machine)
 
 Open Terminal.app on a fresh Mac and paste:
