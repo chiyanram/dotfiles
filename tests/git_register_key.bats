@@ -97,6 +97,20 @@ EOF
   [[ "$output" == *"--usage-type auth_and_signing"* ]]
 }
 
+@test "add-identity registers the new slot key on the host" {
+  sandbox
+  stub_cli glab 0
+  export GIT_CONFIG_GLOBAL="$HOME/.gitconfig-global"
+  # Adopt a passphrase-less seed key so ssh-keygen never prompts interactively.
+  ssh-keygen -t ed25519 -N "" -C seed@test -f "$HOME/seedkey" >/dev/null 2>&1
+  run "$REPO/bin/dot-git" add-identity --name work-gl --host gitlab.com \
+    --email me@work.test --key "$HOME/seedkey"
+  [ "$status" -eq 0 ]
+  run cat "$STUB_LOG"
+  [[ "$output" == *"glab ssh-key add $HOME/seedkey.pub --title"* ]]
+  [[ "$output" == *"--usage-type auth_and_signing"* ]]
+}
+
 @test "register-key prints the key for manual paste when the CLI is unauthenticated" {
   sandbox
   stub_cli glab 1 # present but NOT authenticated

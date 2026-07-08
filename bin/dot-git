@@ -392,9 +392,11 @@ git_add_identity() {
   log_info "email: $email — commits in repos whose remote uses $alias are authored and signed as this slot"
 
   if [[ -f "$pubkey" ]]; then
-    log_info "Register this public key on the $host account for $alias as BOTH an"
-    log_info "Authentication key AND a Signing key (or $host shows signatures as \"Unverified\"):"
-    cat "$pubkey"
+    # Auto-register the slot key on the host as auth + signing. register-key
+    # uploads to the host CLI's *currently authenticated* account (falling back to
+    # print-and-paste when none is), so for a distinct client account make that
+    # account the active gh/glab login before running add-identity.
+    git_register_key --host "$host" --key "$keypath"
   else
     log_warning "No public key found at $pubkey — register the matching public key on the $host account as both an Authentication and a Signing key."
   fi
