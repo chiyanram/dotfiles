@@ -183,6 +183,8 @@ Each directory under `config/` is a package (the list below is a snapshot — `l
 
 Zsh rc files (`.zshrc`, `.zprofile`, `.zsh_aliases`, `.zsh_functions`, `.docker_aliases`) live under `home/` and symlink directly into `$HOME`.
 
+Claude Code config lives under `home/.claude/` — `settings.json` (wires in the status line) and `statusline.sh` (renders `model · dir/branch · context used+remaining · session cost · lines changed`). `dot link` symlinks each file individually, so the rest of `~/.claude/` (projects, transcripts) is untouched. Machine-specific overrides belong in an untracked `~/.claude/settings.local.json`.
+
 ### Shell (ZSH)
 
 Configuration lives in `home/` (`.zshrc`, `.zsh_functions`, `.zsh_aliases`, `.zprofile`, `.docker_aliases`) and includes:
