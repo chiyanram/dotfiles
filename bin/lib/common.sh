@@ -385,4 +385,17 @@ step_summary() {
   [[ "${#_step_failed[@]}" -eq 0 ]]
 }
 
+# Trust a host's SSH host key so non-interactive ssh (git push/clone and dot
+# doctor's BatchMode auth check) doesn't fail host-key verification on a fresh
+# machine. Idempotent: a host already in known_hosts is left untouched. Shared by
+# setup.sh (github.com, unconditionally) and `dot git register-key` (any host).
+ensure_known_host() {
+  local host="$1" kh="$HOME/.ssh/known_hosts"
+  mkdir -p "$HOME/.ssh"
+  if [[ -f "$kh" ]] && ssh-keygen -F "$host" -f "$kh" >/dev/null 2>&1; then
+    return 0 # already trusted
+  fi
+  ssh-keyscan -t rsa,ecdsa,ed25519 "$host" 2>/dev/null >>"$kh"
+}
+
 setup_colors

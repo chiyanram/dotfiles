@@ -25,6 +25,8 @@ Commands:
     add-identity     Build a git identity slot: SSH key + host alias + remote-bound, SSH-signed email
     use <slot>       Bind the current repo to an existing slot: rewrite origin to the slot
                      alias (key/email/signing follow) and, for GitHub slots, switch the gh account
+    register-key     Register an SSH key on a host account (trusts the host key, then uploads
+                     via gh/glab as auth+signing); account-scoped, not repo-scoped
     migrate          Interactively onboard existing repos under the audit roots onto slots:
                      per mis-set repo, offer a slot and rebind its origin on confirm (git-side
                      only — no gh switch; run 'use' later to align gh)
@@ -122,6 +124,136 @@ _allowed_signers_path() {
     mv "$old_path" "$new_path"
   fi
   printf '%s\n' "$new_path"
+}
+
+# Pure: decide HOW to register a public key on a host, given whether the host's
+# CLI is present and authenticated. Prints one decision token:
+#   github   register via gh (auth + signing are separate keys -> two calls)
+#   gitlab   register via glab (one call; its --usage-type defaults to both)
+#   paste    no usable CLI (absent/unauthed) or an unrecognized host -> print & paste
+# No side effects; the wrapper builds the actual argv from this token, so a title
+# with spaces can never break an eval'd command line.
+_register_key_plan() {
+  local host="$1" cli_present="$2" cli_authed="$3"
+  if [[ "$cli_present" != "true" || "$cli_authed" != "true" ]]; then
+    printf 'paste\n'
+    return 0
+  fi
+  case "$host" in
+    github.*) printf 'github\n' ;;
+    gitlab.*) printf 'gitlab\n' ;;
+    *) printf 'paste\n' ;;
+  esac
+}
+
+# Run one `<cli> ssh-key add <key> --title <title> <extra...>`, treating an
+# "already registered" response as benign so register-key is idempotent. Built as
+# an argv array (never eval'd), so a title with spaces can't split the command.
+_register_key_upload() {
+  local cli="$1" key="$2" title="$3"
+  shift 3
+  local out
+  if out="$("$cli" ssh-key add "$key" --title "$title" "$@" 2>&1)"; then
+    log_success "$cli registered key ($*)"
+    return 0
+  fi
+  if grep -qiE 'already|exist|has already been taken|fingerprint' <<<"$out"; then
+    log_info "$cli: key already registered ($*) — skipping."
+    return 0
+  fi
+  log_warning "$cli ssh-key add failed ($*): $out"
+  return 0
+}
+
+# Print-and-paste fallback when no authenticated CLI exists for the host.
+_register_key_paste() {
+  local host="$1" key="$2"
+  log_warning "No authenticated CLI for $host — register this public key manually,"
+  log_warning "as BOTH an Authentication and a Signing key:"
+  case "$host" in
+    github.*) log_info "  https://github.com/settings/ssh/new" ;;
+    gitlab.*) log_info "  https://gitlab.com/-/user_settings/ssh_keys" ;;
+  esac
+  cat "$key"
+  if command -v pbcopy &>/dev/null; then
+    pbcopy <"$key" && log_info "Public key copied to clipboard."
+  fi
+}
+
+# Register a public key on a host's account via the host's CLI (gh/glab), trusting
+# the host key first so the next ssh/clone works. Account-scoped: needs --host and
+# a key, never a repo. Registers as auth+signing; falls back to print-and-paste
+# when no CLI is authenticated.
+git_register_key() {
+  local host="" key="" title=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --host)
+        host="${2:-}"
+        shift 2
+        ;;
+      --key)
+        key="${2:-}"
+        shift 2
+        ;;
+      --title)
+        title="${2:-}"
+        shift 2
+        ;;
+      *)
+        log_error "Unknown argument: $1"
+        return 1
+        ;;
+    esac
+  done
+
+  if [[ -z "$host" ]]; then
+    log_error "--host is required (e.g. --host gitlab.com)"
+    return 1
+  fi
+  key="${key:-$HOME/.ssh/id_ed25519.pub}"
+  key="${key/#\~/$HOME}"
+  key="${key%.pub}.pub" # normalize a private-key path to its .pub
+  if [[ ! -f "$key" ]]; then
+    log_error "SSH public key not found: $key"
+    return 1
+  fi
+  if [[ -z "$title" ]]; then
+    title="$(scutil --get ComputerName 2>/dev/null || hostname -s 2>/dev/null || printf 'dotfiles')"
+  fi
+
+  fmt_title_underline "Registering SSH key on $host"
+
+  ensure_known_host "$host" ||
+    log_warning "Could not trust $host host key (offline?) — the first push may prompt."
+
+  # Which CLI, and is it authenticated?
+  local cli="" cli_present=false cli_authed=false
+  case "$host" in
+    github.*) cli=gh ;;
+    gitlab.*) cli=glab ;;
+  esac
+  if [[ -n "$cli" ]] && command -v "$cli" &>/dev/null; then
+    cli_present=true
+    if "$cli" auth status &>/dev/null; then
+      cli_authed=true
+    fi
+  fi
+
+  case "$(_register_key_plan "$host" "$cli_present" "$cli_authed")" in
+    github)
+      # gh treats auth and signing as separate keys -> two calls.
+      _register_key_upload gh "$key" "$title" --type authentication
+      _register_key_upload gh "$key" "$title" --type signing
+      ;;
+    gitlab)
+      # glab's --usage-type defaults to auth_and_signing -> one call suffices.
+      _register_key_upload glab "$key" "$title" --usage-type auth_and_signing
+      ;;
+    paste)
+      _register_key_paste "$host" "$key"
+      ;;
+  esac
 }
 
 git_add_identity() {
@@ -609,6 +741,10 @@ main() {
     use)
       shift
       git_use "$@"
+      ;;
+    register-key)
+      shift
+      git_register_key "$@"
       ;;
     migrate)
       shift
