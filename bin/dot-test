@@ -27,7 +27,8 @@ bash_scripts() {
     "$DOTFILES"/bin/dot-* \
     "$DOTFILES"/bin/lib/*.sh \
     "$DOTFILES"/setup.sh \
-    "$DOTFILES"/bootstrap.sh
+    "$DOTFILES"/bootstrap.sh \
+    "$DOTFILES"/config/git/hooks/pre-commit
 }
 
 check_shellcheck() {

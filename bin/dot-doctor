@@ -6,6 +6,9 @@ source "$DOTFILES/bin/lib/common.sh"
 # Drift summary (shared with dot-reconcile) — bash-3.2-safe, read-only scans.
 # shellcheck disable=SC1091
 source "$DOTFILES/bin/lib/reconcile.sh"
+# Identity-slot detection (shared with the Identity Guard) — the mis-set check.
+# shellcheck disable=SC1091
+source "$DOTFILES/bin/lib/git-slots.sh"
 
 missing_count=0
 optional_missing=0
@@ -311,6 +314,80 @@ check_zsh_plugins() {
   return "$issues"
 }
 
+# --- identity audit --------------------------------------------------------
+# Report-only proactive sweep (the Identity Guard is the correctness mechanism):
+# scan conventional roots for git repos whose origin is mis-set against its slot,
+# and warn on gh-account drift. Performs NO writes; non-gating like the Drift
+# section (informational, --strict included).
+
+# Repo discovery (roots + `.git` walk) is shared with `dot git migrate` via
+# git-slots.sh (git_slot_audit_roots / git_slot_audit_dirs) so the sweep and the
+# interactive onboarding can never scan a different set of repos.
+
+check_identity_audit() {
+  if ! command -v git &>/dev/null; then
+    log_info "git not found — skipping identity audit"
+    return 0
+  fi
+
+  local gitdir repo url status kind rest slot host name frag ghuser
+  local issues=0 gh_active="" gh_probed=0
+  while IFS= read -r gitdir; do
+    [[ -n "$gitdir" ]] || continue
+    repo="${gitdir%/.git}"
+    url="$(git -C "$repo" config --get remote.origin.url 2>/dev/null || true)"
+    [[ -n "$url" ]] || continue # no origin (scratch) -> fine
+    status="$(git_slot_status "$url")"
+    kind="${status%%:*}"
+    case "$kind" in
+      misset-use)
+        rest="${status#misset-use:}"
+        slot="${rest%%:*}"
+        host="${rest#*:}"
+        log_warning "identity: ~${repo#"$HOME"} on $host is not bound to a slot — run: dot git use $slot"
+        issues=$((issues + 1))
+        ;;
+      misset-add)
+        host="${status#misset-add:}"
+        log_warning "identity: ~${repo#"$HOME"} on $host has no slot — run: dot git add-identity --name <slot> --host $host --email <you@example.com> && dot git use <slot>"
+        issues=$((issues + 1))
+        ;;
+      bound)
+        # Already on a slot alias. Only GitHub slots have a gh account to drift.
+        local alias_bound="${status#bound:}"
+        case "$alias_bound" in
+          github.com-* | github.*-*) ;;
+          *) continue ;;
+        esac
+        command -v gh &>/dev/null || continue
+        name="$(git_slot_name_for_alias "$alias_bound" 2>/dev/null || true)"
+        [[ -n "$name" ]] || continue
+        frag="$HOME/.gitconfig-$name"
+        ghuser="$(git config -f "$frag" github.user 2>/dev/null || true)"
+        [[ -n "$ghuser" ]] || continue
+        # Read the active gh login once (it's a single global per host).
+        if [[ "$gh_probed" -eq 0 ]]; then
+          gh_active="$(gh api user --jq .login 2>/dev/null || true)"
+          gh_probed=1
+        fi
+        [[ -n "$gh_active" ]] || continue
+        if [[ "$gh_active" != "$ghuser" ]]; then
+          log_warning "gh drift: ~${repo#"$HOME"} expects gh account $ghuser, active is $gh_active"
+          issues=$((issues + 1))
+        fi
+        ;;
+      *) : ;; # none | unparseable | unknown -> fine
+    esac
+  done < <(git_slot_audit_dirs)
+
+  if [[ "$issues" -eq 0 ]]; then
+    log_success "no identity or gh-account drift across audited repos"
+  else
+    log_info "The Identity Guard blocks mis-set commits; the fixes above clear the warnings."
+  fi
+  return 0
+}
+
 main() {
   local strict=false
   while [[ $# -gt 0 ]]; do
@@ -320,7 +397,7 @@ main() {
         shift
         ;;
       -h | --help)
-        printf 'Usage: dot doctor [--strict]\n  --strict  treat every warning (optional tools, etc.) as a failure\n'
+        printf 'Usage: dot doctor [--strict]\n  --strict  treat every warning (optional tools, etc.) as a failure\n\nThe Git Identity section audits repos under ~/work ~/workspace ~/dev ~/dotfiles\n~/personal ~/clients (plus any dirs set via dot profile set-config git_audit_roots,\nwhich augment the defaults) and warns on slot mismatches and gh-account drift.\nIt is report-only and never affects the exit code.\n'
         exit 0
         ;;
       *)
@@ -402,6 +479,12 @@ main() {
   # SSH / GitHub auth
   fmt_title_underline "SSH"
   check_ssh_github
+  echo
+
+  # Git identity audit (report-only sweep; the Identity Guard is the enforcer).
+  # Non-gating like Drift — it never affects the exit code, --strict included.
+  fmt_title_underline "Git Identity"
+  check_identity_audit
   echo
 
   # Drift vs the repo's declared state (cheap local scans; informational — it

@@ -6,20 +6,41 @@ DOTFILES="${DOTFILES:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
 
 # source helpers
 source "$DOTFILES/bin/lib/common.sh"
+# Identity-slot detection + shared repo discovery (used by `use` and `migrate`).
+# shellcheck disable=SC1091
+source "$DOTFILES/bin/lib/git-slots.sh"
 command_name=$(basename "${BASH_SOURCE[0]}")
 
 usage() {
   cat <<EOF
   $(fmt_key "Usage:") $(fmt_key "$command_name") $(fmt_value "[options] <command>")
 
-Setup Git configuration personalized for you. This script will prompt you for your
-name, email, and Github username to configure Git. The configuration will be saved
-to a local .gitconfig-local file in your home directory.
+Setup Git configuration personalized for you.
 
 Options:
     -h, --help       Show this help message
-    setup            Setup git configuration
-    work-identity    Configure a separate work git identity (auto-applied under work_dir)
+
+Commands:
+    setup            Setup the personal fallback identity (name, email, github user)
+    add-identity     Build a git identity slot: SSH key + host alias + remote-bound, SSH-signed email
+    use <slot>       Bind the current repo to an existing slot: rewrite origin to the slot
+                     alias (key/email/signing follow) and, for GitHub slots, switch the gh account
+    migrate          Interactively onboard existing repos under the audit roots onto slots:
+                     per mis-set repo, offer a slot and rebind its origin on confirm (git-side
+                     only — no gh switch; run 'use' later to align gh)
+    remove-identity <slot>
+                     Symmetric teardown of a slot: SSH alias, gitconfig fragment, hasconfig
+                     include, allowed_signers entry, and (if managed) its key pair. An adopted
+                     key (--key at add-identity time) is left on disk with a warning.
+    install-guard    Activate the Identity Guard globally by pointing core.hooksPath at the
+                     committed pre-commit hook (written to ~/.gitconfig-local, never committed)
+
+add-identity options:
+    --name <slot>       Slot name, e.g. ee (required)
+    --host <host>       Git host, e.g. github.com (required)
+    --email <email>     Commit email bound to this slot (required)
+    --github-user <u>   GitHub username for this slot (optional)
+    --key <path>        Adopt an existing SSH private key instead of generating one
 EOF
 }
 
@@ -57,20 +78,59 @@ setup_git() {
   fi
 }
 
-git_work_identity() {
-  local work_dir="" name="" email=""
+# Rewrite ~/.ssh/config, dropping any existing block for the given Host alias so a
+# re-run updates rather than duplicates. A block is the `Host <alias>` line plus its
+# following indented/blank lines, up to the next top-level directive. BSD-awk safe.
+ssh_config_drop_alias() {
+  local ssh_config="$1" alias="$2"
+  local tmp
+  tmp="$(mktemp)"
+  awk -v hostline="Host $alias" '
+    $0 == hostline { skip = 1; next }
+    skip && $0 ~ /^[ \t]/ { next }
+    skip && $0 ~ /^[ \t]*$/ { next }
+    { skip = 0; print }
+  ' "$ssh_config" >"$tmp"
+  mv "$tmp" "$ssh_config"
+}
+
+# Drop a slot's `[includeIf ...] / path = ...` block from ~/.gitconfig-identities
+# (the exact two-line shape `dot git add-identity` appends). Mirrors
+# ssh_config_drop_alias but the block is fixed-length (2 lines), not indent-delimited.
+identities_drop_alias() {
+  local identities="$1" alias="$2"
+  local tmp
+  tmp="$(mktemp)"
+  awk -v includeif="[includeIf \"hasconfig:remote.*.url:git@${alias}:*/**\"]" '
+    $0 == includeif { skip = 1; next }
+    skip { skip = 0; next }
+    { print }
+  ' "$identities" >"$tmp"
+  mv "$tmp" "$identities"
+}
+
+git_add_identity() {
+  local name="" host="" email="" github_user="" key=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --work-dir)
-        work_dir="${2:-}"
-        shift 2
-        ;;
       --name)
         name="${2:-}"
         shift 2
         ;;
+      --host)
+        host="${2:-}"
+        shift 2
+        ;;
       --email)
         email="${2:-}"
+        shift 2
+        ;;
+      --github-user)
+        github_user="${2:-}"
+        shift 2
+        ;;
+      --key)
+        key="${2:-}"
         shift 2
         ;;
       *)
@@ -80,43 +140,436 @@ git_work_identity() {
     esac
   done
 
+  if [[ -z "$name" || -z "$host" || -z "$email" ]]; then
+    log_error "--name, --host, and --email are required"
+    return 1
+  fi
+
   if ! command -v git &>/dev/null; then
     log_error "Git is not installed."
     return 1
   fi
 
-  fmt_title_underline "Setting up work git identity"
+  fmt_title_underline "Adding git identity slot: $name"
 
-  [[ -z "$work_dir" ]] && work_dir="$(dot_config work_dir)"
-  if [[ -z "$work_dir" ]]; then
-    read -rp "Work repos directory (e.g. ~/work): " work_dir || true
+  local alias="${host}-${name}"
+  local keypath
+
+  # SSH key: adopt an existing one via --key, otherwise generate a passphrase-protected
+  # key (ssh-keygen prompts for the passphrase interactively on the real path).
+  if [[ -n "$key" ]]; then
+    key="${key/#\~/$HOME}" # expand a leading ~ to an absolute path
+    if [[ ! -f "$key" ]]; then
+      log_error "SSH key not found: $key"
+      return 1
+    fi
+    keypath="$key"
+  else
+    keypath="$HOME/.ssh/id_ed25519_${name}"
+    mkdir -p "$HOME/.ssh"
+    chmod 700 "$HOME/.ssh"
+    if [[ -f "$keypath" ]]; then
+      log_info "Reusing existing key at $keypath"
+    else
+      if ! command -v ssh-keygen &>/dev/null; then
+        log_error "ssh-keygen is not installed."
+        return 1
+      fi
+      ssh-keygen -t ed25519 -C "$email" -f "$keypath"
+    fi
   fi
-  if [[ -z "$work_dir" ]]; then
-    log_error "A work directory is required"
-    return 1
-  fi
-  work_dir="${work_dir/#\~/$HOME}" # expand leading ~ to an absolute path
-  dot_set_config work_dir "$work_dir"
 
-  if [[ -z "$name" ]]; then read -rp "Work name: " name || true; fi
-  if [[ -z "$email" ]]; then read -rp "Work email: " email || true; fi
-  if [[ -z "$name" || -z "$email" ]]; then
-    log_error "Work name and email are required"
-    return 1
-  fi
-
-  git config -f "$HOME/.gitconfig-work" user.name "$name"
-  git config -f "$HOME/.gitconfig-work" user.email "$email"
-
-  # Regenerate the include (idempotent overwrite).
+  # SSH host alias that selects this slot's key (idempotent).
+  local ssh_config="$HOME/.ssh/config"
+  mkdir -p "$HOME/.ssh"
+  chmod 700 "$HOME/.ssh"
+  touch "$ssh_config"
+  ssh_config_drop_alias "$ssh_config" "$alias"
   {
-    printf '# Generated by: dot git work-identity — do not edit.\n'
-    printf '[includeIf "gitdir:%s/"]\n' "$work_dir"
-    printf '\tpath = ~/.gitconfig-work\n'
-  } >"$HOME/.gitconfig-work-include"
+    printf 'Host %s\n' "$alias"
+    printf '    HostName %s\n' "$host"
+    printf '    IdentityFile %s\n' "$keypath"
+    printf '    IdentitiesOnly yes\n'
+    printf '    AddKeysToAgent yes\n'
+    printf '    UseKeychain yes\n'
+  } >>"$ssh_config"
+  chmod 600 "$ssh_config"
 
-  log_success "Work identity active for repos under $work_dir"
-  log_info "name: $name · email: $email"
+  local pubkey="${keypath}.pub"
+
+  # Per-slot git config fragment: commit email + SSH-format signing with this slot's
+  # key (git config is idempotent). Signing key == auth key, so a verified commit can
+  # never show the wrong identity.
+  local fragment="$HOME/.gitconfig-$name"
+  git config -f "$fragment" user.email "$email"
+  if [[ -n "$github_user" ]]; then
+    git config -f "$fragment" github.user "$github_user"
+  fi
+  git config -f "$fragment" gpg.format ssh
+  git config -f "$fragment" user.signingkey "$pubkey"
+  git config -f "$fragment" commit.gpgsign true
+  git config -f "$fragment" tag.gpgsign true
+
+  # Allowed-signers entry so signatures verify locally (git log --show-signature,
+  # git verify-commit). One idempotent `<email> <keytype> <keydata>` line per slot;
+  # gpg.ssh.allowedSignersFile points here as a neutral setting in config/git/config.
+  local allowed_signers="$HOME/.config/git/allowed_signers"
+  if [[ -f "$pubkey" ]]; then
+    mkdir -p "$(dirname "$allowed_signers")"
+    touch "$allowed_signers"
+    # Take only keytype+keydata (drop the trailing comment) so the principal binds to
+    # exactly one key regardless of the .pub file's comment.
+    local keytype keydata signer_line
+    read -r keytype keydata _ <"$pubkey"
+    signer_line="$email $keytype $keydata"
+    if ! grep -qF "$signer_line" "$allowed_signers"; then
+      printf '%s\n' "$signer_line" >>"$allowed_signers"
+    fi
+  fi
+
+  # hasconfig include that binds this email to the alias (idempotent append).
+  local identities="$HOME/.gitconfig-identities"
+  touch "$identities"
+  # `*/**` (not the bare `:**` the design sketched) is required: git's hasconfig glob
+  # only lets `**` cross a `/` when slash-delimited, so `:**` never matches an scp URL's
+  # owner/repo path. `*/**` matches owner/repo, owner/team/repo, and .git-less forms.
+  local includeif="[includeIf \"hasconfig:remote.*.url:git@${alias}:*/**\"]"
+  if ! grep -qF "$includeif" "$identities"; then
+    {
+      printf '%s\n' "$includeif"
+      printf '\tpath = ~/.gitconfig-%s\n' "$name"
+    } >>"$identities"
+  fi
+
+  log_success "Identity slot '$name' ready — remote-bound to $alias, commits SSH-signed"
+  log_info "email: $email — commits in repos whose remote uses $alias are authored and signed as this slot"
+
+  if [[ -f "$pubkey" ]]; then
+    log_info "Register this public key on the $host account for $alias as BOTH an"
+    log_info "Authentication key AND a Signing key (or $host shows signatures as \"Unverified\"):"
+    cat "$pubkey"
+  else
+    log_warning "No public key found at $pubkey — register the matching public key on the $host account as both an Authentication and a Signing key."
+  fi
+}
+
+git_remove_identity() {
+  local name="${1:-}"
+  if [[ -z "$name" ]]; then
+    log_error "Usage: $command_name remove-identity <slot>"
+    return 1
+  fi
+
+  local alias
+  if ! alias="$(slot_alias "$name")" || [[ -z "$alias" ]]; then
+    log_error "No identity slot '$name' to remove."
+    return 1
+  fi
+  local host="${alias%-"$name"}" # alias is <host>-<name>
+
+  fmt_title_underline "Tearing down identity slot: $name"
+
+  local fragment="$HOME/.gitconfig-$name"
+  local email signingkey privkey managed_privkey
+  email="$(git config -f "$fragment" user.email 2>/dev/null || true)"
+  signingkey="$(git config -f "$fragment" user.signingkey 2>/dev/null || true)"
+  privkey="${signingkey%.pub}"
+  managed_privkey="$HOME/.ssh/id_ed25519_$name"
+
+  local ssh_config="$HOME/.ssh/config"
+  [[ -f "$ssh_config" ]] && ssh_config_drop_alias "$ssh_config" "$alias"
+
+  local identities="$HOME/.gitconfig-identities"
+  [[ -f "$identities" ]] && identities_drop_alias "$identities" "$alias"
+
+  local allowed_signers="$HOME/.config/git/allowed_signers"
+  if [[ -f "$allowed_signers" && -n "$email" ]]; then
+    local tmp
+    tmp="$(mktemp)"
+    awk -v e="$email" '$1 != e' "$allowed_signers" >"$tmp"
+    mv "$tmp" "$allowed_signers"
+  fi
+
+  rm -f "$fragment"
+
+  if [[ -n "$privkey" ]]; then
+    if [[ "$privkey" == "$managed_privkey" ]]; then
+      rm -f "$privkey" "$privkey.pub"
+    else
+      log_warning "External key preserved (adopted, not managed by this slot): $privkey — delete it manually if it's no longer needed."
+    fi
+  fi
+
+  local gitdir repo url token
+  while IFS= read -r gitdir; do
+    [[ -n "$gitdir" ]] || continue
+    repo="${gitdir%/.git}"
+    url="$(git -C "$repo" config --get remote.origin.url 2>/dev/null || true)"
+    [[ -n "$url" ]] || continue
+    token="$(git_url_host_token "$url" 2>/dev/null || true)"
+    if [[ "$token" == "$alias" ]]; then
+      log_warning "~${repo#"$HOME"} still points at $alias — rebind it (dot git use <slot>) before the slot's key is gone for good."
+    fi
+  done < <(git_slot_audit_dirs)
+
+  log_success "Identity slot '$name' removed."
+  log_info "If it's no longer needed, revoke this slot's key from the $host account for $alias."
+}
+
+# Resolve a slot name to its SSH alias (<host>-<name>) via the slot's hasconfig
+# include in ~/.gitconfig-identities. The include's `path = ~/.gitconfig-<name>`
+# uniquely names the slot, and the preceding includeIf embeds `git@<alias>:...`,
+# so pairing the two yields the alias. Prints the alias; returns 1 if not found.
+slot_alias() {
+  local name="$1" identities="$HOME/.gitconfig-identities"
+  [[ -f "$identities" ]] || return 1
+  awk -v slot="$name" '
+    /^[ \t]*\[includeIf / {
+      if (match($0, /git@[^:]+:/)) {
+        # Strip the leading "git@" (4 chars) and the trailing ":" (1 char).
+        alias = substr($0, RSTART + 4, RLENGTH - 5)
+      }
+      next
+    }
+    /path[ \t]*=/ {
+      p = $0
+      sub(/.*path[ \t]*=[ \t]*/, "", p)
+      if (p == "~/.gitconfig-" slot) {
+        print alias
+        found = 1
+        exit
+      }
+    }
+    END { if (!found) exit 1 }
+  ' "$identities"
+}
+
+# Extract owner/repo (keeping any trailing .git) from an origin URL, handling
+# HTTPS, ssh://, and scp-style (incl. already-aliased) forms. Prints owner/repo;
+# returns 1 on an unrecognized URL.
+origin_owner_repo() {
+  local url="$1" rest
+  case "$url" in
+    https://* | http://*)
+      rest="${url#*://}" # host/owner/repo.git
+      printf '%s\n' "${rest#*/}"
+      ;;
+    ssh://*)
+      rest="${url#ssh://}" # [user@]host[:port]/owner/repo.git
+      rest="${rest#*@}"    # drop user@ if present
+      printf '%s\n' "${rest#*/}"
+      ;;
+    *:*)
+      # scp-style: [user@]host:owner/repo.git (host alias never contains a colon).
+      printf '%s\n' "${url#*:}"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+# Rebind a repo's origin to a slot's alias — the DURABLE, git-side half of
+# `dot git use`, shared with `dot git migrate` (which does only this; it never
+# touches the global `gh` account). Given a repo dir and a slot NAME, resolves
+# the alias, rewrites origin to git@<alias>:owner/repo, and prints the new URL.
+# Emits no logging so each caller frames its own messages; on failure it touches
+# nothing and returns a distinct code:
+#   3  unknown slot   4  no origin remote   5  unparseable origin URL
+bind_repo_to_slot() {
+  local repo_dir="$1" name="$2" alias url ownerrepo newurl
+  alias="$(slot_alias "$name")" || return 3
+  [[ -n "$alias" ]] || return 3
+  url="$(git -C "$repo_dir" remote get-url origin 2>/dev/null)" || return 4
+  [[ -n "$url" ]] || return 4
+  ownerrepo="$(origin_owner_repo "$url")" || return 5
+  [[ -n "$ownerrepo" ]] || return 5
+  newurl="git@${alias}:${ownerrepo}"
+  git -C "$repo_dir" remote set-url origin "$newurl" || return 1
+  printf '%s\n' "$newurl"
+}
+
+# Verify a bind: print a success/warning line comparing the repo's resolved
+# user.email against the slot fragment's. Shared by `use` and `migrate`.
+_report_bind() {
+  local repo_dir="$1" name="$2" newurl="$3" label="$4" slot_email resolved
+  slot_email="$(git config -f "$HOME/.gitconfig-$name" user.email 2>/dev/null || true)"
+  resolved="$(git -C "$repo_dir" config user.email 2>/dev/null || true)"
+  if [[ -n "$slot_email" && "$resolved" == "$slot_email" ]]; then
+    log_success "$label — origin is $newurl, commits authored/signed as $resolved"
+  else
+    log_warning "origin rewritten to $newurl, but user.email resolved to '${resolved:-<unset>}' (expected '${slot_email:-<unknown>}')"
+  fi
+}
+
+git_use() {
+  local name="${1:-}"
+  if [[ -z "$name" ]]; then
+    log_error "Usage: $command_name use <slot>"
+    return 1
+  fi
+
+  if ! command -v git &>/dev/null; then
+    log_error "Git is not installed."
+    return 1
+  fi
+
+  if ! git rev-parse --is-inside-work-tree &>/dev/null; then
+    log_error "Not inside a git repository — run 'dot git use' from a repo."
+    return 1
+  fi
+
+  local repo
+  repo="$(git rev-parse --show-toplevel 2>/dev/null || printf '.')"
+
+  # Resolve the alias up front for the gh-switch host and precise error text
+  # (bind_repo_to_slot is silent; it re-resolves internally).
+  local alias
+  if ! alias="$(slot_alias "$name")" || [[ -z "$alias" ]]; then
+    log_error "No identity slot '$name' — create it first with: $command_name add-identity --name $name --host <host> --email <email>"
+    return 1
+  fi
+  local host="${alias%-"$name"}" # alias is <host>-<name>
+
+  local newurl rc=0
+  newurl="$(bind_repo_to_slot "$repo" "$name")" || rc=$?
+  case "$rc" in
+    0) ;;
+    4)
+      log_error "No 'origin' remote in this repository — add one, then re-run: $command_name use $name"
+      return 1
+      ;;
+    5)
+      log_error "Could not parse owner/repo from origin URL: $(git -C "$repo" remote get-url origin 2>/dev/null || true)"
+      return 1
+      ;;
+    *)
+      log_error "Could not bind this repo to slot '$name'."
+      return 1
+      ;;
+  esac
+
+  _report_bind "$repo" "$name" "$newurl" "Bound this repo to slot '$name'"
+
+  # gh account sync: GitHub-only, and only when a gh CLI and a slot github user
+  # are both present. Never fail the whole command if the switch fails — the
+  # git-side bind already succeeded.
+  case "$host" in
+    github.com | github.*)
+      local slot_ghuser
+      slot_ghuser="$(git config -f "$HOME/.gitconfig-$name" github.user 2>/dev/null || true)"
+      if ! command -v gh &>/dev/null; then
+        log_info "gh not found — skipping GitHub account switch (git identity is already bound)."
+      elif [[ -z "$slot_ghuser" ]]; then
+        log_info "Slot '$name' has no github.user — skipping gh account switch."
+      elif gh auth switch --hostname "$host" --user "$slot_ghuser" >/dev/null 2>&1; then
+        log_success "Switched active gh account to '$slot_ghuser' on $host."
+      else
+        log_warning "Could not switch gh account to '$slot_ghuser' on $host — run 'gh auth switch --user $slot_ghuser' manually."
+      fi
+      ;;
+  esac
+}
+
+# Interactive, one-pass onboarding of EXISTING repos onto slots. Walks the same
+# repos `dot doctor` audits (git_slot_audit_dirs) and, per mis-set repo:
+#   misset-use  a slot exists for the host -> prompt (default yes), then bind
+#               the durable git-side remote (reusing bind_repo_to_slot).
+#   misset-add  no slot for the host -> print the add-identity remedy and skip.
+# Everything else (bound / no-origin / unknown / unparseable) is left untouched.
+# Migrate does the git-side rebind ONLY — it never runs `gh auth switch`, because
+# the active gh account is a single global and thrashing it across many repos is
+# wrong; gh aligns later when you `dot git use` (or work) in a specific repo.
+# Re-runnable and non-destructive: the only change ever made is a remote rewrite,
+# and an already-bound repo classifies as `bound` so a second pass offers nothing.
+git_migrate() {
+  if ! command -v git &>/dev/null; then
+    log_error "Git is not installed."
+    return 1
+  fi
+
+  fmt_title_underline "Migrating repos onto identity slots"
+  log_info "Scanning repos under the audit roots. Migrate rebinds the git remote only —"
+  log_info "run 'dot git use <slot>' in a repo later to also align its gh account."
+
+  # The repo stream is on fd 3, NOT stdin: the per-repo prompt's `read` must draw
+  # from the real stdin (the user's answers), not consume the dir list.
+  local gitdir repo url status kind rest slot host newurl reply rc
+  local bound=0 skipped=0 needs_add=0
+  while IFS= read -r gitdir <&3; do
+    [[ -n "$gitdir" ]] || continue
+    repo="${gitdir%/.git}"
+    url="$(git -C "$repo" config --get remote.origin.url 2>/dev/null || true)"
+    [[ -n "$url" ]] || continue # no origin (scratch) -> skip silently
+    status="$(git_slot_status "$url")"
+    kind="${status%%:*}"
+    case "$kind" in
+      misset-use)
+        rest="${status#misset-use:}"
+        slot="${rest%%:*}"
+        host="${rest#*:}"
+        printf '\n'
+        log_info "repo:   ~${repo#"$HOME"}"
+        log_info "origin: $url"
+        log_info "slot:   $slot ($host)"
+        reply=""
+        read -rp "Bind this repo to slot '$slot'? [Y/n] " reply || reply=""
+        case "$reply" in
+          [Nn] | [Nn][Oo])
+            log_info "skipped ~${repo#"$HOME"} (unchanged)"
+            skipped=$((skipped + 1))
+            ;;
+          *)
+            rc=0
+            newurl="$(bind_repo_to_slot "$repo" "$slot")" || rc=$?
+            if [[ "$rc" -eq 0 && -n "$newurl" ]]; then
+              _report_bind "$repo" "$slot" "$newurl" "Bound ~${repo#"$HOME"} to slot '$slot'"
+              bound=$((bound + 1))
+            else
+              log_warning "Could not rebind ~${repo#"$HOME"} — left unchanged"
+              skipped=$((skipped + 1))
+            fi
+            ;;
+        esac
+        ;;
+      misset-add)
+        host="${status#misset-add:}"
+        log_warning "~${repo#"$HOME"} on $host has no slot — create one first, then re-run migrate:"
+        log_info "  $command_name add-identity --name <slot> --host $host --email <you@example.com>"
+        needs_add=$((needs_add + 1))
+        ;;
+      *) : ;; # none | bound | unknown | unparseable -> leave untouched
+    esac
+  done 3< <(git_slot_audit_dirs)
+
+  printf '\n'
+  log_success "migrate complete — bound $bound, skipped $skipped, need add-identity $needs_add"
+}
+
+# Activate the Identity Guard: point core.hooksPath at the committed hook directory.
+# The path is machine-specific and absolute, so it goes in ~/.gitconfig-local — never
+# in the committed config/git/config (which is shared across machines).
+git_install_guard() {
+  if ! command -v git &>/dev/null; then
+    log_error "Git is not installed."
+    return 1
+  fi
+
+  local hook_dir="$DOTFILES/config/git/hooks"
+  if [[ ! -d "$hook_dir" ]]; then
+    log_error "Hook directory not found: $hook_dir"
+    return 1
+  fi
+  hook_dir="$(cd "$hook_dir" && pwd -P)"
+
+  if [[ ! -x "$hook_dir/pre-commit" ]]; then
+    log_error "Guard hook missing or not executable: $hook_dir/pre-commit"
+    return 1
+  fi
+
+  git config -f "$HOME/.gitconfig-local" core.hooksPath "$hook_dir"
+  log_success "Identity Guard installed — core.hooksPath -> $hook_dir"
+  log_info "Written to ~/.gitconfig-local (machine-local, not committed)."
 }
 
 main() {
@@ -133,9 +586,25 @@ main() {
     setup)
       setup_git
       ;;
-    work-identity)
+    add-identity)
       shift
-      git_work_identity "$@"
+      git_add_identity "$@"
+      ;;
+    use)
+      shift
+      git_use "$@"
+      ;;
+    migrate)
+      shift
+      git_migrate "$@"
+      ;;
+    remove-identity)
+      shift
+      git_remove_identity "$@"
+      ;;
+    install-guard)
+      shift
+      git_install_guard "$@"
       ;;
     *)
       log_error "Unknown legacy command: $1"

@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+# Identity Guard — global pre-commit hook (installed via core.hooksPath). Blocks a
+# commit whose origin is on a known host with no matching identity slot, printing the
+# exact `dot git use <slot>` / `dot git add-identity` remedy; a repo with no origin
+# (scratch) is allowed. Then it DELEGATES to any repo-local pre-commit hook so a
+# global core.hooksPath does not silently shadow an existing hook.
+#
+# Because it is installed via core.hooksPath, it must NEVER re-invoke the hook through
+# core.hooksPath (that would resolve back to itself — infinite self-call). It resolves
+# the repo-local hook explicitly as <absolute-git-dir>/hooks/pre-commit and refuses to
+# run anything whose realpath equals its own.
+set -Eeuo pipefail
+
+# --- locate self + logging -------------------------------------------------
+
+# Canonicalize a path: follow file symlinks (BSD-safe — no `readlink -f`), then
+# resolve the containing directory. Used for the anti-recursion check below.
+_gc_realpath() {
+  local p="$1" target
+  while [[ -L "$p" ]]; do
+    target="$(readlink "$p")"
+    case "$target" in
+      /*) p="$target" ;;
+      *) p="$(dirname "$p")/$target" ;;
+    esac
+  done
+  printf '%s\n' "$(cd "$(dirname "$p")" && pwd -P)/$(basename "$p")"
+}
+
+_guard_real="$(_gc_realpath "${BASH_SOURCE[0]}")"
+_guard_dir="$(dirname "$_guard_real")"
+
+# common.sh lives at <repo>/bin/lib/common.sh; the hook is <repo>/config/git/hooks/.
+# Degrade to plain logging if it isn't reachable (the guard must still work).
+_common="$_guard_dir/../../../bin/lib/common.sh"
+if [[ -f "$_common" ]]; then
+  # shellcheck source=/dev/null
+  source "$_common"
+else
+  log_error() { printf 'error: %s\n' "$1" >&2; }
+fi
+
+# --- slot lookup helpers ---------------------------------------------------
+# The mis-set classification is shared with `dot doctor`'s audit via git-slots.sh
+# so the guard and the sweep can never disagree. If it's unreachable, fail OPEN
+# (allow the commit): a guard that blocks EVERY commit is worse than one that
+# skips its check — the sweep and repo-local hooks still backstop.
+_slots="$_guard_dir/../../../bin/lib/git-slots.sh"
+if [[ -f "$_slots" ]]; then
+  # shellcheck source=/dev/null
+  source "$_slots"
+else
+  git_slot_status() { printf 'unknown\n'; }
+fi
+
+# --- identity check --------------------------------------------------------
+# Return 0 to allow, non-zero to block (printing the remedy). The mis-set
+# decision lives in git_slot_status (git-slots.sh); the guard owns only the
+# blocking message for each mis-set kind.
+_guard_identity_check() {
+  local origin_url status slot host
+
+  origin_url="$(git config --get remote.origin.url 2>/dev/null || true)"
+  # No origin remote (scratch repo) -> allow.
+  [[ -z "$origin_url" ]] && return 0
+
+  status="$(git_slot_status "$origin_url")"
+  case "$status" in
+    misset-use:*)
+      slot="${status#misset-use:}"
+      host="${slot#*:}"
+      slot="${slot%%:*}"
+      log_error "Identity Guard: origin is on '$host' but this repo is bound to no identity slot."
+      log_error "A slot exists for $host — bind this repo, then re-commit:"
+      log_error "    dot git use $slot"
+      return 1
+      ;;
+    misset-add:*)
+      host="${status#misset-add:}"
+      log_error "Identity Guard: origin is on '$host' but no identity slot exists for it."
+      log_error "Create one and bind this repo, then re-commit:"
+      log_error "    dot git add-identity --name <slot> --host $host --email <you@example.com>"
+      log_error "    dot git use <slot>"
+      return 1
+      ;;
+    *)
+      # none | unparseable | unknown | bound:* -> allow.
+      return 0
+      ;;
+  esac
+}
+
+# --- delegation ------------------------------------------------------------
+# After the identity check passes, run the repo's OWN pre-commit hook (a plain hook
+# or the pre-commit framework's, both at .git/hooks/pre-commit) so core.hooksPath
+# doesn't silently shadow it. Resolve it EXPLICITLY as <absolute-git-dir>/hooks/
+# pre-commit — never `git rev-parse --git-path hooks/pre-commit`, which returns the
+# core.hooksPath guard (i.e. this file) and would self-recurse forever.
+_guard_delegate() {
+  local git_dir local_hook local_real
+  git_dir="$(git rev-parse --absolute-git-dir 2>/dev/null || true)"
+  [[ -n "$git_dir" ]] || return 0
+
+  local_hook="$git_dir/hooks/pre-commit"
+  [[ -x "$local_hook" ]] || return 0
+
+  # Anti-recursion: never re-run ourselves, even via a symlink at .git/hooks/pre-commit.
+  local_real="$(_gc_realpath "$local_hook")"
+  [[ "$local_real" == "$_guard_real" ]] && return 0
+
+  # Pass through the original args + stdin; the local hook's exit becomes ours (a
+  # non-zero exit blocks the commit). exec replaces this process, so its status
+  # propagates verbatim.
+  exec "$local_hook" "$@"
+}
+
+main() {
+  _guard_identity_check || exit $?
+
+  _guard_delegate "$@"
+  exit 0
+}
+
+main "$@"
