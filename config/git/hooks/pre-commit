@@ -41,104 +41,53 @@ else
 fi
 
 # --- slot lookup helpers ---------------------------------------------------
-# Slots are encoded in ~/.gitconfig-identities as includeIf lines whose glob embeds
-# `git@<host>-<name>:` (see `dot git add-identity`). The alias is `<host>-<name>`.
-
-# Print every slot alias (`<host>-<name>`), one per line.
-_guard_slot_aliases() {
-  local f="$HOME/.gitconfig-identities"
-  [[ -f "$f" ]] || return 0
-  sed -n 's/.*git@\([^:]*\):.*/\1/p' "$f"
-}
-
-# Exit 0 if <alias> is a defined slot alias.
-_guard_alias_exists() {
-  local target="$1" a
-  while IFS= read -r a; do
-    [[ "$a" == "$target" ]] && return 0
-  done < <(_guard_slot_aliases)
-  return 1
-}
-
-# Print the slot names defined for <host> (alias `<host>-<name>` -> `<name>`).
-_guard_slots_for_host() {
-  local host="$1" a
-  while IFS= read -r a; do
-    [[ -n "$a" ]] || continue
-    case "$a" in
-      "$host"-*) printf '%s\n' "${a#"$host"-}" ;;
-    esac
-  done < <(_guard_slot_aliases)
-}
-
-# Extract the URL host token from an origin URL (may itself be a slot alias for an
-# scp-style URL). Returns 1 on an unrecognized URL.
-_guard_host_token() {
-  local url="$1" rest
-  case "$url" in
-    https://* | http://*)
-      rest="${url#*://}"
-      printf '%s\n' "${rest%%/*}"
-      ;;
-    ssh://*)
-      rest="${url#ssh://}" # [user@]host[:port]/owner/repo
-      rest="${rest#*@}"    # drop user@
-      rest="${rest%%/*}"   # host[:port]
-      printf '%s\n' "${rest%%:*}"
-      ;;
-    *:*)
-      rest="${url%%:*}" # [user@]host
-      printf '%s\n' "${rest#*@}"
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-}
+# The mis-set classification is shared with `dot doctor`'s audit via git-slots.sh
+# so the guard and the sweep can never disagree. If it's unreachable, fail OPEN
+# (allow the commit): a guard that blocks EVERY commit is worse than one that
+# skips its check — the sweep and repo-local hooks still backstop.
+_slots="$_guard_dir/../../../bin/lib/git-slots.sh"
+if [[ -f "$_slots" ]]; then
+  # shellcheck source=/dev/null
+  source "$_slots"
+else
+  git_slot_status() { printf 'unknown\n'; }
+fi
 
 # --- identity check --------------------------------------------------------
-# Return 0 to allow, non-zero to block (printing the remedy).
+# Return 0 to allow, non-zero to block (printing the remedy). The mis-set
+# decision lives in git_slot_status (git-slots.sh); the guard owns only the
+# blocking message for each mis-set kind.
 _guard_identity_check() {
-  local origin_url host_token host first_slot
+  local origin_url status slot host
 
   origin_url="$(git config --get remote.origin.url 2>/dev/null || true)"
-  # 1. No origin remote (scratch repo) -> allow.
+  # No origin remote (scratch repo) -> allow.
   [[ -z "$origin_url" ]] && return 0
 
-  if ! host_token="$(_guard_host_token "$origin_url")" || [[ -z "$host_token" ]]; then
-    # Unparseable remote -> don't get in the way.
-    return 0
-  fi
-
-  # 2. Origin already uses an existing slot alias -> allow.
-  _guard_alias_exists "$host_token" && return 0
-
-  # 3. Not on a slot. host_token is the real host for a plain URL.
-  host="$host_token"
-  first_slot="$(_guard_slots_for_host "$host" | head -n 1)"
-
-  local is_forge=1
-  case "$host" in
-    github.com | gitlab.com | bitbucket.org) is_forge=0 ;;
-  esac
-
-  # Known host = a default forge OR a host that already has >=1 slot.
-  if [[ "$is_forge" -eq 0 || -n "$first_slot" ]]; then
-    if [[ -n "$first_slot" ]]; then
+  status="$(git_slot_status "$origin_url")"
+  case "$status" in
+    misset-use:*)
+      slot="${status#misset-use:}"
+      host="${slot#*:}"
+      slot="${slot%%:*}"
       log_error "Identity Guard: origin is on '$host' but this repo is bound to no identity slot."
       log_error "A slot exists for $host — bind this repo, then re-commit:"
-      log_error "    dot git use $first_slot"
-    else
+      log_error "    dot git use $slot"
+      return 1
+      ;;
+    misset-add:*)
+      host="${status#misset-add:}"
       log_error "Identity Guard: origin is on '$host' but no identity slot exists for it."
       log_error "Create one and bind this repo, then re-commit:"
       log_error "    dot git add-identity --name <slot> --host $host --email <you@example.com>"
       log_error "    dot git use <slot>"
-    fi
-    return 1
-  fi
-
-  # Unknown host (not a forge, no slot) -> allow.
-  return 0
+      return 1
+      ;;
+    *)
+      # none | unparseable | unknown | bound:* -> allow.
+      return 0
+      ;;
+  esac
 }
 
 # --- delegation ------------------------------------------------------------

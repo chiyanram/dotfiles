@@ -45,3 +45,13 @@ commit when the repo's remote is on a known host but matches no slot, and prints
 the exact `dot git use <slot>` command to fix it. Auditable in bulk via
 `dot doctor`.
 _Avoid_: Validation, linter.
+
+**Identity Audit**:
+The report-only sweep in `dot doctor` that walks the conventional roots
+(`~/work ~/workspace ~/dev ~/dotfiles ~/personal ~/clients`, plus any
+`git_audit_roots` override that augments them) and lists mis-set repos and
+**gh drift** (a slot-bound GitHub repo whose active `gh` account differs from the
+slot's). It never writes and never gates the exit code — the Guard is the
+enforcer; the audit is the proactive convenience sweep. The mis-set decision is
+shared with the Guard via `bin/lib/git-slots.sh`, so the two can never disagree.
+_Avoid_: calling it enforcement (it only reports).
