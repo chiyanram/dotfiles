@@ -16,6 +16,31 @@ gitlab_gate() {
   run bash -c "source '$DOCTOR'; _gitlab_ssh_check_enabled \"\$@\"" _ "$@"
 }
 
+# Classify a captured `ssh -T` output string into true | untrusted | false.
+auth_from_output() {
+  run bash -c "source '$DOCTOR'; _ssh_auth_from_output \"\$1\"" _ "$1"
+}
+
+@test "auth-from-output: github success message is authenticated" {
+  auth_from_output "Hi chiyanram! You've successfully authenticated, but GitHub does not provide shell access."
+  [ "$output" = "true" ]
+}
+
+@test "auth-from-output: gitlab success message is authenticated" {
+  auth_from_output "Welcome to GitLab, @chiyanram!"
+  [ "$output" = "true" ]
+}
+
+@test "auth-from-output: permission denied is auth-fail" {
+  auth_from_output "git@gitlab.com: Permission denied (publickey)."
+  [ "$output" = "false" ]
+}
+
+@test "auth-from-output: host key verification failure is untrusted" {
+  auth_from_output "Host key verification failed."
+  [ "$output" = "untrusted" ]
+}
+
 @test "gitlab ssh check runs when glab is authenticated" {
   gitlab_gate true false
   [ "$status" -eq 0 ]
