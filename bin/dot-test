@@ -98,6 +98,20 @@ check_bats() {
   bats "$DOTFILES/tests"
 }
 
+# Unlike the checks above, a missing pre-commit hard-fails instead of
+# soft-skipping: it's a mandatory brew/Brewfile.core entry, so its absence
+# means a broken dev setup, not an optional tool. Soft-skipping here would
+# silently reintroduce the false-green gap this check exists to close
+# (issue #59 — a pre-commit-only hook, check-shebang-scripts-are-executable,
+# passed "dot-test green" locally but failed in the separate CI job).
+check_pre_commit() {
+  command -v pre-commit >/dev/null || {
+    log_error "pre-commit not installed — required (see brew/Brewfile.core)"
+    return 1
+  }
+  (cd "$DOTFILES" && pre-commit run --all-files)
+}
+
 main() {
   fmt_title_underline "Running dotfiles checks"
   run_check "shellcheck" check_shellcheck
@@ -106,6 +120,7 @@ main() {
   run_check "zsh syntax" check_zsh_syntax
   run_check "zsh smoke" check_zsh_smoke
   run_check "bats tests" check_bats
+  run_check "pre-commit" check_pre_commit
   echo
   if [[ "$failed" -eq 0 ]]; then
     log_success "All checks passed"
