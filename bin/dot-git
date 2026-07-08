@@ -109,6 +109,21 @@ identities_drop_alias() {
   mv "$tmp" "$identities"
 }
 
+# Resolve the allowed_signers path, auto-migrating a pre-existing file from the
+# old ~/.config/git/allowed_signers location (inside the symlinked, tracked
+# config/git/ dir — see #58) to the new XDG state path the first time either
+# add-identity or remove-identity touches it. Ensures the parent dir exists
+# either way, mirroring the mkdir-before-touch the callers used to do inline.
+_allowed_signers_path() {
+  local old_path="$HOME/.config/git/allowed_signers"
+  local new_path="${XDG_STATE_HOME:-$HOME/.local/state}/dot/git/allowed_signers"
+  mkdir -p "$(dirname "$new_path")"
+  if [[ -f "$old_path" && ! -f "$new_path" ]]; then
+    mv "$old_path" "$new_path"
+  fi
+  printf '%s\n' "$new_path"
+}
+
 git_add_identity() {
   local name="" host="" email="" github_user="" key=""
   while [[ $# -gt 0 ]]; do
@@ -213,9 +228,9 @@ git_add_identity() {
   # Allowed-signers entry so signatures verify locally (git log --show-signature,
   # git verify-commit). One idempotent `<email> <keytype> <keydata>` line per slot;
   # gpg.ssh.allowedSignersFile points here as a neutral setting in config/git/config.
-  local allowed_signers="$HOME/.config/git/allowed_signers"
+  local allowed_signers
+  allowed_signers="$(_allowed_signers_path)"
   if [[ -f "$pubkey" ]]; then
-    mkdir -p "$(dirname "$allowed_signers")"
     touch "$allowed_signers"
     # Take only keytype+keydata (drop the trailing comment) so the principal binds to
     # exactly one key regardless of the .pub file's comment.
@@ -282,7 +297,8 @@ git_remove_identity() {
   local identities="$HOME/.gitconfig-identities"
   [[ -f "$identities" ]] && identities_drop_alias "$identities" "$alias"
 
-  local allowed_signers="$HOME/.config/git/allowed_signers"
+  local allowed_signers
+  allowed_signers="$(_allowed_signers_path)"
   if [[ -f "$allowed_signers" && -n "$email" ]]; then
     local tmp
     tmp="$(mktemp)"

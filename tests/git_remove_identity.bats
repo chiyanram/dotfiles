@@ -4,6 +4,7 @@ setup() {
   SANDBOX="$(cd "$SANDBOX" && pwd -P)" # resolve symlinks so include paths match
   export HOME="$SANDBOX"
   export XDG_CONFIG_HOME="$SANDBOX/.config"
+  unset XDG_STATE_HOME # force the code's $HOME/.local/state fallback, not the real machine's
   export DOTFILES="$REPO"
   export TERM=dumb
   # Make git use a clean global config (the committed one) under XDG.
@@ -54,7 +55,7 @@ add_managed_slot() {
   [[ "$output" == *"path = ~/.gitconfig-pers"* ]]
 
   # allowed_signers: ee line gone, pers line intact
-  run cat "$HOME/.config/git/allowed_signers"
+  run cat "$HOME/.local/state/dot/git/allowed_signers"
   [[ "$output" != *"me@work.test "* ]]
   [[ "$output" == *"me@home2.test "* ]]
 

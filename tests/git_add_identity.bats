@@ -4,6 +4,7 @@ setup() {
   SANDBOX="$(cd "$SANDBOX" && pwd -P)" # resolve symlinks so include paths match
   export HOME="$SANDBOX"
   export XDG_CONFIG_HOME="$SANDBOX/.config"
+  unset XDG_STATE_HOME # force the code's $HOME/.local/state fallback, not the real machine's
   export DOTFILES="$REPO"
   export TERM=dumb
   # Make git use a clean global config (the committed one) under XDG.
@@ -135,7 +136,7 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   [ "$output" = "true" ]
 
   # Allowed-signers gains an <email> <keytype> <keydata> line for the slot.
-  run cat "$HOME/.config/git/allowed_signers"
+  run cat "$HOME/.local/state/dot/git/allowed_signers"
   [[ "$output" == *"me@work.test ssh-ed25519 "* ]]
 }
 
@@ -194,7 +195,7 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   "$REPO/bin/dot-git" add-identity --name ee --host github.com \
     --email me@work.test --key "$HOME/seedkey"
 
-  run bash -c "grep -c 'me@work.test ssh-ed25519' '$HOME/.config/git/allowed_signers'"
+  run bash -c "grep -c 'me@work.test ssh-ed25519' '$HOME/.local/state/dot/git/allowed_signers'"
   [ "$output" -eq 1 ]
   # Fragment keys are single-valued (git config replaces, not appends).
   run bash -c "grep -c 'gpgsign = true' '$HOME/.gitconfig-ee'"
