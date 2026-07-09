@@ -23,4 +23,4 @@ CLAUDE.md's Brewfile rules, applied every time:
 
 - Validate formatting/lint: `pre-commit run --all-files` (or at minimum `shfmt`/`shellcheck` don't apply here, but `prettier`/`check-yaml` may touch adjacent files — pre-commit is the safe check for a Brewfile-only change).
 - Optionally install to verify: `dot homebrew bundle`.
-- This is a config change, not a script/test change — still follows the repo's issue+branch+worktree ritual (see `new-issue-worktree`) unless bundled into a larger change that already has one.
+- This is a config change, not a script/test change — still follows the repo's issue+branch+worktree ritual unless bundled into a larger change that already has one.

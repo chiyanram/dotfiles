@@ -26,9 +26,6 @@ a worktree — that was discussed and deliberately left undone as a default.
 
 ## Skills (`.claude/skills/<name>/SKILL.md`)
 
-- `new-issue-worktree` — scaffolds the issue → branch → worktree ritual,
-  including the `EnterWorktree` branch-rename step (it doesn't know this
-  repo's `<type>/<issue>-<desc>` naming convention).
 - `pr-close-issue` — runs `dot-test`, opens the PR with `Closes #N`, checks CI
   (not just local green — see issue #59), reminds to squash-merge.
 - `brewfile-add` — adds a `brew/Brewfile.*` entry against the four documented
