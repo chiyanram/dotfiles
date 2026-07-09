@@ -56,6 +56,7 @@ export PATH="/opt/homebrew/bin:$PATH"
 export PATH="$DOTFILES/bin:$PATH"
 export PATH="$HOME/bin:$PATH"
 export PATH="/Applications/IntelliJ IDEA.app/Contents/MacOS:$PATH"
+[[ -d "$HOME/.rd/bin" ]] && export PATH="$HOME/.rd/bin:$PATH" # Rancher Desktop's docker/kubectl/helm/nerdctl shims
 
 # De-duplicate PATH
 typeset -U path
