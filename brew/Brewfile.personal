@@ -4,16 +4,11 @@
 # (defaults to docker-desktop for personal; override with:
 #   dot profile set-config docker_runtime <docker-desktop|rancher|colima>).
 # Add personal-only apps here.
-brew 'dive'                            # Docker image layer analyzer
-brew 'lazydocker'                      # Docker TUI
 brew 'navi'                            # interactive cheatsheet browser
 brew 'miller'                          # awk/sed for CSV/TSV/JSON (stock/MF exports)
 brew 'presenterm'                      # markdown terminal slideshows
-brew 'gradle-profiler'                 # benchmark/profile slow Gradle builds
-cask 'aerospace'                       # adopted by dot reconcile — describe me
-cask 'claude'                          # adopted by dot reconcile — describe me
-cask 'font-cascadia-code'              # adopted by dot reconcile — describe me
-cask 'font-caskaydia-cove-nerd-font'   # adopted by dot reconcile — describe me
-brew 'glab'                            # adopted by dot reconcile — describe me
-cask 'microsoft-auto-update'           # adopted by dot reconcile — describe me
-cask 'microsoft-office'                # adopted by dot reconcile — describe me
+cask 'aerospace'                       # tiling window manager
+cask 'claude'                          # Claude desktop app (chat/artifacts outside the terminal)
+brew 'glab'                            # GitLab CLI
+cask 'microsoft-auto-update'           # required updater for microsoft-office
+cask 'microsoft-office'                # MS Office suite (personal use)
