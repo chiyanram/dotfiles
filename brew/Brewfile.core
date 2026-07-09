@@ -11,8 +11,7 @@ if OS.mac?
   cask 'ghostty'                       # a better terminal emulator
   cask 'iterm2'                        # iTerm2 — full-featured macOS terminal emulator
   cask 'jdk-mission-control'           # GUI to analyze JFR recordings (pairs with jfr)
-  cask 'intellij-idea'                 # IntelliJ IDEA Ultimate — JetBrains Java/Kotlin IDE
-  cask 'jetbrains-toolbox'             # JetBrains IDE manager (Toolbox scripts on PATH via .zprofile)
+  cask 'jetbrains-toolbox'             # JetBrains IDE manager (installs/updates IntelliJ IDEA; scripts on PATH via .zprofile)
   cask 'claude-code'                   # Claude Code — terminal AI coding assistant (provides `claude`)
 
   # Fonts
@@ -73,6 +72,11 @@ brew 'sd'                              # simpler find/replace than sed (not a PO
 brew 'jbang'                           # run Java source files as scripts without a project
 brew 'ktlint'                          # Kotlin linter/formatter (complements detekt)
 brew 'async-profiler'                  # low-overhead JVM sampling profiler (flame graphs)
+brew 'gradle-profiler'                 # benchmark/profile slow Gradle builds
+
+# Docker
+brew 'dive'                            # Docker image layer analyzer
+brew 'lazydocker'                      # Docker TUI
 
 # Infrastructure
 brew 'yq'                              # jq for YAML — essential for K8s/Helm work
