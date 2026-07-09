@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Description: Report drift between the repo and this machine; prune or adopt undeclared items.
+# Description: Report drift between the repo and this machine; prune, adopt, or ignore undeclared items.
 
 set -Eeuo pipefail
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
@@ -21,25 +21,33 @@ usage() {
   $(fmt_key "Usage:") $(fmt_key "$command_name") $(fmt_value "[domain]")
          $(fmt_key "$command_name") $(fmt_value "<domain> --prune <names...> | --all")
          $(fmt_key "$command_name") $(fmt_value "<domain> --adopt <names...> | --all [--to core]")
+         $(fmt_key "$command_name") $(fmt_value "<domain> --ignore <names...> | --all")
+         $(fmt_key "$command_name") $(fmt_value "<domain> --unignore <names...> | --all")
 
   Report drift between the repo's declared state (Brewfiles, sdkman/toolchain,
   .zshrc plugins, config/home links) and what is actually on this machine.
   The report is read-only. Domains: $DOMAINS (default: all).
 
-  --prune and --adopt resolve undeclared items of ONE domain (brew, sdkman,
-  plugins — symlinks are dot clean / dot link's job): prune uninstalls them,
-  adopt appends them to the declared file (Brewfile / toolchain / .zshrc) and
-  leaves the edit UNCOMMITTED for review. Only items the report lists as
-  undeclared qualify; anything declared (here or in another profile) is
-  refused. The report is the preview: no names and no --all changes nothing.
+  --prune, --adopt, and --ignore resolve undeclared items of ONE domain (brew,
+  sdkman, plugins — symlinks are dot clean / dot link's job): prune uninstalls
+  them, adopt appends them to the declared file (Brewfile / toolchain /
+  .zshrc) and leaves the edit UNCOMMITTED for review, ignore records them in a
+  machine-local, never-committed file so they stop showing as undeclared (for
+  one-off installs you don't want to uninstall OR declare). --unignore
+  reverses --ignore. Only items the report lists as undeclared (or, for
+  --unignore, ignored) qualify; anything declared (here or in another
+  profile) is refused. The report is the preview: no names and no --all
+  changes nothing.
 
 Options:
-    --prune <names...>   Remove the named undeclared items
-    --adopt <names...>   Declare the named undeclared items (uncommitted edit)
-    --all                Apply the action to every undeclared item
-    --to core            With brew --adopt: append to Brewfile.core instead of
-                         the active profile's Brewfile
-    -h, --help           Show this help message
+    --prune <names...>     Remove the named undeclared items
+    --adopt <names...>     Declare the named undeclared items (uncommitted edit)
+    --ignore <names...>    Stop reporting the named undeclared items (machine-local)
+    --unignore <names...>  Resume reporting the named ignored items
+    --all                  Apply the action to every eligible item
+    --to core              With brew --adopt: append to Brewfile.core instead of
+                           the active profile's Brewfile
+    -h, --help             Show this help message
 EOF
 }
 
@@ -63,18 +71,21 @@ report_brew() {
   reconcile_brew_undeclared | _section "$YELLOW" "undeclared (installed, in no Brewfile)" ""
   reconcile_brew_missing | _section "$RED" "missing (declared, not installed)" "→ dot homebrew bundle"
   reconcile_brew_declared_elsewhere | _section "$DIM" "declared in another profile (informational)" ""
+  reconcile_brew_ignored_active | _section "$DIM" "ignored (informational)" ""
 }
 
 report_sdkman() {
   fmt_title_underline "SDKMAN"
   reconcile_sdkman_undeclared | _section "$YELLOW" "undeclared (installed, not in toolchain)" ""
   reconcile_sdkman_missing | _section "$RED" "missing (declared, not installed)" "→ dot sdkman install"
+  reconcile_sdkman_ignored_active | _section "$DIM" "ignored (informational)" ""
 }
 
 report_plugins() {
   fmt_title_underline "Zsh plugins"
   reconcile_plugins_undeclared | _section "$YELLOW" "undeclared (cloned, not in .zshrc)" ""
   reconcile_plugins_missing | _section "$RED" "missing (declared, not cloned)" "→ open a new shell (zfetch clones on startup)"
+  reconcile_plugins_ignored_active | _section "$DIM" "ignored (informational)" ""
 }
 
 report_symlinks() {
@@ -84,20 +95,24 @@ report_symlinks() {
   reconcile_symlinks_missing | _section "$RED" "unhealthy (state + target)" "→ dot link (see: dot link --status)"
 }
 
-# Apply a resolve verb (prune | adopt) to the named (or all) undeclared items
-# of one domain. Every name is checked against the domain's undeclared set —
-# the ONLY gate between user input and an uninstall / declared-file edit, so a
-# declared / declared-elsewhere / alias-declared name is refused, never touched.
+# Apply a resolve verb (prune | adopt | ignore | unignore) to the named (or
+# all) eligible items of one domain. Every name is checked against the
+# domain's eligible set — the ONLY gate between user input and an uninstall /
+# declared-file edit / ignore-file edit, so a declared / declared-elsewhere /
+# alias-declared name is refused, never touched. --unignore's eligible set is
+# the domain's currently-ignored names (not undeclared — an ignored name is,
+# by definition, excluded from undeclared); every other verb's eligible set is
+# undeclared.
 do_resolve() {
   local verb="$1" domain="$2" all="$3" names="$4" dest="${5:-}"
   case "$domain" in
     brew | sdkman | plugins) ;;
     symlinks)
-      if [ "$verb" = "prune" ]; then
-        log_error "symlinks has no --prune — dangling links are removed by: dot clean"
-      else
-        log_error "symlinks has no --adopt — import live files with: dot link --adopt"
-      fi
+      case "$verb" in
+        prune) log_error "symlinks has no --prune — dangling links are removed by: dot clean" ;;
+        adopt) log_error "symlinks has no --adopt — import live files with: dot link --adopt" ;;
+        *) log_error "symlinks has no --$verb — link health has no ignore/unignore concept" ;;
+      esac
       return 1
       ;;
     "")
@@ -114,12 +129,17 @@ do_resolve() {
     return 1
   fi
 
-  local undeclared
-  undeclared="$("reconcile_${domain}_undeclared")"
+  local eligible eligible_label="undeclared"
+  if [ "$verb" = "unignore" ]; then
+    eligible="$("reconcile_${domain}_ignored")"
+    eligible_label="ignored"
+  else
+    eligible="$("reconcile_${domain}_undeclared")"
+  fi
   if [ "$all" = true ]; then
-    names="$undeclared"
+    names="$eligible"
     if [ -z "$names" ]; then
-      log_success "Nothing undeclared in $domain — nothing to $verb"
+      log_success "Nothing $eligible_label in $domain — nothing to $verb"
       return 0
     fi
   elif [ -z "$names" ]; then
@@ -128,11 +148,19 @@ do_resolve() {
   fi
 
   local name failed=0 done_label="pruned"
-  [ "$verb" = "adopt" ] && done_label="adopted"
+  case "$verb" in
+    adopt) done_label="adopted" ;;
+    ignore) done_label="ignored" ;;
+    unignore) done_label="unignored" ;;
+  esac
   while IFS= read -r name; do
     [ -n "$name" ] || continue
-    if ! printf '%s\n' "$undeclared" | grep -qxF "$name"; then
-      log_error "refusing to $verb $name — not undeclared in $domain (declared here or in another profile, or not installed)"
+    if ! printf '%s\n' "$eligible" | grep -qxF "$name"; then
+      if [ "$verb" = "unignore" ]; then
+        log_error "refusing to unignore $name — not currently ignored in $domain"
+      else
+        log_error "refusing to $verb $name — not undeclared in $domain (declared here or in another profile, or not installed)"
+      fi
       failed=1
       continue
     fi
@@ -169,17 +197,17 @@ report() {
   local summary
   summary="$(reconcile_summary)"
   if [ -n "$summary" ]; then
-    log_warning "Drift found — resolve with the hints above, or: $command_name <domain> --prune / --adopt"
+    log_warning "Drift found — resolve with the hints above, or: $command_name <domain> --prune / --adopt / --ignore"
   else
     log_success "No drift — this machine matches the repo's declared state"
   fi
 }
 
 main() {
-  # Grammar: [domain] [--prune|--adopt [names... | --all]] [--to core] — the
-  # first positional is the domain; positionals after the verb are names
-  # (newline-joined, not an array: "${arr[@]}" on an empty array trips set -u
-  # under bash 3.2).
+  # Grammar: [domain] [--prune|--adopt|--ignore|--unignore [names... | --all]]
+  # [--to core] — the first positional is the domain; positionals after the
+  # verb are names (newline-joined, not an array: "${arr[@]}" on an empty
+  # array trips set -u under bash 3.2).
   local scope="" verb="" all=false names="" dest=""
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -187,9 +215,9 @@ main() {
         usage
         exit 0
         ;;
-      --prune | --adopt)
+      --prune | --adopt | --ignore | --unignore)
         if [ -n "$verb" ]; then
-          log_error "--prune and --adopt are mutually exclusive"
+          log_error "--prune, --adopt, --ignore, and --unignore are mutually exclusive"
           exit 1
         fi
         verb="${1#--}"
@@ -224,7 +252,7 @@ main() {
   done
 
   if [ "$all" = true ] && [ -z "$verb" ]; then
-    log_error "--all only makes sense with --prune or --adopt"
+    log_error "--all only makes sense with --prune, --adopt, --ignore, or --unignore"
     exit 1
   fi
   if [ -n "$dest" ] && [ -z "$verb" ]; then
