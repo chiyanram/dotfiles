@@ -444,13 +444,19 @@ unlink_apply() {
 
 cmd_link() {
   local operation="$1"
-  local pkg="$2"
+  local pkg="${2:-}" # set -u-safe: a bare `dot link` has no target
   shift 2 || true
 
   # Handle 'dot link --status' (no pkg required)
   if [ "$operation" = "link" ] && [ "$pkg" = "--status" ]; then
     link_status
     return
+  fi
+
+  # A target is required (a package name, 'all', or --status). Guide, don't crash.
+  if [ -z "$pkg" ]; then
+    log_error "Usage: dot $operation <package|all> [-v|-f|-b|--adopt|-n]   (dot link also supports --status)"
+    exit 1
   fi
 
   local verbose=false
