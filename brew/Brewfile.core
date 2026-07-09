@@ -9,6 +9,7 @@ if OS.mac?
 
   # Applications (cross-profile)
   cask 'ghostty'                       # a better terminal emulator
+  cask 'iterm2'                        # iTerm2 — full-featured macOS terminal emulator
   cask 'jdk-mission-control'           # GUI to analyze JFR recordings (pairs with jfr)
   cask 'intellij-idea'                 # IntelliJ IDEA Ultimate — JetBrains Java/Kotlin IDE
   cask 'jetbrains-toolbox'             # JetBrains IDE manager (Toolbox scripts on PATH via .zprofile)
