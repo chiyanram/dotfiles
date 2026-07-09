@@ -108,6 +108,18 @@ update_nvim_plugins() {
   if [[ "$changed" -eq 1 ]]; then return "$STEP_CHANGED_CODE"; fi
 }
 
+# Pure: classify a failed `git pull` from its log. The common recoverable case is
+# untracked local files colliding with incoming tracked ones (git aborts with
+# "untracked working tree files would be overwritten"); everything else is other.
+_dotfiles_pull_failed_kind() {
+  local log="$1"
+  if grep -q "untracked working tree files would be overwritten" "$log" 2>/dev/null; then
+    printf 'untracked-collision\n'
+  else
+    printf 'other\n'
+  fi
+}
+
 update_dotfiles() {
   fmt_title_underline "Updating dotfiles"
 
@@ -138,6 +150,10 @@ update_dotfiles() {
     rm -f "$RUN_LOG"
     return "$STEP_CHANGED_CODE"
   else
+    if [[ "$(_dotfiles_pull_failed_kind "$RUN_LOG")" == "untracked-collision" ]]; then
+      log_error "Update blocked: untracked local files collide with incoming tracked files."
+      log_info "Back them up and remove them (listed below), then re-run: dot update dotfiles"
+    fi
     surface_step_failure "Failed to update dotfiles"
     return 1
   fi
