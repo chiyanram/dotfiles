@@ -1,7 +1,8 @@
 # shellcheck shell=bash
 # Drift-detection core for `dot reconcile` (design approach B): per-domain
 # adapters, sourced by dot-reconcile, dot-doctor, dot-migrate. Detection is
-# read-only; the prune/adopt verbs at the bottom are invoked ONLY by dot-reconcile.
+# read-only; the prune/adopt/ignore/unignore verbs at the bottom are invoked
+# ONLY by dot-reconcile.
 # Functions only — no side effects at source time; safe under the caller's set -e.
 # Self-sources bin/lib/brew.sh (dot_brewfiles, dot_docker_runtime*, dot_profile),
 # bin/lib/links.sh (classify_link, managed_targets), and bin/lib/sdkman.sh
@@ -13,6 +14,55 @@ source "$(dirname "${BASH_SOURCE[0]}")/brew.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/links.sh"
 # shellcheck disable=SC1091
 source "$(dirname "${BASH_SOURCE[0]}")/sdkman.sh"
+
+# --- ignore state (machine-local, #96) -----------------------------------------
+# A third resolution alongside adopt/prune: "yes, I know this is installed on
+# THIS machine, leave it alone" — for one-off/ad-hoc installs that don't belong
+# in a shared, committed Brewfile/toolchain/.zshrc, but also aren't things to
+# uninstall. State is one "<domain> <name>" line per ignored item in
+# ~/.config/dotfiles/reconcile-ignore — same convention as
+# ~/.config/dotfiles/profile (_dot_state_dir, bin/lib/profile.sh): machine-local,
+# never committed. Ignored names are excluded from every domain's `undeclared`
+# (so --adopt --all can never re-sweep them) via the per-domain reconcile_*_ignored
+# wrappers below.
+
+_reconcile_ignore_file() { printf '%s\n' "$(_dot_state_dir)/reconcile-ignore"; }
+
+# Names ignored for one domain, from the machine-local ignore file.
+_reconcile_ignored_names() {
+  local domain="$1" file
+  file="$(_reconcile_ignore_file)"
+  [ -f "$file" ] || return 0
+  awk -v d="$domain" '$1 == d { print $2 }' "$file" | sort -u
+}
+
+_reconcile_ignore_add() {
+  local domain="$1" name="$2" file
+  file="$(_reconcile_ignore_file)"
+  mkdir -p "$(dirname "$file")"
+  grep -qxF "$domain $name" "$file" 2>/dev/null && return 0
+  printf '%s %s\n' "$domain" "$name" >>"$file"
+}
+
+_reconcile_ignore_remove() {
+  local domain="$1" name="$2" file tmp
+  file="$(_reconcile_ignore_file)"
+  [ -f "$file" ] || return 1
+  grep -qxF "$domain $name" "$file" 2>/dev/null || return 1
+  tmp="$(mktemp)"
+  grep -vxF "$domain $name" "$file" >"$tmp"
+  mv "$tmp" "$file"
+}
+
+# Ignored names currently still installed — for the report's dim "ignored
+# (informational)" section. An ignored item that's since been uninstalled has
+# nothing left to report and shouldn't linger forever.
+_reconcile_ignored_active() {
+  local domain="$1" ignored
+  ignored="$(_reconcile_ignored_names "$domain")"
+  [ -n "$ignored" ] || return 0
+  "reconcile_${domain}_actual" | grep -xF -f <(printf '%s\n' "$ignored") 2>/dev/null || true
+}
 
 # --- plugins domain -----------------------------------------------------------
 # zfetch clones each `zfetch owner/repo ...` line in the repo's .zshrc to
@@ -35,12 +85,18 @@ reconcile_plugins_actual() {
     sed "s|^${zpd%/}/||"
 }
 
+reconcile_plugins_ignored() { _reconcile_ignored_names plugins; }
+reconcile_plugins_ignored_active() { _reconcile_ignored_active plugins; }
+
 # Undeclared: actual clones the repo no longer declares.
 reconcile_plugins_undeclared() {
-  local declared
-  declared="$(reconcile_plugins_declared)"
+  local excluded
+  excluded="$(
+    reconcile_plugins_declared
+    reconcile_plugins_ignored
+  )"
   reconcile_plugins_actual |
-    grep -vxF -f <(printf '%s\n' "$declared") 2>/dev/null || true
+    grep -vxF -f <(printf '%s\n' "$excluded") 2>/dev/null || true
 }
 
 # --- brew domain --------------------------------------------------------------
@@ -160,11 +216,15 @@ reconcile_brew_actual() {
   } | sort -u
 }
 
+reconcile_brew_ignored() { _reconcile_ignored_names brew; }
+reconcile_brew_ignored_active() { _reconcile_ignored_active brew; }
+
 reconcile_brew_undeclared() {
   local excluded
   excluded="$(
     reconcile_brew_declared
     reconcile_brew_declared_elsewhere
+    reconcile_brew_ignored
   )"
   reconcile_brew_actual |
     grep -vxF -f <(printf '%s\n' "$excluded") 2>/dev/null || true
@@ -203,11 +263,17 @@ reconcile_sdkman_actual() {
     sed "s|^${dir%/}/||" | sort -u
 }
 
+reconcile_sdkman_ignored() { _reconcile_ignored_names sdkman; }
+reconcile_sdkman_ignored_active() { _reconcile_ignored_active sdkman; }
+
 reconcile_sdkman_undeclared() {
-  local declared
-  declared="$(reconcile_sdkman_declared)"
+  local excluded
+  excluded="$(
+    reconcile_sdkman_declared
+    reconcile_sdkman_ignored
+  )"
   reconcile_sdkman_actual |
-    grep -vxF -f <(printf '%s\n' "$declared") 2>/dev/null || true
+    grep -vxF -f <(printf '%s\n' "$excluded") 2>/dev/null || true
 }
 
 reconcile_sdkman_missing() {
@@ -376,6 +442,21 @@ reconcile_plugins_adopt() {
   log_error "shell smoke failed after inserting zfetch $plugin — reverted .zshrc"
   return 1
 }
+
+# --- ignore/unignore verbs (#96) -------------------------------------------------
+# One item per call; writes to the machine-local ignore file only — nothing to
+# review or commit (unlike adopt), nothing to uninstall (unlike prune). Same
+# contract as prune/adopt: dot-reconcile is the only caller and has already
+# validated the name (against the domain's undeclared set for ignore, its
+# ignored set for unignore).
+
+reconcile_brew_ignore() { _reconcile_ignore_add brew "$1"; }
+reconcile_sdkman_ignore() { _reconcile_ignore_add sdkman "$1"; }
+reconcile_plugins_ignore() { _reconcile_ignore_add plugins "$1"; }
+
+reconcile_brew_unignore() { _reconcile_ignore_remove brew "$1"; }
+reconcile_sdkman_unignore() { _reconcile_ignore_remove sdkman "$1"; }
+reconcile_plugins_unignore() { _reconcile_ignore_remove plugins "$1"; }
 
 # --- summary --------------------------------------------------------------------
 # One line per domain that has drift ("<domain>: N undeclared, M missing"), empty
