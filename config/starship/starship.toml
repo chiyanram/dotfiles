@@ -15,13 +15,16 @@ $username\
 $hostname\
 $git_branch\
 $git_status\
+${custom.git_identity}\
 $java\
+${custom.java_active}\
 $kotlin\
 $scala\
 $terraform\
 $docker_context\
 $kubernetes\
 $cmd_duration\
+$status\
 $line_break\
 $character"""
 
@@ -60,12 +63,63 @@ renamed = "»${count}"
 deleted = "✘${count}"
 up_to_date = "✓"
 
+# ─── Git Identity Slot ────────────────────────────
+# Which identity slot (personal/ee/client — ADR 0001) the repo's origin is
+# bound to. Reuses bin/lib/git-slots.sh's git_slot_status/git_slot_name_for_alias
+# — the exact logic the Identity Guard hook and `dot doctor`'s audit already
+# use — so this can never disagree with what would actually block a commit.
+# Shows nothing when there's no origin or the host has no slot concept
+# (git_slot_status returns none/unparseable/unknown); shows a warning when
+# the repo is mis-set (misset-*), i.e. exactly the case `dot doctor` flags.
+[custom.git_identity]
+when = "git rev-parse --is-inside-work-tree 2>/dev/null"
+# git-slots.sh (transitively common.sh) uses process substitution `<(...)`,
+# a bash-only construct — /bin/sh on macOS is bash in POSIX mode and rejects
+# it (silently, since the source line's stderr is swallowed by `|| exit 0`).
+shell = ["bash", "--noprofile", "--norc"]
+command = '''
+  # shellcheck disable=SC1091
+  source "$DOTFILES/bin/lib/git-slots.sh" 2>/dev/null || exit 0
+  url="$(git remote get-url origin 2>/dev/null)"
+  status="$(git_slot_status "$url")"
+  case "$status" in
+    bound:*)
+      alias="${status#bound:}"
+      name="$(git_slot_name_for_alias "$alias" 2>/dev/null)"
+      [ -n "$name" ] && printf '🔑 %s' "$name"
+      ;;
+    misset-*)
+      printf '⚠ unbound'
+      ;;
+  esac
+'''
+format = "([ · ](#6e738d)[$output]($style))"
+style = "bold #f5bde6"
+
 # ─── Java ─────────────────────────────────────────
 [java]
 format = '[ · ](#6e738d)[ $version]($style)'
 style = "bold #ed8796"
 detect_files = ["pom.xml", "build.gradle", "build.gradle.kts", ".java-version"]
 detect_extensions = ["java", "class", "jar"]
+
+# ─── SDKMAN-active JDK ────────────────────────────
+# $JAVA_HOME reflects whichever JDK is actually active in THIS shell — which
+# can differ from the project's target version shown by [java] above, since
+# SDKMAN's sdkman_auto_env (home/.zshrc:270's chpwd hook) switches JAVA_HOME
+# per-directory based on a .sdkmanrc, independent of what a build file
+# declares. Only prints when JAVA_HOME is an SDKMAN candidate path, and only
+# alongside [java] (same detect_files) — this is a "target vs active"
+# comparison, not a standalone fact worth showing on its own.
+[custom.java_active]
+when = "test -f pom.xml -o -f build.gradle -o -f build.gradle.kts -o -f .java-version"
+command = '''
+  case "$JAVA_HOME" in
+    */candidates/java/*) printf 'active %s' "$(basename "$JAVA_HOME")" ;;
+  esac
+'''
+format = "([ · ](#6e738d)[$output]($style))"
+style = "bold #8bd5ca"
 
 # ─── Kotlin ───────────────────────────────────────
 [kotlin]
@@ -111,6 +165,15 @@ style = "bold #91d7e3"
 min_time = 3_000
 format = '[ · ](#6e738d)[ $duration]($style)'
 style = "bold #eed49f"
+
+# ─── Last Exit Code ───────────────────────────────
+# Disabled by default in starship; the arrow color alone (see [character])
+# says success/fail but not WHY — 127 (not found) vs 1 (generic) vs a
+# killed-by-signal code are different problems.
+[status]
+disabled = false
+format = '[ · ](#6e738d)[✖ $status]($style)'
+style = "bold #ed8796"
 
 # ─── Username (SSH only) ─────────────────────────
 [username]
