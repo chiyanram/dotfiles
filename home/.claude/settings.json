@@ -13,5 +13,6 @@
     "claude-code-setup@claude-plugins-official": true,
     "hookify@claude-plugins-official": true
   },
-  "theme": "dark"
+  "theme": "dark",
+  "effortLevel": "high"
 }
