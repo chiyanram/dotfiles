@@ -104,19 +104,34 @@ detect_files = ["pom.xml", "build.gradle", "build.gradle.kts", ".java-version"]
 detect_extensions = ["java", "class", "jar"]
 
 # ─── SDKMAN-active JDK ────────────────────────────
-# $JAVA_HOME reflects whichever JDK is actually active in THIS shell — which
-# can differ from the project's target version shown by [java] above, since
-# SDKMAN's sdkman_auto_env (home/.zshrc:270's chpwd hook) switches JAVA_HOME
-# per-directory based on a .sdkmanrc, independent of what a build file
-# declares. Only prints when JAVA_HOME is an SDKMAN candidate path, and only
-# alongside [java] (same detect_files) — this is a "target vs active"
-# comparison, not a standalone fact worth showing on its own.
+# Whichever JDK `java` actually resolves to in THIS shell — which can differ
+# from the project's target version shown by [java] above, since SDKMAN's
+# sdkman_auto_env (home/.zshrc:270's chpwd hook) switches the active
+# candidate per-directory based on a .sdkmanrc, independent of what a build
+# file declares. Resolved via `command -v java`, NOT $JAVA_HOME: SDKMAN is
+# lazy-loaded here (candidate bins go on PATH without exporting JAVA_HOME
+# until something triggers full init — home/.zshrc's own lazy-load comment),
+# so JAVA_HOME is routinely empty even when `java` itself resolves correctly
+# through the SDKMAN shim (verified: a real project showed nothing here
+# despite `java -version` correctly reporting the SDKMAN-managed version).
+# Only prints when PATH resolves an SDKMAN candidate path, and only alongside
+# [java] (same detect_files) — this is a "target vs active" comparison, not
+# a standalone fact worth showing on its own.
 [custom.java_active]
 when = "test -f pom.xml -o -f build.gradle -o -f build.gradle.kts -o -f .java-version"
 command = '''
-  case "$JAVA_HOME" in
-    */candidates/java/*) printf 'active %s' "$(basename "$JAVA_HOME")" ;;
+  bin="$(command -v java 2>/dev/null)" || exit 0
+  case "$bin" in
+    */candidates/java/*/bin/java) ;;
+    *) exit 0 ;;
   esac
+  dir="${bin%/bin/java}"
+  slot="${dir##*/}"
+  if [ "$slot" = "current" ]; then
+    real="$(readlink "$dir" 2>/dev/null)"
+    [ -n "$real" ] && slot="${real##*/}"
+  fi
+  printf 'active %s' "$slot"
 '''
 format = "([ · ](#6e738d)[$output]($style))"
 style = "bold #8bd5ca"
