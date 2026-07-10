@@ -1,13 +1,18 @@
-# Bracketed Segments — Catppuccin Macchiato palette, Nerd Font glyphs
+# Dot-separated single line — Catppuccin Macchiato palette, Nerd Font glyphs
 # Tailored for Java / Spring Boot / Kubernetes / Terraform / Docker
+# Each module after $directory carries its own leading " · " (dim, #6e738d),
+# baked into that module's own format — a module that doesn't render (not a
+# git repo, no java project, command under min_time, etc.) contributes
+# nothing, so there's never a dangling separator. $directory always renders
+# and goes first, so it alone needs no leading separator.
 
 add_newline = true
 command_timeout = 2000
 
 format = """
+$directory\
 $username\
 $hostname\
-$directory\
 $git_branch\
 $git_status\
 $java\
@@ -29,19 +34,19 @@ error_symbol = "[❯](bold #ed8796)"
 [directory]
 truncation_length = 3
 truncation_symbol = "…/"
-format = '\[[ $path]($style)\] '
+format = '[$path]($style)'
 style = "bold #8aadf4"
 
 # ─── Git Branch ───────────────────────────────────
 [git_branch]
-format = '\[[$symbol$branch]($style)\] '
+format = '[ · ](#6e738d)[$symbol$branch]($style)'
 symbol = " "
 style = "bold #c6a0f6"
 truncation_length = 24
 
 # ─── Git Status ───────────────────────────────────
 [git_status]
-format = '([\[$all_status$ahead_behind\]]($style) )'
+format = '([ · ](#6e738d)[$all_status$ahead_behind]($style))'
 style = "#f5a97f"
 conflicted = "=${count}"
 ahead = "⇡${count}"
@@ -57,19 +62,19 @@ up_to_date = "✓"
 
 # ─── Java ─────────────────────────────────────────
 [java]
-format = '\[[ $version]($style)\] '
+format = '[ · ](#6e738d)[ $version]($style)'
 style = "bold #ed8796"
 detect_files = ["pom.xml", "build.gradle", "build.gradle.kts", ".java-version"]
 detect_extensions = ["java", "class", "jar"]
 
 # ─── Kotlin ───────────────────────────────────────
 [kotlin]
-format = '\[[ $version]($style)\] '
+format = '[ · ](#6e738d)[ $version]($style)'
 style = "bold #c6a0f6"
 
 # ─── Scala ────────────────────────────────────────
 [scala]
-format = '\[[ $version]($style)\] '
+format = '[ · ](#6e738d)[ $version]($style)'
 style = "bold #ee99a0"
 
 # ─── Gradle (disabled — redundant with [java]; java module already detects build.gradle) ──
@@ -78,12 +83,12 @@ disabled = true
 
 # ─── Terraform ────────────────────────────────────
 [terraform]
-format = '\[[ $workspace]($style)\] '
+format = '[ · ](#6e738d)[ $workspace]($style)'
 style = "bold #f5a97f"
 
 # ─── Docker ───────────────────────────────────────
 [docker_context]
-format = '\[[ $context]($style)\] '
+format = '[ · ](#6e738d)[ $context]($style)'
 style = "bold #7dc4e4"
 only_with_files = true
 detect_files = ["docker-compose.yml", "docker-compose.yaml", "Dockerfile"]
@@ -95,7 +100,7 @@ detect_files = ["docker-compose.yml", "docker-compose.yaml", "Dockerfile"]
 [kubernetes]
 disabled = false
 detect_env_vars = ['KUBECONFIG']
-format = '\[[󱃾 $context($namespace)]($style)\] '
+format = '[ · ](#6e738d)[󱃾 $context($namespace)]($style)'
 style = "bold #91d7e3"
 
 [kubernetes.context_aliases]
@@ -104,20 +109,20 @@ style = "bold #91d7e3"
 # ─── Command Duration ────────────────────────────
 [cmd_duration]
 min_time = 3_000
-format = '\[[ $duration]($style)\] '
+format = '[ · ](#6e738d)[ $duration]($style)'
 style = "bold #eed49f"
 
 # ─── Username (SSH only) ─────────────────────────
 [username]
 show_always = false
-format = '\[[$user]($style)\] '
+format = '[ · ](#6e738d)[$user]($style)'
 style_user = "#b8c0e0"
 style_root = "bold #ed8796"
 
 # ─── Hostname (SSH only) ─────────────────────────
 [hostname]
 ssh_only = true
-format = '\[[$ssh_symbol$hostname]($style)\] '
+format = '[ · ](#6e738d)[$ssh_symbol$hostname]($style)'
 style = "#a5adcb"
 trim_at = "-"
 
