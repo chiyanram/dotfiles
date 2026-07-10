@@ -6,3 +6,6 @@
 # Add corp-only tools here (VPN, Slack, company CLIs) as they are approved.
 brew 'terraform-docs'                  # generate Terraform module README tables
 brew 'argocd'                          # ArgoCD GitOps CLI
+cask '1password'                       # company password vault
+cask 'microsoft-teams'                 # work comms
+cask 'slack'                           # work comms

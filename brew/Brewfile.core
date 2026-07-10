@@ -92,3 +92,11 @@ brew 'kustomize'                       # Kubernetes config overlays (non-Helm)
 brew 'kubeconform'                     # validate K8s manifests against API schemas
 brew 'tenv'                            # Terraform/OpenTofu/Terragrunt version manager
 brew 'trivy'                           # security scanner: images, IaC, SBOMs
+cask 'google-chrome'                   # browser
+cask 'visual-studio-code'              # general-purpose editor
+cask 'zoom'                            # video calls
+brew 'go-task'                         # Taskfile.yml runner — evaluating alongside just/Make
+brew 'wget'                            # download files over HTTP from the terminal
+brew 'tree'                            # print a directory structure as a tree
+brew 'tldr'                            # simplified, example-based command cheatsheets
+brew 'gum'                             # interactive prompts/menus for shell scripts
