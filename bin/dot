@@ -60,7 +60,8 @@ $(fmt_key "Available Commands:")
         -f, --force               Replace existing symlinks (refuses to overwrite real files)
         -b, --backup              On a real file: move it to <target>.backup.<ts>, then link (undo: dot restore)
         --adopt                   On a real file: import it INTO the repo, then link (opt-in; changes git state)
-        -n, --dry-run             Preview the plan (CREATE/SKIP/REPLACE/CONFLICT); non-zero on conflict
+        --reseed                  On a seeded target (home/<f>.seed): overwrite the app-owned file with the shipped default (backs up first; undo: dot restore)
+        -n, --dry-run             Preview the plan (CREATE/SEED/SKIP/REPLACE/CONFLICT); non-zero on conflict
         --status                  Show link status without making changes
         -v, --verbose             Show detailed output
     unlink                        Unlink dotfiles packages (never removes a symlink that isn't ours;
@@ -281,6 +282,10 @@ link_status() {
         printf "  %b%-22s%b %s (real file)\n" "$RED" "[REAL]" "$RESET" "$label"
         real=$((real + 1))
         ;;
+      seeded)
+        printf "  %b%-22s%b %b%s (seeded)%b\n" "$GREEN" "[OK]" "$RESET" "$DIM" "$label" "$RESET"
+        ok=$((ok + 1))
+        ;;
       missing)
         printf "  %b%-22s%b %s\n" "$RED" "[MISSING]" "$RESET" "$label"
         missing=$((missing + 1))
@@ -313,11 +318,19 @@ link_plan() {
     # shellcheck disable=SC2088  # tilde is a display label, not expansion
     case "$state" in
       missing)
-        printf "  %b%-9s%b %s\n" "$GREEN" "CREATE" "$RESET" "$label"
+        if [[ "$source" == *.seed ]]; then
+          printf "  %b%-9s%b %s\n" "$GREEN" "SEED" "$RESET" "$label"
+        else
+          printf "  %b%-9s%b %s\n" "$GREEN" "CREATE" "$RESET" "$label"
+        fi
         creates=$((creates + 1))
         ;;
       ok)
         printf "  %b%-9s%b %b%s%b\n" "$DIM" "SKIP" "$RESET" "$DIM" "$label" "$RESET"
+        skips=$((skips + 1))
+        ;;
+      seeded)
+        printf "  %b%-9s%b %b%s (seeded — app owns it)%b\n" "$DIM" "SKIP" "$RESET" "$DIM" "$label" "$RESET"
         skips=$((skips + 1))
         ;;
       wrong)
@@ -358,7 +371,7 @@ manifest_record() {
 
 link_apply() {
   local source="$1" target="$2" label="$3" verbose="$4" force="$5"
-  local backup="${6:-false}" adopt="${7:-false}"
+  local backup="${6:-false}" adopt="${7:-false}" reseed="${8:-false}"
   local target_dir
   target_dir="$(dirname "$target")"
   if [ ! -d "$target_dir" ]; then
@@ -368,9 +381,33 @@ link_apply() {
   # shellcheck disable=SC2088  # tilde in labels is display, not expansion
   case "$(classify_link "$source" "$target")" in
     missing)
-      [ "$verbose" = true ] && log_info "CREATE  $label"
-      ln -s "$source" "$target"
-      manifest_record "create" "$target" ""
+      # A Seed Target is copied, not symlinked — the owning tool rewrites the live
+      # file and a shared inode would churn the repo (ADR-0008). Recorded as a
+      # `seed` undo row so `dot restore` removes the file we created.
+      if [[ "$source" == *.seed ]]; then
+        [ "$verbose" = true ] && log_info "SEED    $label"
+        cp "$source" "$target"
+        manifest_record "seed" "$target" ""
+      else
+        [ "$verbose" = true ] && log_info "CREATE  $label"
+        ln -s "$source" "$target"
+        manifest_record "create" "$target" ""
+      fi
+      ;;
+    seeded)
+      # Present Seed Target — the tool owns it now, so leave it untouched.
+      # `--reseed` is the deliberate opt-in to reset to the shipped default; it
+      # backs up first (recorded so `dot restore` puts the original back).
+      if [ "$reseed" = true ]; then
+        local sbak
+        sbak="$target.backup.$(date +%Y%m%d_%H%M%S)"
+        [ "$verbose" = true ] && log_info "RESEED  $label → $(basename "$sbak")"
+        mv "$target" "$sbak"
+        cp "$source" "$target"
+        manifest_record "reseed" "$target" "$sbak"
+      elif [ "$verbose" = true ]; then
+        log_info "SKIP    $label (seeded — app owns it; --reseed to overwrite)"
+      fi
       ;;
     ok)
       # Use `if`, not `&&`: a bare failing test here would make link_apply return
@@ -439,6 +476,11 @@ unlink_apply() {
     real)
       log_warning "$label is a real file/dir, not a symlink — leaving it"
       ;;
+    seeded)
+      # A Seed Target's live file is owned by its tool (app-managed state), never
+      # a symlink we placed — unlink never deletes it.
+      log_warning "$label is a seeded, app-owned file — leaving it"
+      ;;
   esac
 }
 
@@ -455,7 +497,7 @@ cmd_link() {
 
   # A target is required (a package name, 'all', or --status). Guide, don't crash.
   if [ -z "$pkg" ]; then
-    log_error "Usage: dot $operation <package|all> [-v|-f|-b|--adopt|-n]   (dot link also supports --status)"
+    log_error "Usage: dot $operation <package|all> [-v|-f|-b|--adopt|--reseed|-n]   (dot link also supports --status)"
     exit 1
   fi
 
@@ -464,6 +506,7 @@ cmd_link() {
   local dry_run=false
   local backup=false
   local adopt=false
+  local reseed=false
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -481,6 +524,10 @@ cmd_link() {
         ;;
       --adopt)
         adopt=true
+        shift
+        ;;
+      --reseed)
+        reseed=true
         shift
         ;;
       --status)
@@ -526,7 +573,7 @@ cmd_link() {
       # so `dot link all` and `dot link all -n` can never disagree.
       local source target label
       while IFS=$'\t' read -r source target label; do
-        link_apply "$source" "$target" "$label" "$verbose" "$force" "$backup" "$adopt"
+        link_apply "$source" "$target" "$label" "$verbose" "$force" "$backup" "$adopt" "$reseed"
       done < <(managed_targets)
       # Drop an empty manifest (a no-op re-run changed nothing to undo).
       if [ -s "$DOT_MANIFEST" ]; then
@@ -567,7 +614,7 @@ cmd_link() {
       DOT_MANIFEST="$STATE_DIR/manifest-$(date +%Y%m%d_%H%M%S)-$$.tsv"
       # shellcheck disable=SC2088  # tilde in labels is display, not expansion
       if [ "$operation" = "link" ]; then
-        link_apply "$DOTFILES/config/$pkg" "$target" "~/.config/$pkg" "$verbose" "$force" "$backup" "$adopt"
+        link_apply "$DOTFILES/config/$pkg" "$target" "~/.config/$pkg" "$verbose" "$force" "$backup" "$adopt" "$reseed"
       else # unlink
         unlink_apply "$DOTFILES/config/$pkg" "$target" "~/.config/$pkg" "$verbose"
       fi
@@ -643,6 +690,28 @@ cmd_restore() {
           restored=$((restored + 1))
         else
           log_warning "skip ~${target#"$HOME"} — something now exists there"
+        fi
+        ;;
+      seed)
+        # Undo a copy-if-absent: remove the file we created. Only if it's still a
+        # plain file (never a symlink) — don't touch something else now there.
+        if [ -f "$target" ] && [ ! -L "$target" ]; then
+          rm "$target"
+          log_info "removed  ~${target#"$HOME"}"
+          restored=$((restored + 1))
+        else
+          log_warning "skip ~${target#"$HOME"} — not the seeded file we created"
+        fi
+        ;;
+      reseed)
+        # prev holds the pre-reseed backup; put it back over our copy.
+        if [ -e "$prev" ]; then
+          rm -f "$target"
+          mv "$prev" "$target"
+          log_info "restored ~${target#"$HOME"} from backup"
+          restored=$((restored + 1))
+        else
+          log_warning "skip ~${target#"$HOME"} — backup missing"
         fi
         ;;
     esac

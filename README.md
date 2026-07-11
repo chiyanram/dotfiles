@@ -183,7 +183,9 @@ Each directory under `config/` is a package (the list below is a snapshot — `l
 
 Zsh rc files (`.zshrc`, `.zprofile`, `.zsh_aliases`, `.zsh_functions`, `.docker_aliases`) live under `home/` and symlink directly into `$HOME`.
 
-Claude Code config lives under `home/.claude/` — currently just `statusline.sh` (renders `model · dir/branch · context used+remaining · session cost · lines changed`), which `dot link` symlinks into `~/.claude/`. The rest of `~/.claude/` (projects, transcripts) is untouched. `settings.json` is deliberately **not** tracked (gitignored): the app rewrites it at runtime — model, `effortLevel`, theme, plugin toggles — so symlinking it into the repo just churns the tree and invites merge conflicts; it lives as a real, app-owned file per machine (you wire the status line in via its `statusLine` block, pointing at the symlinked `statusline.sh`). Machine-specific overrides otherwise belong in an untracked `~/.claude/settings.local.json`.
+Claude Code config lives under `home/.claude/` — `statusline.sh` (renders `model · dir/branch · context used+remaining · session cost · lines changed`) is symlinked into `~/.claude/` like any home file. `settings.json` is different: the app rewrites it at runtime (model, `effortLevel`, theme, plugin toggles), so a symlink would churn the repo. It's handled as a **Seed Target** (ADR-0008): the tracked `home/.claude/settings.json.seed` holds the durable shared defaults (status-line wiring, `enabledPlugins`, `theme`), and `dot link` **copies** it to `~/.claude/settings.json` only when that file is absent — a fresh machine gets the defaults once, then the app owns the file (the live file itself stays gitignored). `dot link --reseed` overwrites it with the shipped default on purpose (backs up first). The rest of `~/.claude/` (projects, transcripts) is untouched; other machine-specific overrides belong in an untracked `~/.claude/settings.local.json`.
+
+A `.seed` suffix on any `home/<path>.seed` file opts it into this copy-once behavior — use it for any config a tool rewrites itself. Everything else under `home/` symlinks as before.
 
 ### Shell (ZSH)
 
