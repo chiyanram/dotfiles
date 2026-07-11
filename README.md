@@ -183,7 +183,7 @@ Each directory under `config/` is a package (the list below is a snapshot — `l
 
 Zsh rc files (`.zshrc`, `.zprofile`, `.zsh_aliases`, `.zsh_functions`, `.docker_aliases`) live under `home/` and symlink directly into `$HOME`.
 
-Claude Code config lives under `home/.claude/` — `settings.json` (wires in the status line) and `statusline.sh` (renders `model · dir/branch · context used+remaining · session cost · lines changed`). `dot link` symlinks each file individually, so the rest of `~/.claude/` (projects, transcripts) is untouched. Machine-specific overrides belong in an untracked `~/.claude/settings.local.json`.
+Claude Code config lives under `home/.claude/` — currently just `statusline.sh` (renders `model · dir/branch · context used+remaining · session cost · lines changed`), which `dot link` symlinks into `~/.claude/`. The rest of `~/.claude/` (projects, transcripts) is untouched. `settings.json` is deliberately **not** tracked (gitignored): the app rewrites it at runtime — model, `effortLevel`, theme, plugin toggles — so symlinking it into the repo just churns the tree and invites merge conflicts; it lives as a real, app-owned file per machine (you wire the status line in via its `statusLine` block, pointing at the symlinked `statusline.sh`). Machine-specific overrides otherwise belong in an untracked `~/.claude/settings.local.json`.
 
 ### Shell (ZSH)
 
