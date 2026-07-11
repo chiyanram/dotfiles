@@ -15,14 +15,31 @@ package (`config/<pkg>` → `~/.config/<pkg>`) or a home file (`home/<rel>` →
 _Avoid_: Symlink, config file (a Managed Target is the source/target _pairing_,
 not either path alone).
 
+**Seed Target**:
+A Managed Target applied by **copy-once** instead of symlink, for a file the
+owning tool rewrites at runtime (e.g. Claude Code's `~/.claude/settings.json` —
+model, `effortLevel`, theme, plugins). Declared by a `.seed` source suffix
+(`home/.claude/settings.json.seed` → `~/.claude/settings.json`, suffix stripped).
+`dot link` copies it only when the target is **absent** and never overwrites a
+present one — the tool owns the live file thereafter, so a symlink (shared inode)
+would let the tool's writes churn the repo. `dot link --reseed` is the deliberate
+opt-in to overwrite (backing up first). Mirrors chezmoi's `create_`. See ADR-0008.
+_Avoid_: Template (a seed is copied verbatim, not rendered per-machine — a
+different mechanism); Config Leak (the leak is the _problem_ a Seed Target avoids —
+an app-written file inside a symlinked dir; the Seed Target is the _resolution_).
+
 **Link State**:
-The four-way classification `classify_link` assigns to a Managed Target —
-`missing`, `ok`, `wrong`, or `real` — shared by every command that inspects or
-acts on links (`link_plan`, `link_status`, `link_apply`, `unlink_apply`) so they
-can never disagree about a target's state. `wrong` means "points somewhere other
-than the expected source" — this includes a truly foreign symlink _and_ a stale
-pointer left by a renamed package; both are treated identically as "not ours to
-touch."
+The classification `classify_link` assigns to a Managed Target — shared by every
+command that inspects or acts on links (`link_plan`, `link_status`, `link_apply`,
+`unlink_apply`) so they can never disagree about a target's state. For a symlink
+target it is four-way — `missing`, `ok`, `wrong`, or `real`. `wrong` means "points
+somewhere other than the expected source" — this includes a truly foreign symlink
+_and_ a stale pointer left by a renamed package; both are treated identically as
+"not ours to touch". `real` means a non-symlink file sits where the link should
+go — a conflict `dot link` skips. For a Seed Target the same on-disk facts read
+oppositely: a present real file is `seeded` (success — leave it, the tool owns
+it), and only `missing` triggers action. (The `seeded` state is introduced by
+ADR-0008; implementation tracked in #115.)
 _Avoid_: Broken, dangling (those describe a different condition — a symlink whose
 target no longer resolves at all, handled separately by `dot clean`).
 
