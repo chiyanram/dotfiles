@@ -54,6 +54,8 @@ id_ed25519
 # Claude Code local state (skills ARE committed; machine state is not)
 .claude/settings.local.json
 .claude/worktrees/
+# app rewrites settings.json at runtime (model/effort/theme) — would churn the repo
+home/.claude/settings.json
 
 # Per-machine identity env (e.g. GH_CONFIG_DIR) — never shared, like .gitconfig-local
 .envrc
