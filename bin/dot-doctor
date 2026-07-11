@@ -274,6 +274,11 @@ check_home_links() {
         printf "  %b %b%-22s%b %breal file (not a symlink)%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "$label" "$RESET" "$YELLOW" "$RESET"
         issues=$((issues + 1))
         ;;
+      seeded)
+        # A Seed Target's present live file is the healthy state — the tool owns
+        # it (ADR-0008), so it is not a link issue.
+        printf "  %b %b%-22s%b %bseeded (app-owned)%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "$label" "$RESET" "$DIM" "$RESET"
+        ;;
       missing)
         printf "  %b %b%-22s%b %bnot linked%b\n" "${RED}${ERROR_ICON}" "$BOLD" "$label" "$RESET" "$RED" "$RESET"
         issues=$((issues + 1))

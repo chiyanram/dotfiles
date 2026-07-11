@@ -300,7 +300,9 @@ reconcile_symlinks_missing() {
   local source target label state
   while IFS=$'\t' read -r source target label; do
     state=$(classify_link "$source" "$target")
-    [ "$state" = "ok" ] && continue
+    # `seeded` is a healthy Seed Target (copy-once, app-owned) — not symlink
+    # drift, so it's excluded alongside `ok` (ADR-0008).
+    case "$state" in ok | seeded) continue ;; esac
     printf '%s\t%s\n' "$state" "$label"
   done < <(managed_targets)
 }
