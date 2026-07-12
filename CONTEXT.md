@@ -118,11 +118,27 @@ _Avoid_: Validation, linter.
 The report-only sweep in `dot doctor` that walks the conventional roots
 (`~/work ~/workspace ~/dev ~/dotfiles ~/personal ~/clients`, plus any
 `git_audit_roots` override that augments them) and lists mis-set repos and
-**gh drift** (a slot-bound GitHub repo whose active `gh` account differs from the
-slot's). It never writes and never gates the exit code — the Guard is the
-enforcer; the audit is the proactive convenience sweep. The mis-set decision is
-shared with the Guard via `bin/lib/git-slots.sh`, so the two can never disagree.
+**gh drift** (a slot-bound GitHub repo whose `gh` account differs from the
+slot's) — judged against the slot's Dedicated gh Config when one exists,
+falling back to the single global active account otherwise. It never writes
+and never gates the exit code — the Guard is the enforcer; the audit is the
+proactive convenience sweep. The mis-set decision is shared with the Guard via
+`bin/lib/git-slots.sh`, so the two can never disagree.
 _Avoid_: calling it enforcement (it only reports).
+
+**Dedicated gh Config**:
+A slot's own `gh` CLI config directory (`~/.config/gh-<name>`, mirroring
+`~/.gitconfig-<name>`), bootstrapped once via `GH_CONFIG_DIR=~/.config/gh-<name>
+gh auth login`. The `gh()` shell function (`home/.zsh_functions`) resolves the
+current repo's bound slot on every invocation and re-execs the real `gh` with
+that slot's dedicated config, so concurrent terminals on different slots never
+race — replacing the single global active `gh` account (`gh auth switch`) that
+ADR-0001 originally named as a known limitation. `dot git use`/`add-identity`
+route through a slot's dedicated config when one exists, falling back to the
+old global switch otherwise; `dot git gh-config-dir` prints the current repo's
+dedicated config dir (used by the `gh()` wrapper, not usually run by hand).
+_Avoid_: gh account, active account (those describe the older, superseded
+global mechanism).
 
 **Migration**:
 The interactive one-pass onboarding (`dot git migrate`) that walks the same repos
