@@ -361,7 +361,7 @@ check_identity_audit() {
     return 0
   fi
 
-  local gitdir repo url status kind rest slot host name frag ghuser
+  local gitdir repo url status kind rest slot host name ghuser
   local issues=0 gh_active="" gh_probed=0
   while IFS= read -r gitdir; do
     [[ -n "$gitdir" ]] || continue
@@ -393,8 +393,7 @@ check_identity_audit() {
         command -v gh &>/dev/null || continue
         name="$(git_slot_name_for_alias "$alias_bound" 2>/dev/null || true)"
         [[ -n "$name" ]] || continue
-        frag="$HOME/.gitconfig-$name"
-        ghuser="$(git config -f "$frag" github.user 2>/dev/null || true)"
+        ghuser="$(git_slot_ghuser "$name" || true)"
         [[ -n "$ghuser" ]] || continue
         # Read the active gh login once (it's a single global per host).
         if [[ "$gh_probed" -eq 0 ]]; then
