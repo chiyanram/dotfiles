@@ -4,13 +4,15 @@
 # Guard (config/git/hooks/pre-commit) and `dot doctor`'s audit so the guard and
 # the proactive sweep can never disagree about what counts as mis-set.
 #
-# Pure helpers only: no logging, no side effects, no `set` options (they inherit
-# the caller's). Slots are encoded in ~/.gitconfig-identities as includeIf lines
-# whose glob embeds `git@<host>-<name>:` (see `dot git add-identity`); the alias
-# is `<host>-<name>`. bash-3.2-safe (no assoc arrays / mapfile).
-
-# shellcheck disable=SC1091
-source "$(dirname "${BASH_SOURCE[0]}")/profile.sh"
+# Identity-slot schema queries, status classification, and repo/gh state
+# resolution — no logging, no `set` options (they inherit the caller's). Not
+# all read-only: git_repo_slot_name shells out to `git` against a real repo,
+# and git_slot_gh_config_dir checks a real file on disk. Repo *discovery*
+# (walking the filesystem for repos to check) lives in the sibling
+# bin/lib/git-repo-discovery.sh instead. Slots are encoded in
+# ~/.gitconfig-identities as includeIf lines whose glob embeds
+# `git@<host>-<name>:` (see `dot git add-identity`); the alias is
+# `<host>-<name>`. bash-3.2-safe (no assoc arrays / mapfile).
 
 # Extract the host token from an origin URL (may itself be a slot alias for an
 # scp-style URL). Prints the token; returns 1 on an unrecognized URL.
@@ -192,33 +194,4 @@ git_slot_status() {
   fi
   # Unknown host (not a forge, no slot) -> fine.
   printf 'unknown\n'
-}
-
-# --- repo discovery --------------------------------------------------------
-# Shared by BOTH `dot doctor`'s identity audit and `dot git migrate` so the
-# proactive sweep and the interactive onboarding walk the exact same repos.
-# Read-only (find/read), but depends on bin/lib/profile.sh's `dot_config` for
-# the override — self-sourced below, so callers don't need to know that.
-
-# Print the roots to scan, one per line: the hardcoded conventional set plus any
-# `git_audit_roots` override (whitespace/newline-separated), which AUGMENTS the
-# defaults rather than replacing them — a missed default is never silently lost.
-git_slot_audit_roots() {
-  local r override
-  for r in work workspace dev dotfiles personal clients; do
-    printf '%s\n' "$HOME/$r"
-  done
-  override="$(dot_config git_audit_roots)"
-  [[ -n "$override" ]] && printf '%s\n' "$override" | tr '[:space:]' '\n'
-}
-
-# Print the `.git` directory of every repo under the existing roots (absent roots
-# are skipped silently). maxdepth 3 covers root/.git, root/repo/.git and one org
-# level (root/org/repo/.git); -prune stops the descent into a found repo.
-git_slot_audit_dirs() {
-  local root
-  while IFS= read -r root; do
-    [[ -n "$root" && -d "$root" ]] || continue
-    find "$root" -maxdepth 3 -type d -name .git -prune 2>/dev/null
-  done < <(git_slot_audit_roots) | sort -u
 }
