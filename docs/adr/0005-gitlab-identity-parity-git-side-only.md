@@ -66,9 +66,15 @@ verb** rather than inline CLI calls:
 
 ## Consequences
 
-- A personal GitLab repo needs **no slot** — the personal Fallback Identity
-  authors commits, and `dot git register-key --host gitlab.com` is the one
-  command that makes SSH work.
+- Every `gitlab.com` repo — personal account or not — needs a slot once the
+  Identity Guard is active: `git_slot_status`'s `is_forge` check treats
+  `gitlab.com` unconditionally, the same as `github.com`/`bitbucket.org`, with
+  no personal-account carve-out. A carve-out isn't just unbuilt — it can't be
+  built safely: the Guard would need to tell "personal" apart from "not yet
+  bound" _before_ a slot exists, which is exactly the ambiguity the Guard
+  exists to close. Approximating it any other way would weaken the
+  misattribution protection ADR-0001 was built for. `dot git register-key` is
+  still the one command that makes SSH work once the slot exists.
 - GitHub gains auto key-registration on `add-identity`, not just GitLab — the
   change is a net DRY improvement, not a GitLab special-case.
 - If a client ever issues a distinct GitLab account, CLI-account juggling stays
