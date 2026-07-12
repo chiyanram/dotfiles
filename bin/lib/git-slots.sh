@@ -64,13 +64,14 @@ git_slots_for_host() {
   done < <(git_slot_aliases)
 }
 
-# Resolve a slot alias (`<host>-<name>`) back to its slot NAME via the include's
-# `path = ~/.gitconfig-<name>` in ~/.gitconfig-identities (the inverse of
-# `dot git`'s slot_alias). Prints the name; returns 1 if the alias isn't a slot.
-git_slot_name_for_alias() {
-  local want="$1" identities="$HOME/.gitconfig-identities"
-  [[ -f "$identities" ]] || return 1
-  awk -v want="$want" '
+# Print one "alias\tname" row per identity slot in ~/.gitconfig-identities,
+# pairing each includeIf's alias with the slot name from its `path =
+# ~/.gitconfig-<name>`. The single parse both direction-lookups below filter
+# over, so a format change to the file only needs updating this one place.
+_git_slot_identities_table() {
+  local identities="$HOME/.gitconfig-identities"
+  [[ -f "$identities" ]] || return 0
+  awk '
     /^[ \t]*\[includeIf / {
       if (match($0, /git@[^:]+:/)) {
         alias = substr($0, RSTART + 4, RLENGTH - 5)
@@ -80,15 +81,42 @@ git_slot_name_for_alias() {
     /path[ \t]*=/ {
       p = $0
       sub(/.*path[ \t]*=[ \t]*/, "", p)
-      if (alias == want && p ~ /^~\/\.gitconfig-/) {
+      if (alias != "" && p ~ /^~\/\.gitconfig-/) {
         sub(/^~\/\.gitconfig-/, "", p)
-        print p
-        found = 1
-        exit
+        print alias "\t" p
       }
     }
-    END { if (!found) exit 1 }
   ' "$identities"
+}
+
+# Resolve a slot alias (`<host>-<name>`) back to its slot NAME. Prints the
+# name; returns 1 if the alias isn't a slot.
+git_slot_name_for_alias() {
+  local want="$1" alias name found=1
+  while IFS=$'\t' read -r alias name; do
+    if [[ "$alias" == "$want" ]]; then
+      printf '%s\n' "$name"
+      found=0
+      break
+    fi
+  done < <(_git_slot_identities_table)
+  return "$found"
+}
+
+# Resolve a slot name to its SSH alias (`<host>-<name>`), the inverse of
+# git_slot_name_for_alias — moved here from `dot git`'s slot_alias so both
+# directions share one parse. Prints the alias; returns 1 if no slot has that
+# name.
+git_slot_alias_for_name() {
+  local want="$1" alias name found=1
+  while IFS=$'\t' read -r alias name; do
+    if [[ "$name" == "$want" ]]; then
+      printf '%s\n' "$alias"
+      found=0
+      break
+    fi
+  done < <(_git_slot_identities_table)
+  return "$found"
 }
 
 # Print a slot's github.user (set by `dot git add-identity`/`use` for gh CLI
