@@ -185,7 +185,7 @@ Zsh rc files (`.zshrc`, `.zprofile`, `.zsh_aliases`, `.zsh_functions`, `.docker_
 
 Claude Code config lives under `home/.claude/` — `statusline.sh` (renders `model · dir/branch · context used+remaining · session cost · lines changed`) is symlinked into `~/.claude/` like any home file. `settings.json` is different: the app rewrites it at runtime (model, `effortLevel`, theme, plugin toggles), so a symlink would churn the repo. It's handled as a **Seed Target** (ADR-0008): the tracked `home/.claude/settings.json.seed` holds the durable shared defaults (status-line wiring, `enabledPlugins`, `theme`), and `dot link` **copies** it to `~/.claude/settings.json` only when that file is absent — a fresh machine gets the defaults once, then the app owns the file (the live file itself stays gitignored). `dot link --reseed` overwrites it with the shipped default on purpose (backs up first). The rest of `~/.claude/` (projects, transcripts) is untouched; other machine-specific overrides belong in an untracked `~/.claude/settings.local.json`.
 
-A `.seed` suffix on any `home/<path>.seed` file opts it into this copy-once behavior — use it for any config a tool rewrites itself. Everything else under `home/` symlinks as before.
+A `.seed` suffix on any `home/<path>.seed` **file** opts it into this copy-once behavior — use it for any config a tool rewrites itself. Everything else under `home/` symlinks as before. Two notes: seeds are single files (a `home/<name>.seed/` _directory_ is pruned and left unmanaged, not copied); and because a seed's live file is a real file, `dot backup` includes it in the archive as app-owned state (harmless — it just captures whatever the app currently has).
 
 ### Shell (ZSH)
 

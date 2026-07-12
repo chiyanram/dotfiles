@@ -81,3 +81,16 @@ seed_fixture() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"SEED"* ]]
 }
+
+@test "a *.seed DIRECTORY is pruned (unmanaged), not mis-linked into ~ (#119)" {
+  mkdir -p "$DOTFILES/home/badseed.seed"
+  printf 'inner\n' >"$DOTFILES/home/badseed.seed/inner.txt"
+  # managed_targets must not emit anything under the .seed directory
+  run bash -c "source '$DOTFILES/bin/lib/links.sh' && managed_targets home"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"badseed.seed"* ]]
+  # …and dot link must not create ~/badseed.seed or symlink its contents
+  run "$DOT" link all
+  [ "$status" -eq 0 ]
+  [ ! -e "$HOME/badseed.seed" ]
+}
