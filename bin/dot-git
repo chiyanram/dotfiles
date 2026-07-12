@@ -6,9 +6,11 @@ DOTFILES="${DOTFILES:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
 
 # source helpers
 source "$DOTFILES/bin/lib/common.sh"
-# Identity-slot detection + shared repo discovery (used by `use` and `migrate`).
+# Identity-slot detection, plus shared repo discovery (used by `use` and `migrate`).
 # shellcheck disable=SC1091
 source "$DOTFILES/bin/lib/git-slots.sh"
+# shellcheck disable=SC1091
+source "$DOTFILES/bin/lib/git-repo-discovery.sh"
 command_name=$(basename "${BASH_SOURCE[0]}")
 
 usage() {

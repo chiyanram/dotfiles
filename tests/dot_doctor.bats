@@ -100,7 +100,7 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
 @test "doctor reports no config leaks in a clean sandbox (#69)" {
   [[ "$(uname)" == "Darwin" ]] || skip "dot doctor inspection is macOS-only"
   mkdir -p "$SANDBOX/dotfiles/bin/lib" "$SANDBOX/dotfiles/config/git" "$SANDBOX/dotfiles/home" "$SANDBOX/.config"
-  cp "$REPO/bin/lib/common.sh" "$REPO/bin/lib/profile.sh" "$REPO/bin/lib/brew.sh" "$REPO/bin/lib/links.sh" "$REPO/bin/lib/sdkman.sh" "$REPO/bin/lib/reconcile.sh" "$REPO/bin/lib/git-slots.sh" "$SANDBOX/dotfiles/bin/lib/"
+  cp "$REPO/bin/lib/common.sh" "$REPO/bin/lib/profile.sh" "$REPO/bin/lib/brew.sh" "$REPO/bin/lib/links.sh" "$REPO/bin/lib/sdkman.sh" "$REPO/bin/lib/reconcile.sh" "$REPO/bin/lib/git-slots.sh" "$REPO/bin/lib/git-repo-discovery.sh" "$SANDBOX/dotfiles/bin/lib/"
   touch "$SANDBOX/dotfiles/home/.zshrc"
   printf 'config\n' >"$SANDBOX/dotfiles/config/git/config"
   git -C "$SANDBOX/dotfiles" init -q
@@ -115,7 +115,7 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
 @test "doctor reports an untracked file inside a symlinked config/* dir as a leak (#69)" {
   [[ "$(uname)" == "Darwin" ]] || skip "dot doctor inspection is macOS-only"
   mkdir -p "$SANDBOX/dotfiles/bin/lib" "$SANDBOX/dotfiles/config/git" "$SANDBOX/dotfiles/home" "$SANDBOX/.config"
-  cp "$REPO/bin/lib/common.sh" "$REPO/bin/lib/profile.sh" "$REPO/bin/lib/brew.sh" "$REPO/bin/lib/links.sh" "$REPO/bin/lib/sdkman.sh" "$REPO/bin/lib/reconcile.sh" "$REPO/bin/lib/git-slots.sh" "$SANDBOX/dotfiles/bin/lib/"
+  cp "$REPO/bin/lib/common.sh" "$REPO/bin/lib/profile.sh" "$REPO/bin/lib/brew.sh" "$REPO/bin/lib/links.sh" "$REPO/bin/lib/sdkman.sh" "$REPO/bin/lib/reconcile.sh" "$REPO/bin/lib/git-slots.sh" "$REPO/bin/lib/git-repo-discovery.sh" "$SANDBOX/dotfiles/bin/lib/"
   touch "$SANDBOX/dotfiles/home/.zshrc"
   printf 'config\n' >"$SANDBOX/dotfiles/config/git/config"
   git -C "$SANDBOX/dotfiles" init -q
@@ -133,7 +133,7 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
 @test "doctor does not report a .gitignore'd file as a config leak (#69)" {
   [[ "$(uname)" == "Darwin" ]] || skip "dot doctor inspection is macOS-only"
   mkdir -p "$SANDBOX/dotfiles/bin/lib" "$SANDBOX/dotfiles/config/git" "$SANDBOX/dotfiles/home" "$SANDBOX/.config"
-  cp "$REPO/bin/lib/common.sh" "$REPO/bin/lib/profile.sh" "$REPO/bin/lib/brew.sh" "$REPO/bin/lib/links.sh" "$REPO/bin/lib/sdkman.sh" "$REPO/bin/lib/reconcile.sh" "$REPO/bin/lib/git-slots.sh" "$SANDBOX/dotfiles/bin/lib/"
+  cp "$REPO/bin/lib/common.sh" "$REPO/bin/lib/profile.sh" "$REPO/bin/lib/brew.sh" "$REPO/bin/lib/links.sh" "$REPO/bin/lib/sdkman.sh" "$REPO/bin/lib/reconcile.sh" "$REPO/bin/lib/git-slots.sh" "$REPO/bin/lib/git-repo-discovery.sh" "$SANDBOX/dotfiles/bin/lib/"
   touch "$SANDBOX/dotfiles/home/.zshrc"
   printf 'config\n' >"$SANDBOX/dotfiles/config/git/config"
   printf '.DS_Store\n' >"$SANDBOX/dotfiles/.gitignore"
@@ -152,7 +152,7 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
 @test "a config leak never gates the exit code, even under --strict (#69)" {
   [[ "$(uname)" == "Darwin" ]] || skip "dot doctor inspection is macOS-only"
   mkdir -p "$SANDBOX/dotfiles/bin/lib" "$SANDBOX/dotfiles/config/git" "$SANDBOX/dotfiles/home" "$SANDBOX/.config"
-  cp "$REPO/bin/lib/common.sh" "$REPO/bin/lib/profile.sh" "$REPO/bin/lib/brew.sh" "$REPO/bin/lib/links.sh" "$REPO/bin/lib/sdkman.sh" "$REPO/bin/lib/reconcile.sh" "$REPO/bin/lib/git-slots.sh" "$SANDBOX/dotfiles/bin/lib/"
+  cp "$REPO/bin/lib/common.sh" "$REPO/bin/lib/profile.sh" "$REPO/bin/lib/brew.sh" "$REPO/bin/lib/links.sh" "$REPO/bin/lib/sdkman.sh" "$REPO/bin/lib/reconcile.sh" "$REPO/bin/lib/git-slots.sh" "$REPO/bin/lib/git-repo-discovery.sh" "$SANDBOX/dotfiles/bin/lib/"
   touch "$SANDBOX/dotfiles/home/.zshrc"
   printf 'config\n' >"$SANDBOX/dotfiles/config/git/config"
   git -C "$SANDBOX/dotfiles" init -q

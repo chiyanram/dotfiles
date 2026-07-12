@@ -126,7 +126,7 @@ _Avoid_: calling it enforcement (it only reports).
 
 **Migration**:
 The interactive one-pass onboarding (`dot git migrate`) that walks the same repos
-as the Identity Audit (shared discovery in `bin/lib/git-slots.sh`) and, per mis-set
+as the Identity Audit (shared discovery in `bin/lib/git-repo-discovery.sh`) and, per mis-set
 repo, offers a slot and rebinds `origin` on confirmation (reusing `dot git use`'s
 `bind_repo_to_slot`). It does the **durable git-side rebind only** — unlike
 `dot git use` it never runs `gh auth switch`, because the active `gh` account is a

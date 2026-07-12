@@ -15,6 +15,9 @@ source "$DOTFILES/bin/lib/reconcile.sh"
 # Identity-slot detection (shared with the Identity Guard) — the mis-set check.
 # shellcheck disable=SC1091
 source "$DOTFILES/bin/lib/git-slots.sh"
+# Repo discovery for the identity audit (shared with `dot git migrate`).
+# shellcheck disable=SC1091
+source "$DOTFILES/bin/lib/git-repo-discovery.sh"
 
 missing_count=0
 optional_missing=0

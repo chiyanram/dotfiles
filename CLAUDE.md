@@ -38,6 +38,8 @@ Personal dotfiles for my macOS laptop (backend engineer: JVM toolchain via SDKMA
 - `bin/lib/brew.sh` — Homebrew profile-bundle resolution and Docker runtime (`dot_brewfiles`, `dot_docker_runtime`)
 - `bin/lib/links.sh` — link resolver (`classify_link`, `managed_targets`) shared by `dot link` and `dot reconcile`
 - `bin/lib/sdkman.sh` — `run_sdk`, the PATH-bash subprocess wrapper around SDKMAN
+- `bin/lib/git-slots.sh` — identity-slot schema queries and status classification (`git_slot_status`), shared by the Identity Guard and `dot doctor`
+- `bin/lib/git-repo-discovery.sh` — repo discovery (`git_slot_audit_roots`/`git_slot_audit_dirs`), shared by `dot doctor`'s audit and `dot git migrate`
 - `config/` directories are symlinked to `~/.config/` via `dot link`
 - `home/` files are symlinked to `~/` preserving directory structure
 - `home/.zshenv` sets XDG dirs, DOTFILES path, and is the shell entry point
@@ -64,7 +66,7 @@ Personal dotfiles for my macOS laptop (backend engineer: JVM toolchain via SDKMA
 ### Shell Scripts
 
 - All `dot-*` scripts must have `# Description:` comment on line 2 for auto-discovery
-- Every script sources `$DOTFILES/bin/lib/common.sh` for colors/logging/fmt/spinner/step, plus whichever of `profile.sh`/`brew.sh`/`links.sh`/`sdkman.sh` it calls functions from directly. A lib that depends on another self-sources it (e.g. `brew.sh` sources `profile.sh`), so callers never need to know the dependency graph — only what they call directly
+- Every script sources `$DOTFILES/bin/lib/common.sh` for colors/logging/fmt/spinner/step, plus whichever of `profile.sh`/`brew.sh`/`links.sh`/`sdkman.sh`/`git-slots.sh`/`git-repo-discovery.sh` it calls functions from directly. A lib that depends on another self-sources it (e.g. `brew.sh` sources `profile.sh`, `git-repo-discovery.sh` sources `profile.sh`), so callers never need to know the dependency graph — only what they call directly
 - Use `set -Eeuo pipefail` in all bash scripts
 - Use `log_success`, `log_error`, `log_warning`, `log_info` from common.sh
 - Use `run_with_spinner` for long operations — it detaches the child's stdin (`</dev/null`) so an unattended step is deterministically non-interactive regardless of job-control context (a prompting tool like SDKMAN's `sdk upgrade` reads EOF and takes its default); never rely on an interactive prompt in a `dot-*` step. The one exception is sudo, which prompts on `/dev/tty`, not stdin: the spinner scans for a sudo descendant every tick and pauses with a password banner for **every** prompt (a step may sudo repeatedly, e.g. brew once per cask) — a missed pause means the `\r` redraw erases `Password:` and the step reads as hung
