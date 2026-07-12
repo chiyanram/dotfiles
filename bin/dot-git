@@ -651,7 +651,7 @@ git_use() {
   case "$host" in
     github.com | github.*)
       local slot_ghuser
-      slot_ghuser="$(git config -f "$HOME/.gitconfig-$name" github.user 2>/dev/null || true)"
+      slot_ghuser="$(git_slot_ghuser "$name" || true)"
       if ! command -v gh &>/dev/null; then
         log_info "gh not found — skipping GitHub account switch (git identity is already bound)."
       elif [[ -z "$slot_ghuser" ]]; then

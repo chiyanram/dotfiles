@@ -91,6 +91,15 @@ git_slot_name_for_alias() {
   ' "$identities"
 }
 
+# Print a slot's github.user (set by `dot git add-identity`/`use` for gh CLI
+# sync), read from its ~/.gitconfig-<name> fragment. Returns 1 if the fragment
+# or the key is missing — callers that treat "no ghuser set" as normal use
+# `git_slot_ghuser "$name" || true`, same as the git-config call it replaces.
+git_slot_ghuser() {
+  local name="$1"
+  git config -f "$HOME/.gitconfig-$name" github.user 2>/dev/null
+}
+
 # Classify an origin URL against the known slots — the mis-set definition the
 # Identity Guard enforces and `dot doctor` audits, in one place. Always exits 0;
 # prints exactly one status token:
