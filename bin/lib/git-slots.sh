@@ -128,6 +128,31 @@ git_slot_ghuser() {
   git config -f "$HOME/.gitconfig-$name" github.user 2>/dev/null
 }
 
+# Resolve the slot NAME bound to a repo's origin, if any. Optional dir arg
+# (default: cwd). Returns 1 if there's no origin, the origin is unparseable,
+# or the origin's host isn't bound to any slot.
+git_repo_slot_name() {
+  local dir="${1:-.}" url alias
+  git -C "$dir" rev-parse --is-inside-work-tree &>/dev/null || return 1
+  url="$(git -C "$dir" config --get remote.origin.url 2>/dev/null)" || return 1
+  [[ -n "$url" ]] || return 1
+  alias="$(git_url_host_token "$url")" || return 1
+  git_slot_name_for_alias "$alias"
+}
+
+# A slot's dedicated gh config dir, by convention `~/.config/gh-<name>`
+# (mirrors `~/.gitconfig-<name>`) — the per-slot GH_CONFIG_DIR isolation
+# ADR-0001 named and deferred ("true per-terminal isolation would need
+# per-slot GH_CONFIG_DIR env"). Prints the dir only if it's an actual
+# logged-in gh config (has hosts.yml); returns 1 otherwise so callers fall
+# back to the default, untouched gh config instead of pointing at nothing.
+git_slot_gh_config_dir() {
+  local name="$1"
+  local dir="${XDG_CONFIG_HOME:-$HOME/.config}/gh-$name"
+  [[ -f "$dir/hosts.yml" ]] || return 1
+  printf '%s\n' "$dir"
+}
+
 # Classify an origin URL against the known slots — the mis-set definition the
 # Identity Guard enforces and `dot doctor` audits, in one place. Always exits 0;
 # prints exactly one status token:

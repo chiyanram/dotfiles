@@ -362,7 +362,7 @@ check_identity_audit() {
   fi
 
   local gitdir repo url status kind rest slot host name ghuser
-  local issues=0 gh_active="" gh_probed=0
+  local issues=0 gh_active="" gh_probed=0 last_gh_dir="" last_gh_login=""
   while IFS= read -r gitdir; do
     [[ -n "$gitdir" ]] || continue
     repo="${gitdir%/.git}"
@@ -395,14 +395,31 @@ check_identity_audit() {
         [[ -n "$name" ]] || continue
         ghuser="$(git_slot_ghuser "$name" || true)"
         [[ -n "$ghuser" ]] || continue
-        # Read the active gh login once (it's a single global per host).
+        # A dedicated per-slot gh config (~/.config/gh-<name>) makes the gh()
+        # wrapper resolve this repo's account correctly on its own — check
+        # THAT login instead of the single global active account, which the
+        # wrapper's presence makes an unreliable signal for this slot.
+        local gh_dir
+        if gh_dir="$(git_slot_gh_config_dir "$name" 2>/dev/null)"; then
+          if [[ "$gh_dir" != "$last_gh_dir" ]]; then
+            last_gh_login="$(GH_CONFIG_DIR="$gh_dir" gh api user --jq .login 2>/dev/null || true)"
+            last_gh_dir="$gh_dir"
+          fi
+          if [[ -n "$last_gh_login" && "$last_gh_login" != "$ghuser" ]]; then
+            log_warning "gh drift: ~${repo#"$HOME"} expects gh account $ghuser, its dedicated config ($gh_dir) is authenticated as $last_gh_login"
+            issues=$((issues + 1))
+          fi
+          continue
+        fi
+        # No dedicated per-slot config yet -- fall back to the single global
+        # active account (read once; it's the same account for every host).
         if [[ "$gh_probed" -eq 0 ]]; then
           gh_active="$(gh api user --jq .login 2>/dev/null || true)"
           gh_probed=1
         fi
         [[ -n "$gh_active" ]] || continue
         if [[ "$gh_active" != "$ghuser" ]]; then
-          log_warning "gh drift: ~${repo#"$HOME"} expects gh account $ghuser, active is $gh_active"
+          log_warning "gh drift: ~${repo#"$HOME"} expects gh account $ghuser, active is $gh_active (no dedicated config yet — see: GH_CONFIG_DIR=$HOME/.config/gh-$name gh auth login)"
           issues=$((issues + 1))
         fi
         ;;

@@ -36,6 +36,9 @@ Commands:
                      key (--key at add-identity time) is left on disk with a warning.
     install-guard    Activate the Identity Guard globally by pointing core.hooksPath at the
                      committed pre-commit hook (written to ~/.gitconfig-local, never committed)
+    gh-config-dir    Print the current repo's dedicated GH_CONFIG_DIR if its slot has one
+                     (~/.config/gh-<slot>); exits 1 with no output otherwise. Used by the
+                     shell's gh() wrapper (home/.zsh_functions) — not usually run by hand.
 
 add-identity options:
     --name <slot>       Slot name, e.g. ee (required)
@@ -437,10 +440,17 @@ git_add_identity() {
 
   if [[ -f "$pubkey" ]]; then
     # Auto-register the slot key on the host as auth + signing. register-key
-    # uploads to the host CLI's *currently authenticated* account (falling back to
-    # print-and-paste when none is), so for a distinct client account make that
-    # account the active gh/glab login before running add-identity.
-    git_register_key --host "$host" --key "$keypath" --name "$name"
+    # uploads to the host CLI's *currently authenticated* account, falling back
+    # to print-and-paste when none is -- UNLESS this slot already has its own
+    # dedicated gh config (~/.config/gh-<name>, see git_slot_gh_config_dir): then
+    # that login is used directly regardless of what's globally active, so
+    # adding a second identity never has to fight the first for the active slot.
+    local gh_dir
+    if gh_dir="$(git_slot_gh_config_dir "$name" 2>/dev/null)"; then
+      GH_CONFIG_DIR="$gh_dir" git_register_key --host "$host" --key "$keypath" --name "$name"
+    else
+      git_register_key --host "$host" --key "$keypath" --name "$name"
+    fi
   else
     log_warning "No public key found at $pubkey — register the matching public key on the $host account as both an Authentication and a Signing key."
   fi
@@ -622,16 +632,22 @@ git_use() {
   # git-side bind already succeeded.
   case "$host" in
     github.com | github.*)
-      local slot_ghuser
+      local slot_ghuser gh_dir
       slot_ghuser="$(git_slot_ghuser "$name" || true)"
       if ! command -v gh &>/dev/null; then
-        log_info "gh not found — skipping GitHub account switch (git identity is already bound)."
+        log_info "gh not found — skipping GitHub account sync (git identity is already bound)."
+      elif gh_dir="$(git_slot_gh_config_dir "$name" 2>/dev/null)"; then
+        # Dedicated per-slot config exists: the gh() shell wrapper resolves it
+        # automatically per repo, so there's no global account to fight over.
+        log_success "gh commands in this repo auto-use '$slot_ghuser' via its dedicated config ($gh_dir) — no global switch needed."
       elif [[ -z "$slot_ghuser" ]]; then
-        log_info "Slot '$name' has no github.user — skipping gh account switch."
+        log_info "Slot '$name' has no github.user — skipping gh account sync."
       elif gh auth switch --hostname "$host" --user "$slot_ghuser" >/dev/null 2>&1; then
-        log_success "Switched active gh account to '$slot_ghuser' on $host."
+        log_success "Switched active gh account to '$slot_ghuser' on $host (global — only durable until another slot runs 'use' in another terminal)."
+        log_info "For durable per-repo isolation: GH_CONFIG_DIR=$HOME/.config/gh-$name gh auth login --hostname $host --web"
       else
-        log_warning "Could not switch gh account to '$slot_ghuser' on $host — run 'gh auth switch --user $slot_ghuser' manually."
+        log_warning "Could not switch gh account to '$slot_ghuser' on $host."
+        log_info "Recommended: GH_CONFIG_DIR=$HOME/.config/gh-$name gh auth login --hostname $host --web  (one-time; the gh wrapper then uses it automatically per repo)."
       fi
       ;;
   esac
@@ -712,6 +728,18 @@ git_migrate() {
   log_success "migrate complete — bound $bound, skipped $skipped, need add-identity $needs_add"
 }
 
+# Print the current repo's dedicated GH_CONFIG_DIR, if its bound slot has one.
+# Silent (no logging) and machine-consumable: the gh() shell wrapper calls this
+# on every gh invocation, so it must be cheap and quiet on the common "no
+# dedicated config yet" path. Prints nothing and exits 1 when there's no repo,
+# no slot, or no dedicated config — callers fall back to the default gh config.
+git_gh_config_dir() {
+  command -v git &>/dev/null || return 1
+  local name
+  name="$(git_repo_slot_name)" || return 1
+  git_slot_gh_config_dir "$name"
+}
+
 # Activate the Identity Guard: point core.hooksPath at the committed hook directory.
 # The path is machine-specific and absolute, so it goes in ~/.gitconfig-local — never
 # in the committed config/git/config (which is shared across machines).
@@ -775,6 +803,9 @@ main() {
     install-guard)
       shift
       git_install_guard "$@"
+      ;;
+    gh-config-dir)
+      git_gh_config_dir
       ;;
     *)
       log_error "Unknown legacy command: $1"

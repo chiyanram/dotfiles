@@ -2,6 +2,7 @@ setup() {
   REPO="$(cd "$BATS_TEST_DIRNAME/.." && pwd -P)"
   SANDBOX="$(mktemp -d)"
   export HOME="$SANDBOX"
+  export XDG_CONFIG_HOME="$SANDBOX/.config" # pin away the real machine's ~/.config
   export TERM=dumb
   source "$REPO/bin/lib/git-slots.sh"
 }
@@ -138,4 +139,34 @@ EOF
 @test "git_slot_status is 'misset-add:<host>' for a default forge with no slot at all" {
   run git_slot_status "https://github.com/owner/repo.git"
   [ "$output" = "misset-add:github.com" ]
+}
+
+@test "git_slot_gh_config_dir prints the dir once its hosts.yml exists" {
+  mkdir -p "$XDG_CONFIG_HOME/gh-ee"
+  echo "github.com:" >"$XDG_CONFIG_HOME/gh-ee/hosts.yml"
+  run git_slot_gh_config_dir ee
+  [ "$status" -eq 0 ]
+  [ "$output" = "$XDG_CONFIG_HOME/gh-ee" ]
+}
+
+@test "git_slot_gh_config_dir fails when no hosts.yml exists for the slot" {
+  run git_slot_gh_config_dir ee
+  [ "$status" -ne 0 ]
+  [ -z "$output" ]
+}
+
+@test "git_slot_gh_config_dir uses its own argument, not a same-named local in the caller" {
+  # Regression for a local-var aliasing bug (SC2318): a single `local name=...
+  # dir=...$name` statement read the CALLER's "name" instead of this
+  # function's own $1, so any caller with its own "name" local holding a
+  # DIFFERENT value than the argument silently got the wrong directory.
+  mkdir -p "$XDG_CONFIG_HOME/gh-real"
+  echo "github.com:" >"$XDG_CONFIG_HOME/gh-real/hosts.yml"
+  wrapper_with_colliding_local() {
+    local name="decoy" # deliberately NOT the argument being passed below
+    git_slot_gh_config_dir "real"
+  }
+  run wrapper_with_colliding_local
+  [ "$status" -eq 0 ]
+  [ "$output" = "$XDG_CONFIG_HOME/gh-real" ]
 }
