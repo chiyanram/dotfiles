@@ -454,7 +454,7 @@ git_remove_identity() {
   fi
 
   local alias
-  if ! alias="$(slot_alias "$name")" || [[ -z "$alias" ]]; then
+  if ! alias="$(git_slot_alias_for_name "$name")" || [[ -z "$alias" ]]; then
     log_error "No identity slot '$name' to remove."
     return 1
   fi
@@ -510,34 +510,6 @@ git_remove_identity() {
   log_info "If it's no longer needed, revoke this slot's key from the $host account for $alias."
 }
 
-# Resolve a slot name to its SSH alias (<host>-<name>) via the slot's hasconfig
-# include in ~/.gitconfig-identities. The include's `path = ~/.gitconfig-<name>`
-# uniquely names the slot, and the preceding includeIf embeds `git@<alias>:...`,
-# so pairing the two yields the alias. Prints the alias; returns 1 if not found.
-slot_alias() {
-  local name="$1" identities="$HOME/.gitconfig-identities"
-  [[ -f "$identities" ]] || return 1
-  awk -v slot="$name" '
-    /^[ \t]*\[includeIf / {
-      if (match($0, /git@[^:]+:/)) {
-        # Strip the leading "git@" (4 chars) and the trailing ":" (1 char).
-        alias = substr($0, RSTART + 4, RLENGTH - 5)
-      }
-      next
-    }
-    /path[ \t]*=/ {
-      p = $0
-      sub(/.*path[ \t]*=[ \t]*/, "", p)
-      if (p == "~/.gitconfig-" slot) {
-        print alias
-        found = 1
-        exit
-      }
-    }
-    END { if (!found) exit 1 }
-  ' "$identities"
-}
-
 # Extract owner/repo (keeping any trailing .git) from an origin URL, handling
 # HTTPS, ssh://, and scp-style (incl. already-aliased) forms. Prints owner/repo;
 # returns 1 on an unrecognized URL.
@@ -572,7 +544,7 @@ origin_owner_repo() {
 #   3  unknown slot   4  no origin remote   5  unparseable origin URL
 bind_repo_to_slot() {
   local repo_dir="$1" name="$2" alias url ownerrepo newurl
-  alias="$(slot_alias "$name")" || return 3
+  alias="$(git_slot_alias_for_name "$name")" || return 3
   [[ -n "$alias" ]] || return 3
   url="$(git -C "$repo_dir" remote get-url origin 2>/dev/null)" || return 4
   [[ -n "$url" ]] || return 4
@@ -619,7 +591,7 @@ git_use() {
   # Resolve the alias up front for the gh-switch host and precise error text
   # (bind_repo_to_slot is silent; it re-resolves internally).
   local alias
-  if ! alias="$(slot_alias "$name")" || [[ -z "$alias" ]]; then
+  if ! alias="$(git_slot_alias_for_name "$name")" || [[ -z "$alias" ]]; then
     log_error "No identity slot '$name' — create it first with: $command_name add-identity --name $name --host <host> --email <email>"
     return 1
   fi
