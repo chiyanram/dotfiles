@@ -16,15 +16,22 @@ setup() {
   mkdir -p "$HOME/.ssh"
   ssh-keygen -t ed25519 -N "" -C "seed@test" -f "$HOME/seedkey" >/dev/null 2>&1
 
-  # Stub `gh` on PATH: `gh api user --jq .login` prints whatever GH_ACTIVE holds,
-  # so the audit's gh-drift check is observable and the real gh is never touched.
+  # Stub `gh` on PATH: `gh api user --jq .login` prints the login recorded for
+  # $GH_CONFIG_DIR (a dedicated per-slot config, see _seed_dedicated_gh_config)
+  # when one is set, otherwise whatever GH_ACTIVE holds (the single global
+  # active account) -- so the audit's gh-drift check is observable for both
+  # paths and the real gh is never touched.
   export GH_ACTIVE="workuser"
   mkdir -p "$HOME/bin"
   cat >"$HOME/bin/gh" <<'EOF'
 #!/usr/bin/env bash
 # Only implement the one call the audit makes.
 if [[ "$1" == "api" && "$2" == "user" ]]; then
-  printf '%s\n' "${GH_ACTIVE:-}"
+  if [[ -n "${GH_CONFIG_DIR:-}" && -f "$GH_CONFIG_DIR/login" ]]; then
+    cat "$GH_CONFIG_DIR/login"
+  else
+    printf '%s\n' "${GH_ACTIVE:-}"
+  fi
   exit 0
 fi
 exit 0
@@ -39,6 +46,16 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
 _add_ee_slot() {
   "$REPO/bin/dot-git" add-identity --name ee --host github.com \
     --email me@work.test --github-user workuser --key "$HOME/seedkey" >/dev/null
+}
+
+# A slot's dedicated gh config: ~/.config/gh-<name>/hosts.yml (so
+# git_slot_gh_config_dir resolves it) with a login file the stubbed gh reads
+# back for `gh api user` when GH_CONFIG_DIR points there.
+_seed_dedicated_gh_config() {
+  local name="$1" login="$2"
+  mkdir -p "$HOME/.config/gh-$name"
+  printf 'github.com:\n    user: %s\n' "$login" >"$HOME/.config/gh-$name/hosts.yml"
+  printf '%s\n' "$login" >"$HOME/.config/gh-$name/login"
 }
 
 # mkrepo <dir> <origin-url> — init a repo and (optionally) set its origin.
@@ -126,7 +143,29 @@ _run_audit() {
   _run_audit
   [ "$status" -eq 0 ]
   [[ "$output" != *"gh drift"* ]]
-  [[ "$output" == *"no identity or gh-account drift"* ]]
+}
+
+@test "gh drift is judged against a slot's dedicated config, ignoring the global active account" {
+  _add_ee_slot # slot ee expects gh account "workuser"
+  export GH_ACTIVE="someoneelse" # global active is wrong, but irrelevant once dedicated exists
+  _seed_dedicated_gh_config ee workuser
+  _mkrepo "$HOME/work/api" "git@github.com-ee:owner/api.git"
+  _run_audit
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"gh drift"* ]]
+}
+
+@test "gh drift still fires when a slot's dedicated config itself is wrong" {
+  _add_ee_slot # slot ee expects gh account "workuser"
+  export GH_ACTIVE="workuser" # global active is right, but the dedicated config is what counts now
+  _seed_dedicated_gh_config ee someoneelse
+  _mkrepo "$HOME/work/api" "git@github.com-ee:owner/api.git"
+  _run_audit
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"gh drift"* ]]
+  [[ "$output" == *"dedicated config"* ]]
+  [[ "$output" == *"workuser"* ]]
+  [[ "$output" == *"someoneelse"* ]]
 }
 
 @test "the audit performs no writes to repos or config" {

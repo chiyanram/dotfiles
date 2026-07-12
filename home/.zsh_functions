@@ -96,6 +96,21 @@ g() {
   fi
 }
 
+# Auto-select the right gh account for the CURRENT repo, per invocation — no
+# global "last dot git use wins" state to race across terminals (the isolation
+# gap dotfiles/docs/adr/0001-git-multi-identity-slots.md named and deferred).
+# Falls back to gh's own default config untouched when the repo's slot has no
+# dedicated GH_CONFIG_DIR yet (bootstrap one: `dot git use <slot>` prints the
+# one-time `GH_CONFIG_DIR=... gh auth login` command to run).
+gh() {
+  local dir
+  if dir="$(dot git gh-config-dir 2>/dev/null)" && [[ -n "$dir" ]]; then
+    GH_CONFIG_DIR="$dir" command gh "$@"
+  else
+    command gh "$@"
+  fi
+}
+
 # Switch to default branch (auto-detects main/master)
 # Usage: gcom [-p] — pass -p to pull after switching
 gcom() {
