@@ -79,5 +79,9 @@ managed_targets() {
     else
       printf '%s\t%s\t~/%s\n' "$file" "$HOME/$rel" "$rel"
     fi
-  done < <(find "$DOTFILES/home" -type f -print0)
+    # Prune `*.seed` DIRECTORIES: a Seed Target is a single file copied verbatim
+    # (link_apply does `cp`, not `cp -R`). Without this, files inside a `foo.seed/`
+    # dir would be emitted as normal symlink targets under ~/foo.seed/ — a mess.
+    # A pruned `.seed` dir is simply unmanaged (safe) rather than mis-linked (#119).
+  done < <(find "$DOTFILES/home" \( -type d -name '*.seed' -prune \) -o -type f -print0)
 }
