@@ -177,3 +177,16 @@ teardown() { teardown_sandbox; }
   run bash -c "source '$DOTFILES/bin/lib/links.sh' && managed_targets bogus"
   [ "$status" -ne 0 ]
 }
+
+@test "link -b backs up a real file to a pid-suffixed name, then links (#118)" {
+  printf 'real config\n' >"$XDG_CONFIG_HOME/demo"
+  run "$DOT" link demo -b
+  [ "$status" -eq 0 ]
+  [ -L "$XDG_CONFIG_HOME/demo" ] # now a symlink to the repo
+  local bak
+  bak="$(ls "$XDG_CONFIG_HOME/"demo.backup.* 2>/dev/null | head -1)"
+  [ -n "$bak" ]
+  [ "$(cat "$bak")" = "real config" ] # original content preserved
+  # …backup.<ts>-<pid>: the '_' in the timestamp means any '-<digit>' is the pid.
+  [[ "$bak" == *.backup.*-[0-9]* ]]
+}

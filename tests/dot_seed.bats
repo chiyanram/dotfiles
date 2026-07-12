@@ -51,6 +51,10 @@ seed_fixture() {
   bak="$(ls "$HOME/.claude/"settings.json.backup.* 2>/dev/null | head -1)"
   [ -n "$bak" ]
   [ "$(cat "$bak")" = "OLD" ]
+  # Backup name carries a pid suffix (…backup.<ts>-<pid>) so same-second backups
+  # of one target from separate dot processes can't collide (#118). The timestamp
+  # uses '_', so any '-<digit>' is the pid separator.
+  [[ "$bak" == *.backup.*-[0-9]* ]]
 }
 
 @test "dot restore removes a freshly-seeded file" {

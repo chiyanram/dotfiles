@@ -400,7 +400,9 @@ link_apply() {
       # backs up first (recorded so `dot restore` puts the original back).
       if [ "$reseed" = true ]; then
         local sbak
-        sbak="$target.backup.$(date +%Y%m%d_%H%M%S)"
+        # Pid-suffixed like the manifest (manifest-<ts>-$$.tsv): two dot processes
+        # backing up the same target in the same second must not collide (#118).
+        sbak="$target.backup.$(date +%Y%m%d_%H%M%S)-$$"
         [ "$verbose" = true ] && log_info "RESEED  $label → $(basename "$sbak")"
         mv "$target" "$sbak"
         cp "$source" "$target"
@@ -440,7 +442,8 @@ link_apply() {
         # Sideline the real file to a timestamped backup, then link. Recorded so
         # `dot restore` puts the original back.
         local bak
-        bak="$target.backup.$(date +%Y%m%d_%H%M%S)"
+        # Pid-suffixed (see #118) so same-second backups of one target don't collide.
+        bak="$target.backup.$(date +%Y%m%d_%H%M%S)-$$"
         [ "$verbose" = true ] && log_info "BACKUP  $label → $(basename "$bak")"
         mv "$target" "$bak"
         ln -s "$source" "$target"
