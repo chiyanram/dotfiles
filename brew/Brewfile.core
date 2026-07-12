@@ -16,6 +16,8 @@ if OS.mac?
 
   # Fonts
   cask 'font-symbols-only-nerd-font'   # nerd-only symbols font
+  cask 'font-cascadia-code'            # monospace font used in terminal + IntelliJ
+  cask 'font-caskaydia-cove-nerd-font' # Cascadia Code patched with Nerd Font icons
 elsif OS.linux?
   brew 'xclip'                         # access to clipboard (similar to pbcopy/pbpaste)
 end
