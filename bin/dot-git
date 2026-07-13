@@ -28,6 +28,10 @@ Commands:
     add-identity     Build a git identity slot: SSH key + host alias + remote-bound, SSH-signed email
     use <slot>       Bind the current repo to an existing slot: rewrite origin to the slot
                      alias (key/email/signing follow) and, for GitHub slots, switch the gh account
+    clone <slot> <owner>/<repo>
+                     Clone a new repo straight onto a slot's alias (git@<host>-<slot>:<owner>/<repo>)
+                     so the remote is correctly scoped from the first connection — no separate
+                     'use' step needed, and no risk of a plain-host clone picking up the wrong key
     register-key     Register an SSH key on a host account (trusts the host key, then uploads
                      via gh/glab as auth+signing); account-scoped, not repo-scoped
     migrate          Interactively onboard existing repos under the audit roots onto slots:
@@ -656,6 +660,36 @@ git_use() {
   esac
 }
 
+# Clone a fresh repo straight onto a slot's alias, so its remote is correctly
+# scoped to the slot's key from the very first connection. This is the
+# recurring failure mode `use` doesn't cover: `use` fixes up a repo you already
+# cloned, but nothing stops a plain `git clone git@github.com:...` from being
+# bound to whatever key ssh-agent/Keychain happens to offer for the bare host
+# — the same same-host collision the whole slot system exists to prevent.
+git_clone() {
+  local name="${1:-}" ownerrepo="${2:-}"
+  if [[ -z "$name" || -z "$ownerrepo" ]]; then
+    log_error "Usage: $command_name clone <slot> <owner>/<repo> [<git-clone args>...]"
+    return 1
+  fi
+  shift 2
+
+  if ! command -v git &>/dev/null; then
+    log_error "Git is not installed."
+    return 1
+  fi
+
+  local alias
+  if ! alias="$(git_slot_alias_for_name "$name")" || [[ -z "$alias" ]]; then
+    log_error "No identity slot '$name' — create it first with: $command_name add-identity --name $name --host <host> --email <email>"
+    return 1
+  fi
+
+  local url="git@${alias}:${ownerrepo}"
+  log_info "Cloning $url"
+  git clone "$url" "$@"
+}
+
 # Interactive, one-pass onboarding of EXISTING repos onto slots. Walks the same
 # repos `dot doctor` audits (git_slot_audit_dirs) and, per mis-set repo:
 #   misset-use  a slot exists for the host -> prompt (default yes), then bind
@@ -791,6 +825,10 @@ main() {
     use)
       shift
       git_use "$@"
+      ;;
+    clone)
+      shift
+      git_clone "$@"
       ;;
     register-key)
       shift
