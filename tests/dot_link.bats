@@ -178,6 +178,67 @@ teardown() { teardown_sandbox; }
   [ "$status" -ne 0 ]
 }
 
+# link_state_is_issue is the shared health-axis predicate for a Link State
+# (#145) — wrong/real/missing are problems, ok/seeded are healthy.
+@test "link_state_is_issue treats wrong as an issue" {
+  run bash -c "source '$DOTFILES/bin/lib/links.sh' && link_state_is_issue wrong"
+  [ "$status" -eq 0 ]
+}
+
+@test "link_state_is_issue treats real and missing as issues" {
+  for s in real missing; do
+    run bash -c "source '$DOTFILES/bin/lib/links.sh' && link_state_is_issue $s"
+    [ "$status" -eq 0 ]
+  done
+}
+
+@test "link_state_is_issue treats ok and seeded as healthy" {
+  for s in ok seeded; do
+    run bash -c "source '$DOTFILES/bin/lib/links.sh' && link_state_is_issue $s"
+    [ "$status" -eq 1 ]
+  done
+}
+
+@test "link_state_is_issue rejects an unknown state" {
+  run bash -c "source '$DOTFILES/bin/lib/links.sh' && link_state_is_issue bogus"
+  [ "$status" -eq 2 ]
+}
+
+# link_state_color echoes the same health-axis color every status-reporting
+# call site should use, so they can't drift on what color reports a state.
+@test "link_state_color returns GREEN for ok" {
+  run bash -c "source '$DOTFILES/bin/lib/links.sh' && link_state_color ok"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(bash -c "source '$DOTFILES/bin/lib/common.sh' && printf '%s' \"\$GREEN\"")" ]
+}
+
+@test "link_state_color returns GREEN for seeded" {
+  run bash -c "source '$DOTFILES/bin/lib/links.sh' && link_state_color seeded"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(bash -c "source '$DOTFILES/bin/lib/common.sh' && printf '%s' \"\$GREEN\"")" ]
+}
+
+@test "link_state_color returns YELLOW for wrong" {
+  run bash -c "source '$DOTFILES/bin/lib/links.sh' && link_state_color wrong"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(bash -c "source '$DOTFILES/bin/lib/common.sh' && printf '%s' \"\$YELLOW\"")" ]
+}
+
+@test "link_state_color returns RED for real and missing" {
+  local expected
+  expected="$(bash -c "source '$DOTFILES/bin/lib/common.sh' && printf '%s' \"\$RED\"")"
+  for s in real missing; do
+    run bash -c "source '$DOTFILES/bin/lib/links.sh' && link_state_color $s"
+    [ "$status" -eq 0 ]
+    [ "$output" = "$expected" ]
+  done
+}
+
+@test "link_state_color rejects an unknown state" {
+  run bash -c "source '$DOTFILES/bin/lib/links.sh' && link_state_color bogus"
+  [ "$status" -eq 1 ]
+}
+
 @test "link -b backs up a real file to a pid-suffixed name, then links (#118)" {
   printf 'real config\n' >"$XDG_CONFIG_HOME/demo"
   run "$DOT" link demo -b
