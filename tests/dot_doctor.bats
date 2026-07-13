@@ -79,7 +79,7 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   ln -s "$SANDBOX/dotfiles/home/.claude/settings.json" "$SANDBOX/.claude/settings.json"
   git -C "$SANDBOX/dotfiles" rm -q home/.claude/settings.json
   git -C "$SANDBOX/dotfiles" -c user.email=t@t -c user.name=t commit -qm "remove claude"
-  export HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/.config" DOTFILES="$SANDBOX/dotfiles" TERM=dumb
+  export HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/.config" DOT_TEST_DOTFILES="$SANDBOX/dotfiles" TERM=dumb
   run env PATH="$DOCTOR_PATH" "$REPO/bin/dot-doctor"
   [[ "$output" == *"stale"* ]]
   [[ "$output" == *".claude/settings.json"* ]]
@@ -106,7 +106,7 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   git -C "$SANDBOX/dotfiles" init -q
   git -C "$SANDBOX/dotfiles" -c user.email=t@t -c user.name=t add -A
   git -C "$SANDBOX/dotfiles" -c user.email=t@t -c user.name=t commit -qm init
-  export HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/.config" DOTFILES="$SANDBOX/dotfiles" TERM=dumb
+  export HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/.config" DOT_TEST_DOTFILES="$SANDBOX/dotfiles" TERM=dumb
   run env PATH="$DOCTOR_PATH" "$REPO/bin/dot-doctor"
   [[ "$output" == *"Config Leaks"* ]]
   [[ "$output" == *"no config"*"leak"* ]]
@@ -124,7 +124,7 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   # Simulate a tool writing runtime state into the symlinked config dir (the
   # allowed_signers shape from #58) — an untracked file lands inside config/git/.
   printf 'leaked-key-material\n' >"$SANDBOX/dotfiles/config/git/allowed_signers_leak"
-  export HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/.config" DOTFILES="$SANDBOX/dotfiles" TERM=dumb
+  export HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/.config" DOT_TEST_DOTFILES="$SANDBOX/dotfiles" TERM=dumb
   run env PATH="$DOCTOR_PATH" "$REPO/bin/dot-doctor"
   [[ "$output" == *"Config Leaks"* ]]
   [[ "$output" == *"config/git/allowed_signers_leak"* ]]
@@ -143,7 +143,7 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   # A file matching the repo's own .gitignore must be treated as a legitimate
   # carve-out, not a leak — this is the free false-positive protection.
   touch "$SANDBOX/dotfiles/config/git/.DS_Store"
-  export HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/.config" DOTFILES="$SANDBOX/dotfiles" TERM=dumb
+  export HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/.config" DOT_TEST_DOTFILES="$SANDBOX/dotfiles" TERM=dumb
   run env PATH="$DOCTOR_PATH" "$REPO/bin/dot-doctor"
   [[ "$output" == *"Config Leaks"* ]]
   [[ "$output" != *".DS_Store"* ]]
@@ -159,7 +159,7 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   git -C "$SANDBOX/dotfiles" -c user.email=t@t -c user.name=t add -A
   git -C "$SANDBOX/dotfiles" -c user.email=t@t -c user.name=t commit -qm init
   printf 'leaked-key-material\n' >"$SANDBOX/dotfiles/config/git/allowed_signers_leak"
-  export HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/.config" DOTFILES="$SANDBOX/dotfiles" TERM=dumb
+  export HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/.config" DOT_TEST_DOTFILES="$SANDBOX/dotfiles" TERM=dumb
   # Isolate this check's effect on the exit code: run without --strict first and
   # capture status, then with --strict, and confirm the delta isn't caused by the
   # leak (the leak line is present in both, and neither run fails solely from it —
@@ -196,7 +196,7 @@ elsif OS.linux?
   brew 'xclip' # linux-only clipboard
 end
 BREWFILE
-  export HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/.config" DOTFILES="$SANDBOX/dotfiles" TERM=dumb
+  export HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/.config" DOT_TEST_DOTFILES="$SANDBOX/dotfiles" TERM=dumb
   run env PATH="$DOCTOR_PATH" "$REPO/bin/dot-doctor"
   [[ "$output" == *"jq"* ]]    # active-OS formula still checked
   [[ "$output" != *"xclip"* ]] # linux-only formula must not appear (#37/#39 parity)

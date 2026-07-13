@@ -33,6 +33,7 @@ esac
 EOF
   chmod +x "$DOT"
   export DOTFILES DOT CALLS
+  export DOT_TEST_DOTFILES="$DOTFILES" # the override dot-migrate's own resolution reads
 }
 
 teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }

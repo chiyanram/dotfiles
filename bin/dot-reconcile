@@ -5,7 +5,10 @@ set -Eeuo pipefail
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
 # DOTFILES is the *managed state* root (Brewfiles, toolchain, home/, config/);
 # libs load from the script's own dir so a test can point DOTFILES at a fixture.
-DOTFILES="${DOTFILES:-$(cd "$script_dir/.." && pwd -P)}"
+# Always self-locates unless DOT_TEST_DOTFILES is set (test-only escape hatch —
+# never set by .zshenv, so an ambient DOTFILES can't silently redirect this).
+# shellcheck disable=SC2034  # used by functions in the sourced reconcile.sh (e.g. reconcile_brew_adopt), not directly in this file
+DOTFILES="${DOT_TEST_DOTFILES:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
 
 # source helpers — both libs are shellcheck'd directly by `dot test`, no need to follow
 # shellcheck disable=SC1091

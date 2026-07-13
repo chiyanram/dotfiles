@@ -46,6 +46,7 @@ EOF
 run_driver() {
   run env PATH="$SANDBOX/bin:/usr/bin:/bin" HOME="$SANDBOX/home" \
     XDG_CONFIG_HOME="$SANDBOX/home/.config" DOTFILES="$SANDBOX/dotfiles" \
+    DOT_TEST_DOTFILES="$SANDBOX/dotfiles" \
     HOMEBREW_CACHE="$SANDBOX/brew-cache" ZPLUGDIR="$SANDBOX/plugins" \
     SDKMAN_DIR="$SANDBOX/.sdkman" BREW_LOG="$BREW_LOG" SDK_LOG="$SDK_LOG" \
     TERM=dumb bash "$REPO/bin/dot-reconcile" "$@"

@@ -2,8 +2,8 @@
 # Description: Manage the machine profile (personal|work) and per-machine config
 set -Eeuo pipefail
 
-script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
-DOTFILES="${DOTFILES:-$(cd "$script_dir/.." && pwd -P)}"
+# Always self-locates unless DOT_TEST_DOTFILES is set (test-only escape hatch).
+DOTFILES="${DOT_TEST_DOTFILES:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
 source "$DOTFILES/bin/lib/common.sh"
 # shellcheck disable=SC1091
 source "$DOTFILES/bin/lib/profile.sh"
