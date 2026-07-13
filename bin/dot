@@ -11,7 +11,10 @@ cleanup() {
 
 command_name=$(basename "${BASH_SOURCE[0]}")
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
-DOTFILES="${DOTFILES:-$(cd "$script_dir/.." && pwd -P)}"
+# Always self-locates unless DOT_TEST_DOTFILES is set (test-only escape hatch —
+# never set by .zshenv, so an ambient DOTFILES from the interactive shell can
+# never silently redirect this to another checkout, e.g. when run from a worktree).
+DOTFILES="${DOT_TEST_DOTFILES:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/dot"
 
@@ -754,10 +757,16 @@ main() {
       cmd_restore "$@"
       ;;
     *)
-      if command -v "dot-$cmd" >/dev/null 2>&1; then
-        "dot-$cmd" "$@"
-      elif [[ -x "$script_dir/dot-$cmd" ]]; then
+      # Prefer the checkout this `dot` itself lives in (worktree-safe) over a
+      # same-named script elsewhere on PATH — otherwise running `dot <cmd>` from
+      # inside a worktree would silently dispatch to another checkout's script.
+      # PATH is the fallback, for genuinely external custom commands (see
+      # README's "Extending with Custom Commands") that aren't part of any
+      # checkout's bin/ at all.
+      if [[ -x "$script_dir/dot-$cmd" ]]; then
         "$script_dir/dot-$cmd" "$@"
+      elif command -v "dot-$cmd" >/dev/null 2>&1; then
+        "dot-$cmd" "$@"
       else
         log_error "Unknown command: $cmd"
         usage
