@@ -20,7 +20,7 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
 # checked-out feature branch — the shared fixture for tests that need a real
 # remote (default-branch-via-remote, gcom/grbm/gpum integration).
 make_origin_and_clone() {
-  git init -q --bare "$SANDBOX/origin.git"
+  git init -q --bare --initial-branch=main "$SANDBOX/origin.git"
   git clone -q "$SANDBOX/origin.git" "$SANDBOX/work"
   (
     cd "$SANDBOX/work" || exit 1
