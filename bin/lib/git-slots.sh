@@ -133,6 +133,7 @@ git_slot_ghuser() {
 # Resolve the slot NAME bound to a repo's origin, if any. Optional dir arg
 # (default: cwd). Returns 1 if there's no origin, the origin is unparseable,
 # or the origin's host isn't bound to any slot.
+# shellcheck disable=SC2119 # every no-arg call means "use cwd", not a missing arg (#152)
 git_repo_slot_name() {
   local dir="${1:-.}" url alias
   git -C "$dir" rev-parse --is-inside-work-tree &>/dev/null || return 1
