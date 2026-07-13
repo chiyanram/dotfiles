@@ -42,6 +42,15 @@ it), and only `missing` triggers action. (The `seeded` state is introduced by
 ADR-0008; implementation tracked in #115.)
 _Avoid_: Broken, dangling (those describe a different condition — a symlink whose
 target no longer resolves at all, handled separately by `dot clean`).
+The health axis of a Link State (is it a problem, y/n) is centralized in
+`link_state_is_issue` (bin/lib/links.sh) — `link_status` and `dot-doctor`'s
+`check_config_links`/`check_home_links` all defer to it for counting, so they
+can't drift on what counts as "fine" (#145). `link_status` additionally uses
+`link_state_color` for its GREEN/YELLOW/RED choice; `dot-doctor` deliberately
+does **not** — its RED/YELLOW split is by fix-urgency (a wrong symlink is an
+active misconfiguration, RED; a real file is just unmigrated, YELLOW), a
+different axis than `link_status`'s health-based color, so its case
+statement's colors stay literal rather than forced through the same helper.
 
 **Apply Function**:
 `link_apply` or `unlink_apply` — performs the real filesystem mutation for one

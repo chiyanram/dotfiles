@@ -42,6 +42,39 @@ classify_link() {
   fi
 }
 
+# link_state_is_issue <state> — true (0) if the Link State is a problem
+# (wrong/real/missing), false (1) if healthy (ok/seeded). The shared
+# health-axis predicate for every status-reporting call site (link_status,
+# dot-doctor's check_config_links/check_home_links) so they can't drift on
+# what counts as "fine" (#145). NOT used by link_plan (colors by action, not
+# health) or link_apply/unlink_apply (mutation dispatch, not status).
+link_state_is_issue() {
+  case "$1" in
+    ok | seeded) return 1 ;;
+    wrong | real | missing) return 0 ;;
+    *)
+      log_error "link_state_is_issue: unknown state '$1'"
+      return 2
+      ;;
+  esac
+}
+
+# link_state_color <state> — the $GREEN/$YELLOW/$RED value for a Link State on
+# the same health axis as link_state_is_issue (missing reads red, same as
+# wrong/real; seeded reads green, same as ok). Shared so status-reporting call
+# sites can't drift on what color reports a state (#145).
+link_state_color() {
+  case "$1" in
+    ok | seeded) echo "$GREEN" ;;
+    wrong) echo "$YELLOW" ;;
+    real | missing) echo "$RED" ;;
+    *)
+      log_error "link_state_color: unknown state '$1'"
+      return 1
+      ;;
+  esac
+}
+
 # managed_targets [config|home] — emit "<source>\t<target>\t<label>" for every
 # managed target: config packages (config/<pkg> → ~/.config/<pkg>) and home
 # files (home/<rel> → ~/<rel>); the optional kind emits just that slice. Single

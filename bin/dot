@@ -246,24 +246,25 @@ link_status() {
   local ok=0 missing=0 wrong=0 real=0
 
   # Config packages
-  local source target label state
+  local source target label state color
   while IFS=$'\t' read -r source target label; do
     state=$(classify_link "$source" "$target")
+    color=$(link_state_color "$state")
     case "$state" in
       ok)
-        printf "  %b%-22s%b %b%s%b\n" "$GREEN" "[OK]" "$RESET" "$DIM" "$label" "$RESET"
+        printf "  %b%-22s%b %b%s%b\n" "$color" "[OK]" "$RESET" "$DIM" "$label" "$RESET"
         ok=$((ok + 1))
         ;;
       wrong)
-        printf "  %b%-22s%b %s → %s\n" "$YELLOW" "[WRONG]" "$RESET" "$label" "$(readlink "$target")"
+        printf "  %b%-22s%b %s → %s\n" "$color" "[WRONG]" "$RESET" "$label" "$(readlink "$target")"
         wrong=$((wrong + 1))
         ;;
       real)
-        printf "  %b%-22s%b %s (real file/dir)\n" "$RED" "[REAL]" "$RESET" "$label"
+        printf "  %b%-22s%b %s (real file/dir)\n" "$color" "[REAL]" "$RESET" "$label"
         real=$((real + 1))
         ;;
       missing)
-        printf "  %b%-22s%b %s\n" "$RED" "[MISSING]" "$RESET" "$label"
+        printf "  %b%-22s%b %s\n" "$color" "[MISSING]" "$RESET" "$label"
         missing=$((missing + 1))
         ;;
     esac
@@ -272,25 +273,26 @@ link_status() {
   # Home files
   while IFS=$'\t' read -r source target label; do
     state=$(classify_link "$source" "$target")
+    color=$(link_state_color "$state")
     case "$state" in
       ok)
-        printf "  %b%-22s%b %b%s%b\n" "$GREEN" "[OK]" "$RESET" "$DIM" "$label" "$RESET"
+        printf "  %b%-22s%b %b%s%b\n" "$color" "[OK]" "$RESET" "$DIM" "$label" "$RESET"
         ok=$((ok + 1))
         ;;
       wrong)
-        printf "  %b%-22s%b %s → %s\n" "$YELLOW" "[WRONG]" "$RESET" "$label" "$(readlink "$target")"
+        printf "  %b%-22s%b %s → %s\n" "$color" "[WRONG]" "$RESET" "$label" "$(readlink "$target")"
         wrong=$((wrong + 1))
         ;;
       real)
-        printf "  %b%-22s%b %s (real file)\n" "$RED" "[REAL]" "$RESET" "$label"
+        printf "  %b%-22s%b %s (real file)\n" "$color" "[REAL]" "$RESET" "$label"
         real=$((real + 1))
         ;;
       seeded)
-        printf "  %b%-22s%b %b%s (seeded)%b\n" "$GREEN" "[OK]" "$RESET" "$DIM" "$label" "$RESET"
+        printf "  %b%-22s%b %b%s (seeded)%b\n" "$color" "[OK]" "$RESET" "$DIM" "$label" "$RESET"
         ok=$((ok + 1))
         ;;
       missing)
-        printf "  %b%-22s%b %s\n" "$RED" "[MISSING]" "$RESET" "$label"
+        printf "  %b%-22s%b %s\n" "$color" "[MISSING]" "$RESET" "$label"
         missing=$((missing + 1))
         ;;
     esac

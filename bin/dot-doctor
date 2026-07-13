@@ -233,50 +233,54 @@ check_docker_runtime() {
 
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 
+# Note: this reports issues (a symlink health check), not a link_status-style
+# color report — its RED/YELLOW split is by fix-urgency (wrong target = an
+# active misconfiguration, RED; a real file = an unmigrated file, YELLOW),
+# which is a different axis than link_status/link_plan's color scheme. Only
+# the is-this-an-issue predicate (link_state_is_issue) is shared; colors and
+# icons stay literal here (#145).
 check_config_links() {
   local issues=0
-  local source target label name
+  local source target label name state
   while IFS=$'\t' read -r source target label; do
     name=$(basename "$source")
-    case "$(classify_link "$source" "$target")" in
+    state=$(classify_link "$source" "$target")
+    case "$state" in
       ok)
         printf "  %b %b%-22s%b %blinked%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "$name" "$RESET" "$DIM" "$RESET"
         ;;
       wrong)
         printf "  %b %b%-22s%b %bwrong target → %s%b\n" "${RED}${ERROR_ICON}" "$BOLD" "$name" "$RESET" "$RED" "$(readlink "$target")" "$RESET"
         log_info "    Fix: dot link $name --force"
-        issues=$((issues + 1))
         ;;
       real)
         printf "  %b %b%-22s%b %breal file/dir (not a symlink)%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "$name" "$RESET" "$YELLOW" "$RESET"
         log_info "    Fix: dot backup && dot link $name --force"
-        issues=$((issues + 1))
         ;;
       missing)
         printf "  %b %b%-22s%b %bnot linked%b\n" "${RED}${ERROR_ICON}" "$BOLD" "$name" "$RESET" "$RED" "$RESET"
         log_info "    Fix: dot link $name"
-        issues=$((issues + 1))
         ;;
     esac
+    link_state_is_issue "$state" && issues=$((issues + 1))
   done < <(managed_targets config)
   return "$issues"
 }
 
 check_home_links() {
   local issues=0
-  local source target label
+  local source target label state
   while IFS=$'\t' read -r source target label; do
-    case "$(classify_link "$source" "$target")" in
+    state=$(classify_link "$source" "$target")
+    case "$state" in
       ok)
         printf "  %b %b%-22s%b %blinked%b\n" "${GREEN}${SUCCESS_ICON}" "$BOLD" "$label" "$RESET" "$DIM" "$RESET"
         ;;
       wrong)
         printf "  %b %b%-22s%b %bwrong target%b\n" "${RED}${ERROR_ICON}" "$BOLD" "$label" "$RESET" "$RED" "$RESET"
-        issues=$((issues + 1))
         ;;
       real)
         printf "  %b %b%-22s%b %breal file (not a symlink)%b\n" "${YELLOW}${WARNING_ICON}" "$BOLD" "$label" "$RESET" "$YELLOW" "$RESET"
-        issues=$((issues + 1))
         ;;
       seeded)
         # A Seed Target's present live file is the healthy state — the tool owns
@@ -285,9 +289,9 @@ check_home_links() {
         ;;
       missing)
         printf "  %b %b%-22s%b %bnot linked%b\n" "${RED}${ERROR_ICON}" "$BOLD" "$label" "$RESET" "$RED" "$RESET"
-        issues=$((issues + 1))
         ;;
     esac
+    link_state_is_issue "$state" && issues=$((issues + 1))
   done < <(managed_targets home)
   return "$issues"
 }
