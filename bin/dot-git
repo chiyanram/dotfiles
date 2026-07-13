@@ -739,6 +739,7 @@ git_migrate() {
 git_gh_config_dir() {
   command -v git &>/dev/null || return 1
   local name
+  # shellcheck disable=SC2119 # deliberate no-arg call — dir defaults to cwd (#152)
   name="$(git_repo_slot_name)" || return 1
   git_slot_gh_config_dir "$name"
 }
