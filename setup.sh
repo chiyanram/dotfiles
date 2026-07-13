@@ -3,7 +3,9 @@
 
 set -Eeuo pipefail
 
-DOTFILES="${DOTFILES:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)}"
+# Always self-locates unless DOT_TEST_DOTFILES is set (test-only escape hatch —
+# never set by .zshenv, so an ambient DOTFILES can't silently redirect this).
+DOTFILES="${DOT_TEST_DOTFILES:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)}"
 source "$DOTFILES/bin/lib/common.sh"
 # shellcheck disable=SC1091
 source "$DOTFILES/bin/lib/profile.sh"

@@ -2,7 +2,8 @@
 # Description: Install the declared SDKMAN toolchain (sdkman/toolchain).
 
 set -Eeuo pipefail
-DOTFILES="${DOTFILES:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
+# Always self-locates unless DOT_TEST_DOTFILES is set (test-only escape hatch).
+DOTFILES="${DOT_TEST_DOTFILES:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
 
 # source helpers
 source "$DOTFILES/bin/lib/common.sh"

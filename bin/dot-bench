@@ -2,8 +2,8 @@
 # Description: Benchmark interactive zsh startup — median of 5 `zsh -i -c exit` runs
 set -Eeuo pipefail
 
-script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
-DOTFILES="${DOTFILES:-$(cd "$script_dir/.." && pwd -P)}"
+# Always self-locates unless DOT_TEST_DOTFILES is set (test-only escape hatch).
+DOTFILES="${DOT_TEST_DOTFILES:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
 source "$DOTFILES/bin/lib/common.sh"
 
 RUNS=5
