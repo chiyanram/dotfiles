@@ -10,6 +10,8 @@ setup_sandbox() {
   repo_root="$(cd "$BATS_TEST_DIRNAME/.." && pwd -P)"
 
   SANDBOX="$(mktemp -d)"
+  SANDBOX="$(cd "$SANDBOX" && pwd -P)" # resolve symlinks (e.g. /var -> /private/var on
+  # macOS) so this matches dot's own self-located, pwd -P-resolved DOTFILES exactly.
   export SANDBOX
   export HOME="$SANDBOX/home"
   export XDG_CONFIG_HOME="$HOME/.config"
