@@ -11,7 +11,7 @@ setup() {
   export GIT_CONFIG_GLOBAL="$XDG_CONFIG_HOME/git/config"
   mkdir -p "$XDG_CONFIG_HOME/git"
   cp "$REPO/config/git/config" "$GIT_CONFIG_GLOBAL"
-  # Personal identity is the unconditional fallback (applies everywhere by default).
+  # Baseline test identity in ~/.gitconfig-local; real machines carry no fallback identity since #157.
   git config -f "$HOME/.gitconfig-local" user.email "me@home.test"
   git config -f "$HOME/.gitconfig-local" user.name "Me Personal"
   # Pre-generate a throwaway passphrase-less key so tests never hit an interactive prompt.
@@ -63,7 +63,7 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   [[ "$output" == *"ssh-ed25519 "* ]]
 }
 
-@test "email binds to the slot when the remote uses the alias, fallback otherwise" {
+@test "email binds to the slot when the remote uses the alias; unbound repo hard-fails with no identity" {
   "$REPO/bin/dot-git" add-identity --name ee --host github.com \
     --email me@work.test --key "$HOME/seedkey"
 
@@ -75,8 +75,14 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
 
   run git -C "$HOME/bound" config user.email
   [ "$output" = "me@work.test" ]
-  run git -C "$HOME/unbound" config user.email
-  [ "$output" = "me@home.test" ]
+
+  # No fallback identity on a work laptop: with useConfigOnly=true (config/git/config)
+  # and no [user] block in ~/.gitconfig-local, an unbound repo must hard-fail
+  # instead of silently committing under the personal fallback (#157).
+  git config -f "$HOME/.gitconfig-local" --unset user.email
+  git config -f "$HOME/.gitconfig-local" --unset user.name
+  run git -C "$HOME/unbound" var GIT_AUTHOR_IDENT
+  [ "$status" -ne 0 ]
 }
 
 @test "add-identity is idempotent — re-run does not duplicate blocks" {

@@ -6,7 +6,8 @@ setup() {
   export XDG_CONFIG_HOME="$SANDBOX/.config"
   export DOTFILES="$REPO"
   export TERM=dumb
-  # Clean global git config (the committed one) under XDG, personal fallback identity.
+  # Clean global git config (the committed one) under XDG; ~/.gitconfig-local below is just a
+  # baseline test identity -- real machines carry no fallback identity since #157.
   export GIT_CONFIG_GLOBAL="$XDG_CONFIG_HOME/git/config"
   mkdir -p "$XDG_CONFIG_HOME/git"
   cp "$REPO/config/git/config" "$GIT_CONFIG_GLOBAL"

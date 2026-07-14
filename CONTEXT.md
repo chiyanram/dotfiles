@@ -109,12 +109,19 @@ same alias that selects the key, email can never drift from key — you never se
 the email by hand.
 _Avoid_: Configure identity, set email.
 
-**Fallback Identity**:
-The unconditional identity in `~/.gitconfig-local`, used only when no slot's
-`hasconfig` rule matches (e.g. a local repo with no remote yet). It is
-deliberately the **personal** identity, so a forgotten repo commits as you — never
-as the wrong client.
-_Avoid_: Default account (it is a safety net, not a preferred identity).
+**No Fallback (`useConfigOnly`)**:
+`user.useConfigOnly = true` in the shared `config/git/config` (#157): a commit
+in a repo that matches no slot's `hasconfig` rule — including a scratch repo
+with no remote at all — fails outright, full stop. There is no default identity
+to fall back to, not even a "safe" one. This superseded the original **Fallback
+Identity** design (a `[user]` block in `~/.gitconfig-local`, deliberately the
+personal identity), rejected because any fallback value is itself state that
+can silently drift out of sync with intent — as it already had once (the prior
+`~/.gitconfig-local` EE-email drift bug). Unlike the Identity Guard, which is a
+bypassable `pre-commit` hook not copied on clone, `useConfigOnly` operates
+inside git's own commit machinery.
+_Avoid_: Fallback identity, default identity (both describe the eliminated
+pre-#157 design).
 
 **Identity Guard**:
 The `pre-commit` hook (installed globally via `core.hooksPath`) that blocks a

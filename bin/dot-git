@@ -24,7 +24,10 @@ Options:
     -h, --help       Show this help message
 
 Commands:
-    setup            Setup the personal fallback identity (name, email, github user)
+    setup            Configure ~/.gitconfig-local: name, email, github user, credential
+                     helper. Since #157 a repo bound to no slot hard-fails the commit
+                     (useConfigOnly) rather than falling back to this identity — this
+                     command's name/email prompts are legacy and tracked for removal (#158)
     add-identity     Build a git identity slot: SSH key + host alias + remote-bound, SSH-signed email
     use <slot>       Bind the current repo to an existing slot: rewrite origin to the slot
                      alias (key/email/signing follow) and, for GitHub slots, switch the gh account
