@@ -10,7 +10,7 @@ setup() {
   export GIT_CONFIG_GLOBAL="$XDG_CONFIG_HOME/git/config"
   mkdir -p "$XDG_CONFIG_HOME/git"
   cp "$REPO/config/git/config" "$GIT_CONFIG_GLOBAL"
-  # Personal identity is the unconditional fallback (applies everywhere by default).
+  # Baseline test identity in ~/.gitconfig-local; real machines carry no fallback identity since #157.
   git config -f "$HOME/.gitconfig-local" user.email "me@home.test"
   git config -f "$HOME/.gitconfig-local" user.name "Me Personal"
   # Pre-generate a throwaway passphrase-less key so tests never hit an interactive prompt.

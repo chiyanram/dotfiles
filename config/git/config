@@ -217,3 +217,8 @@
 [status]
     # show stash count in `git status` so stashes aren't forgotten
     showStash = true
+[user]
+    # Work laptop: no default identity, ever. A repo whose remote isn't bound
+    # to an identity slot (or has no remote at all) must hard-fail the commit
+    # instead of silently falling back to any email — see ADR-0001 and #157.
+    useConfigOnly = true
