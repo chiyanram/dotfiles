@@ -14,7 +14,8 @@ source "$DOTFILES/bin/lib/brew.sh"
 # shellcheck disable=SC1091
 source "$DOTFILES/bin/lib/sdkman.sh"
 
-DOT="$DOTFILES/bin/dot"
+# Overridable so tests can stub it (mirrors bin/dot-migrate's convention).
+DOT="${DOT:-$DOTFILES/bin/dot}"
 
 PROFILE_FLAG=""
 NON_INTERACTIVE=0
@@ -175,16 +176,19 @@ step_shell() {
   "$DOT" shell change || return 1
 }
 
+# github.user needs a prompt (skipped when already configured or non-interactive);
+# the Identity Guard needs none, so it's always (re-)activated — a fresh machine
+# must never end up with neither a bound identity nor an active guard (#158).
 step_git() {
   if [[ -f "$HOME/.gitconfig-local" ]]; then
     log_success "Git identity already configured (~/.gitconfig-local)"
-    return "$STEP_SKIP_CODE"
+  elif [[ "$NON_INTERACTIVE" -eq 1 ]]; then
+    log_info "Skipping github.user prompt (non-interactive) — run 'dot git setup' later"
+  else
+    "$DOT" git setup || return 1
   fi
-  if [[ "$NON_INTERACTIVE" -eq 1 ]]; then
-    log_info "Skipping git identity (non-interactive)"
-    return "$STEP_SKIP_CODE"
-  fi
-  "$DOT" git setup || return 1
+
+  "$DOT" git install-guard || return 1
 }
 
 step_macos() {
@@ -294,7 +298,7 @@ main() {
   step "Homebrew packages" step_brew_bundle
   step "Backup & link dotfiles" step_link
   step "Default shell" step_shell
-  step "Git identity" step_git
+  step "Git identity & guard" step_git
   step "macOS defaults" step_macos
   step "SDKMAN & JVM tools" step_sdkman
   step "Health check" step_doctor

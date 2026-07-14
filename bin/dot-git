@@ -24,10 +24,9 @@ Options:
     -h, --help       Show this help message
 
 Commands:
-    setup            Configure ~/.gitconfig-local: name, email, github user, credential
-                     helper. Since #157 a repo bound to no slot hard-fails the commit
-                     (useConfigOnly) rather than falling back to this identity — this
-                     command's name/email prompts are legacy and tracked for removal (#158)
+    setup            Configure github.user and the credential helper in ~/.gitconfig-local
+                     (no identity fallback — an unbound repo hard-fails via useConfigOnly,
+                     see ADR-0001)
     add-identity     Build a git identity slot: SSH key + host alias + remote-bound, SSH-signed email
     use <slot>       Bind the current repo to an existing slot: rewrite origin to the slot
                      alias (key/email/signing follow) and, for GitHub slots, switch the gh account
@@ -75,28 +74,12 @@ setup_git() {
 
   local_config="$HOME/.gitconfig-local"
 
-  defaultName=$(git config user.name 2>/dev/null || true)
-  defaultEmail=$(git config user.email 2>/dev/null || true)
   defaultGithub=$(git config github.user 2>/dev/null || true)
 
-  read -rp "Name [$defaultName] " name
-  read -rp "Email [$defaultEmail] " email
   read -rp "Github username [$defaultGithub] " github
 
-  git config -f "$local_config" user.name "${name:-$defaultName}"
-  git config -f "$local_config" user.email "${email:-$defaultEmail}"
   git config -f "$local_config" github.user "${github:-$defaultGithub}"
-
-  if [[ "$(uname)" == "Darwin" ]]; then
-    git config -f "$local_config" credential.helper "osxkeychain"
-  else
-    read -rn 1 -p "Save user and password to an unencrypted file to avoid writing? [y/N] " save
-    if [[ $save =~ ^([Yy])$ ]]; then
-      git config -f "$local_config" credential.helper "store"
-    else
-      git config -f "$local_config" credential.helper "cache --timeout 3600"
-    fi
-  fi
+  git config -f "$local_config" credential.helper "osxkeychain"
 }
 
 # Rewrite ~/.ssh/config, dropping any existing block for the given Host alias so a
