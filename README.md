@@ -197,7 +197,8 @@ Configuration lives in `home/` (`.zshrc`, `.zsh_functions`, `.zsh_aliases`, `.zp
   - zsh-completions, zsh-syntax-highlighting, zsh-autosuggestions, zsh-history-substring-search, zsh-you-should-use, fzf-tab, fzf-git.sh
 - **Tool initialization**: mise (Node/Python), zoxide, direnv, fzf, atuin, SDKMAN (lazy-loaded), starship
 - **Docker aliases** (`home/.docker_aliases`)
-- **Custom functions**: `c` (cd to workspaces), `h` (cd to home subdir), `g` (git shortcut), `md` (mkdir + cd), `zfetch` (plugin manager)
+- **Custom functions**: `c` (cd into a `$CODE_DIR` project), `h` (cd to home subdir), `g` (git shortcut), `md` (mkdir + cd), `zfetch` (plugin manager)
+- **Project navigation**: `cdpath` + `AUTO_CD` let a bare project name (`myproject`↵) cd from anywhere with Tab completion; fzf `Alt-C` is scoped to `$CODE_DIR`; zoxide `z`/`zi` jump by frecency. `CODE_DIR` (per-machine, in `~/.zshenv.local`) and any `hash -d` named dirs (per-machine, in `~/.zshrc.local`) stay out of the shared config. See `docs/research/fast-project-navigation-zsh.md`.
 
 ### Neovim
 
