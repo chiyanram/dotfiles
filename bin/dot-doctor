@@ -443,14 +443,18 @@ check_identity_audit() {
   return 0
 }
 
-# --- config leaks -----------------------------------------------------------
+# --- config leaks & drift ---------------------------------------------------
 # config/*/home/* are symlinked from $HOME back into the repo's own working
-# tree, so a tool writing runtime/generated state into $HOME/.config/<pkg>/...
-# creates an untracked file directly inside the repo (e.g. git's
-# allowed_signers, #58). Detection is just `git status` over those paths — the
-# repo's own .gitignore is the false-positive carve-out, for free. Report-only,
-# non-gating like the Drift and Identity Audit sections (--strict included):
-# there is no "missing" counterpart to a leak, so this has no exit-code role.
+# tree, so a tool writing into $HOME/.config/<pkg>/... — or appending to a
+# symlinked rc file — dirties the repo directly. Two shapes, same `git status`
+# oracle:
+#   ?? untracked — runtime/generated state (e.g. git's allowed_signers, #58)
+#   modified     — an installer/tool wrote into a *tracked* file (a PATH block
+#                  appended to home/.zshrc, or `git config --global` into
+#                  config/git/config, #162)
+# The repo's own .gitignore is the false-positive carve-out, for free.
+# Report-only, non-gating like the Drift and Identity Audit sections (--strict
+# included): there is no "missing" counterpart, so this has no exit-code role.
 
 check_config_leaks() {
   if ! command -v git &>/dev/null; then
@@ -462,17 +466,25 @@ check_config_leaks() {
   leaks="$(git -C "$DOTFILES" status --porcelain --untracked-files=normal -- config/ home/ 2>/dev/null || true)"
 
   if [[ -z "$leaks" ]]; then
-    log_success "no config leaks in config/ or home/"
+    log_success "no config leaks or drift in config/ or home/"
     return 0
   fi
 
-  local line path
+  local line xy path saw_leak=false saw_drift=false
   while IFS= read -r line; do
     [[ -n "$line" ]] || continue
+    xy="${line:0:2}"
     path="${line:3}"
-    log_warning "config leak: $path (untracked file inside a symlinked dir)"
+    if [[ "$xy" == "??" ]]; then
+      saw_leak=true
+      log_warning "config leak: $path (untracked file inside a symlinked dir)"
+    else
+      saw_drift=true
+      log_warning "config drift: $path (tracked file modified in place — likely an installer/tool write)"
+    fi
   done <<<"$leaks"
-  log_info "A leaked file is runtime/generated state a tool wrote into its own symlinked config dir — relocate it out of config/home, or add a .gitignore entry if it's expected."
+  [[ "$saw_leak" == true ]] && log_info "A leaked file is runtime/generated state a tool wrote into its own symlinked config dir — relocate it out of config/home, or add a .gitignore entry if it's expected."
+  [[ "$saw_drift" == true ]] && log_info "Drift is a tool/installer writing into a tracked symlinked file — revert it, then either guard-and-commit the snippet (e.g. '[[ -d DIR ]] && …') into the shared file, or move the machine-specific/secret part to the matching ~/*.local sink (~/.zshrc.local, ~/.zprofile.local, ~/.gitconfig-local)."
   return 0
 }
 

@@ -13,3 +13,7 @@ fi
 if [[ -d "$HOME/Library/Application Support/JetBrains/Toolbox/scripts" ]]; then
     export PATH="$PATH:$HOME/Library/Application Support/JetBrains/Toolbox/scripts"
 fi
+
+# Machine-specific login-shell env (installer PATH writes, per-host tweaks) —
+# not committed. The sink for drift an installer would otherwise append here.
+[[ -f ~/.zprofile.local ]] && source ~/.zprofile.local
