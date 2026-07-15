@@ -61,8 +61,14 @@ export PATH="/Applications/IntelliJ IDEA.app/Contents/MacOS:$PATH"
 # De-duplicate PATH
 typeset -U path
 
-# Core directories
-export CODE_DIR=~/Workspaces
+# Core directories.
+# CODE_DIR is machine-specific — override it in ~/.zshenv.local (sourced by
+# .zshenv, before this file); this is only the fallback default.
+export CODE_DIR="${CODE_DIR:-$HOME/Workspaces}"
+
+# Resolve project dirs from anywhere: `cd <name>` (and bare `<name>` via AUTO_CD
+# below) searches $CODE_DIR and $HOME, with native Tab completion.
+cdpath=("$CODE_DIR" "$HOME")
 
 # Shell behavior
 export REPORTTIME=10
@@ -189,6 +195,9 @@ if [[ -x "$(command -v fzf)" ]]; then
     export FZF_DEFAULT_COMMAND='fd --type f'
     export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
     export FZF_DEFAULT_OPTS="--color bg:-1,bg+:-1,fg:-1,fg+:#feffff,hl:#993f84,hl+:#d256b5,info:#676767,prompt:#676767,pointer:#676767"
+    # Alt-C always fuzzy-picks a project dir under $CODE_DIR, from anywhere.
+    export FZF_ALT_C_COMMAND="fd --type d --max-depth 2 . \"$CODE_DIR\""
+    export FZF_ALT_C_OPTS="--preview 'eza --tree --level=1 --icons --color=always {} 2>/dev/null | head -100'"
     source <(fzf --zsh)
 fi
 
