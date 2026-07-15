@@ -131,8 +131,10 @@ Personal dotfiles for my macOS laptop (backend engineer: JVM toolchain via SDKMA
 
 - `~/.localrc` and `~/.zshrc.local` — machine-specific shell config (sourced by .zshrc, not committed)
 - `~/.zshenv.local` — machine-specific env vars (sourced by .zshenv, not committed)
+- `~/.zprofile.local` — machine-specific login-shell env (sourced by .zprofile, not committed)
 - `~/.gitconfig-local` — personal git config (name, email, signing key)
 - Identity/auth/transport git config (`url.insteadOf`, keys, email) must NEVER go in `config/git/config` — it's shared across machines; use `~/.gitconfig-local`
+- **Installer/tool drift into a shared symlinked file** (`M home/.zshrc`, `M config/git/config`) is flagged by `dot doctor` as "config drift". Fix by reverting, then either _guard-and-commit_ the snippet into the shared file when it's harmless-if-inert (idempotent, e.g. `[[ -d "$HOME/.rd/bin" ]] && export PATH="$HOME/.rd/bin:$PATH"`), or move the machine-specific/secret part to the matching `~/*.local` sink. Deferred: a tracked per-host tier (`hosts/<label>/`) and redirecting `git config --global` to an untracked `~/.gitconfig` (#166) — see #162.
 
 ### Common Commands
 

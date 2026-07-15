@@ -130,6 +130,28 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   [[ "$output" == *"config/git/allowed_signers_leak"* ]]
 }
 
+@test "doctor reports a modified tracked config file as drift, not an untracked leak (#162)" {
+  [[ "$(uname)" == "Darwin" ]] || skip "dot doctor inspection is macOS-only"
+  mkdir -p "$SANDBOX/dotfiles/bin/lib" "$SANDBOX/dotfiles/config/git" "$SANDBOX/dotfiles/home" "$SANDBOX/.config"
+  cp "$REPO/bin/lib/common.sh" "$REPO/bin/lib/profile.sh" "$REPO/bin/lib/brew.sh" "$REPO/bin/lib/links.sh" "$REPO/bin/lib/sdkman.sh" "$REPO/bin/lib/reconcile.sh" "$REPO/bin/lib/git-slots.sh" "$REPO/bin/lib/git-repo-discovery.sh" "$SANDBOX/dotfiles/bin/lib/"
+  touch "$SANDBOX/dotfiles/home/.zshrc"
+  printf 'config\n' >"$SANDBOX/dotfiles/config/git/config"
+  git -C "$SANDBOX/dotfiles" init -q
+  git -C "$SANDBOX/dotfiles" -c user.email=t@t -c user.name=t add -A
+  git -C "$SANDBOX/dotfiles" -c user.email=t@t -c user.name=t commit -qm init
+  # Simulate an installer/tool writing into a tracked, symlinked file — a PATH
+  # block appended to home/.zshrc (the same shape as `git config --global`
+  # dirtying config/git/config).
+  printf '\nexport PATH="/opt/tool/bin:$PATH"\n' >>"$SANDBOX/dotfiles/home/.zshrc"
+  export HOME="$SANDBOX" XDG_CONFIG_HOME="$SANDBOX/.config" DOT_TEST_DOTFILES="$SANDBOX/dotfiles" TERM=dumb
+  run env PATH="$DOCTOR_PATH" "$REPO/bin/dot-doctor"
+  [[ "$output" == *"Config Leaks"* ]]
+  [[ "$output" == *"config drift"* ]]
+  [[ "$output" == *"home/.zshrc"* ]]
+  # Must NOT mislabel a modified tracked file as an untracked leak.
+  [[ "$output" != *"config leak: home/.zshrc"* ]]
+}
+
 @test "doctor does not report a .gitignore'd file as a config leak (#69)" {
   [[ "$(uname)" == "Darwin" ]] || skip "dot doctor inspection is macOS-only"
   mkdir -p "$SANDBOX/dotfiles/bin/lib" "$SANDBOX/dotfiles/config/git" "$SANDBOX/dotfiles/home" "$SANDBOX/.config"
