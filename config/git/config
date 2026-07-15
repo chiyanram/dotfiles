@@ -208,8 +208,6 @@
     allowedSignersFile = ~/.local/state/dot/git/allowed_signers
 [help]
     autocorrect = prompt
-[blame]
-    ignoreRevsFile = .git-blame-ignore-revs
 [column]
     ui = auto
 [tag]
