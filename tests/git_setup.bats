@@ -3,8 +3,16 @@ setup() {
   SANDBOX="$(mktemp -d)"
   SANDBOX="$(cd "$SANDBOX" && pwd -P)" # resolve symlinks so include paths match
   export HOME="$SANDBOX"
+  export XDG_CONFIG_HOME="$SANDBOX/.config"
   export DOTFILES="$REPO"
   export TERM=dumb
+  # Make git use a clean global config (the committed one) under XDG, so
+  # `github.user`'s default-read (no -f, relies on the include chain) is
+  # deterministic — an ambient XDG_CONFIG_HOME/git/config on the host would
+  # otherwise leak through instead.
+  export GIT_CONFIG_GLOBAL="$XDG_CONFIG_HOME/git/config"
+  mkdir -p "$XDG_CONFIG_HOME/git"
+  cp "$REPO/config/git/config" "$GIT_CONFIG_GLOBAL"
 }
 
 teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
