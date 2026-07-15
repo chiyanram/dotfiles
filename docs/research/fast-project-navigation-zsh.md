@@ -141,7 +141,7 @@ So `z n8n` and `z agent-platform` (or `z agent<Tab>`) already solve the "jump to
 project I use often" case with **zero new config** — this is the single biggest lever.
 
 **vs. your `c()`:** `c` needs the project to be a direct child of `$CODE_DIR` and
-requires you to know/type the name; `z` matches on frecency across *any* path you've
+requires you to know/type the name; `z` matches on frecency across _any_ path you've
 visited (including nested dirs like `.../agent-platform/aruvii-ui`, already in your DB)
 and tolerates partial queries. `c` is deterministic (good for scripting/muscle memory);
 `z` is fuzzy and history-driven. They complement each other.
@@ -155,7 +155,7 @@ Primary source, zsh manual, Parameters (<https://zsh.sourceforge.io/Doc/Release/
 > "An array (colon-separated list) of directories specifying the search path for the
 > `cd` command."
 
-With `cdpath=($CODE_DIR)`, typing `cd agent-platform` from *any* directory searches
+With `cdpath=($CODE_DIR)`, typing `cd agent-platform` from _any_ directory searches
 `~/workspace/agent-platform` and cd's there. Because you already have
 `setopt AUTO_CD` (`home/.zshrc:76`) — zsh manual, Options
 (<https://zsh.sourceforge.io/Doc/Release/Options.html>):
@@ -180,7 +180,7 @@ subdir of the current dir still prefers the local one first, then falls back to
 **vs. your `c()`:** `cdpath` covers the same "jump to a child of `$CODE_DIR`" case but
 with the native `cd`/bare-word syntax and native completion, and it does **not** shadow
 the current directory. `c` is a fine explicit alias to keep; `cdpath` just means you no
-longer *need* it.
+longer _need_ it.
 
 ---
 
@@ -215,7 +215,7 @@ hash -d n8n="$CODE_DIR/n8n"
 ```
 
 **vs. `z` / `cdpath`:** named dirs are the most "typed-path-anywhere" option — they work
-in *any* command, not just `cd`, and they clean up your prompt. Downside: each is
+in _any_ command, not just `cd`, and they clean up your prompt. Downside: each is
 hand-maintained (add a line per project), whereas `z` learns automatically and `cdpath`
 covers all children at once. Best for the 2-3 repos you truly live in.
 
@@ -230,7 +230,7 @@ Alt-C is already bound (your `source <(fzf --zsh)` at `home/.zshrc:192` installs
 > "ALT-C - cd into the selected directory"
 
 By default Alt-C walks directories under the **current** dir. To make Alt-C always
-fuzzy-pick a *project* regardless of where you are, override its source command with
+fuzzy-pick a _project_ regardless of where you are, override its source command with
 `FZF_ALT_C_COMMAND` (README, environment variables) and optionally `FZF_ALT_C_OPTS`:
 
 **Add to `home/.zshrc`** inside the existing FZF block (after line 191, before
@@ -250,8 +250,8 @@ Also available with no config — fuzzy completion, fzf README
 trigger is `**`, so **`cd ~/workspace/**<TAB>`** opens an fzf picker of matching dirs.
 The trigger is configurable via `FZF_COMPLETION_TRIGGER`.
 
-**vs. `zi`:** zoxide's `zi` picks from your *frecent* history (dirs you've visited);
-scoped Alt-C / `**<Tab>` picks from the *filesystem* under `$CODE_DIR` (including brand-new
+**vs. `zi`:** zoxide's `zi` picks from your _frecent_ history (dirs you've visited);
+scoped Alt-C / `**<Tab>` picks from the _filesystem_ under `$CODE_DIR` (including brand-new
 projects you've never cd'd into). Use `zi` for "somewhere I've been", Alt-C for "browse
 what's there".
 
@@ -259,15 +259,15 @@ what's there".
 
 ## Comparison
 
-| Mechanism | Trigger | Matches | Needs prior visit? | New config | Best for |
-|---|---|---|---|---|---|
-| `z` (zoxide) — **have it** | `z n8n`, `z agent<Tab>` | frecency, fuzzy, any visited path | Yes (hook-tracked) | none | Jumping to projects you use often |
-| `zi` (zoxide) — **have it** | `zi` | interactive fzf over frecent dirs | Yes | none | "I've been there, let me pick" |
-| `cdpath` + AUTO_CD (have AUTO_CD) | `agent-platform`↵ or `cd a<Tab>` | children of `$CODE_DIR`, native completion | No | 1 line | Any project child, from anywhere |
-| `hash -d` named dir | `cd ~ap`, `~ap` in any cmd | exact, path-anywhere; abbreviates prompt | No | 1 line/project | The 2-3 repos you live in |
-| fzf Alt-C (bound; scope it) | `Alt-C` | fuzzy over dirs under `$CODE_DIR` | No | 2 lines | Browsing/fuzzy-finding a project |
-| `**<Tab>` (fzf completion) | `cd $CODE_DIR/**<Tab>` | fuzzy filesystem | No | none | Ad-hoc fuzzy path completion |
-| `c()` — **have it** (fix CODE_DIR) | `c agent-platform` | direct child of `$CODE_DIR` | No | fix bug §0 | Explicit muscle-memory alias |
+| Mechanism                          | Trigger                          | Matches                                    | Needs prior visit? | New config     | Best for                          |
+| ---------------------------------- | -------------------------------- | ------------------------------------------ | ------------------ | -------------- | --------------------------------- |
+| `z` (zoxide) — **have it**         | `z n8n`, `z agent<Tab>`          | frecency, fuzzy, any visited path          | Yes (hook-tracked) | none           | Jumping to projects you use often |
+| `zi` (zoxide) — **have it**        | `zi`                             | interactive fzf over frecent dirs          | Yes                | none           | "I've been there, let me pick"    |
+| `cdpath` + AUTO_CD (have AUTO_CD)  | `agent-platform`↵ or `cd a<Tab>` | children of `$CODE_DIR`, native completion | No                 | 1 line         | Any project child, from anywhere  |
+| `hash -d` named dir                | `cd ~ap`, `~ap` in any cmd       | exact, path-anywhere; abbreviates prompt   | No                 | 1 line/project | The 2-3 repos you live in         |
+| fzf Alt-C (bound; scope it)        | `Alt-C`                          | fuzzy over dirs under `$CODE_DIR`          | No                 | 2 lines        | Browsing/fuzzy-finding a project  |
+| `**<Tab>` (fzf completion)         | `cd $CODE_DIR/**<Tab>`           | fuzzy filesystem                           | No                 | none           | Ad-hoc fuzzy path completion      |
+| `c()` — **have it** (fix CODE_DIR) | `c agent-platform`               | direct child of `$CODE_DIR`                | No                 | fix bug §0     | Explicit muscle-memory alias      |
 
 ---
 
