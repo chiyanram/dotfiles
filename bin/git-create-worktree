@@ -182,7 +182,7 @@ fi
 msg "${GRAY}Moving into worktree: $worktree${NOFORMAT}"
 cd "$worktree"
 update_remote "$branch"
-# Node/Python versions auto-activate via mise on cd (reads .nvmrc/.python-version)
+# Node version auto-activates via mise on cd (reads .nvmrc/.node-version)
 # run_command "Installing dependencies" npm --no-progress --silent install
 # run_command "Building App" npm run --silent build
 msg "${GREEN}Success.${NOFORMAT}"

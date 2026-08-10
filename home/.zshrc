@@ -166,7 +166,8 @@ bindkey '^[[B' history-substring-search-down
 # Tool Initialization
 ########################################################
 
-# Node + Python runtimes via mise (reads .nvmrc/.node-version/.python-version natively)
+# Node runtime via mise (reads .nvmrc/.node-version — opted in via config/mise/config.toml).
+# Python is Homebrew's, not mise-managed.
 if command -v mise &>/dev/null; then
     eval "$(mise activate zsh)"
 fi
