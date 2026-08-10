@@ -24,6 +24,53 @@ missing their executable bit, since nothing local caught it before CI did.
 All are non-blocking except the identity-config guard. None enforce working in
 a worktree — that was discussed and deliberately left undone as a default.
 
+The hooks above are repo-scoped (`.claude/`, registered in `.claude/settings.json`).
+There is also one **user-level** hook that this repo ships, since losing it costs
+more than a lint warning:
+
+- `home/.claude/hooks/block-dangerous-git.sh` (PreToolUse, `Bash` matcher) —
+  symlinked to `~/.claude/hooks/` by `dot link`. Refuses destructive git
+  commands everywhere, and history-writing ones (`commit`, `push`) outside a
+  trusted repo. Trust is never hardcoded (#180): the hook resolves its own
+  symlink back to the checkout that owns it, so this repo trusts itself, and
+  other repos are listed one per line in the untracked
+  `~/.claude/hooks/trusted-git-repos.local`.
+
+  Its registration ships in `home/.claude/settings.json.seed`, so a **fresh**
+  machine is wired up by `dot link` while an existing one is not — `settings.json`
+  is app-owned once present (ADR-0008). Add the `PreToolUse` entry by hand there,
+  or `dot link --reseed`.
+
+  Patterns are anchored to command position (start of line or after `;`/`&`/`|`),
+  not matched as bare substrings. That is deliberate: the previous substring
+  matcher blocked writing documentation that merely quoted a guarded command,
+  and a guard you have to route around stops being a guard. `tests/claude_git_guard.bats`
+  pins both halves — that invocations are caught and that prose is not.
+
+  `(` is **not** in the separator set, so parenthesised prose ("forced pushes
+  (`git push --force`)") passes; a genuine subshell is still caught by the `&&`
+  or `;` inside it. One limit remains and is not fixable with a line-oriented
+  matcher: a heredoc line that _begins_ with a guarded command is
+  indistinguishable from a real newline-separated one, and is refused.
+
+  It does not `set -e`, and does not source `common.sh` or resolve `DOTFILES`
+  the way a `dot-*` script must. Both are deliberate and both are commented in
+  the file: Claude Code reads exit 2 as "refuse" and any other non-zero as a
+  non-blocking error, so a hook that aborts mid-check fails **open**; and the
+  hook runs from `~/.claude` on any machine, including before this repo is
+  cloned, so it has to stand alone. It is still in `dot-test`'s `bash_scripts()`
+  (shellcheck + shfmt), which is the part of the ADR-0003 rigor list that does
+  apply to it.
+
+  **Migrating an existing machine.** If `~/.claude/hooks/block-dangerous-git.sh`
+  already exists as a hand-installed real file, `dot link` classifies it `real`
+  and refuses to touch it — correct, but it means the tracked version is not in
+  use. Delete the file and re-run `dot link`, or `dot link --adopt`. Verify with
+  `readlink ~/.claude/hooks/block-dangerous-git.sh`, which should point into this
+  repo. And because `settings.json` is app-owned once present (ADR-0008), the
+  seed's `PreToolUse` registration reaches a **fresh** machine only — on an
+  existing one, add that entry by hand or `dot link --reseed`.
+
 ## Skills (`.claude/skills/<name>/SKILL.md`)
 
 Only skills that are _about this repo_ live here. Generic, third-party skills are
