@@ -26,11 +26,19 @@ a worktree — that was discussed and deliberately left undone as a default.
 
 ## Skills (`.claude/skills/<name>/SKILL.md`)
 
+Only skills that are _about this repo_ live here. Generic, third-party skills are
+user-level state: they install into `~/.claude/skills` + `~/.agents/skills` via the
+`skills` CLI and are not vendored here (#168). `.agents/` and `skills-lock.json`
+are gitignored so running that CLI with cwd set to this repo can't re-vendor them.
+
 - `pr-close-issue` — runs `dot-test`, opens the PR with `Closes #N`, checks CI
   (not just local green — see issue #59), reminds to squash-merge.
 - `brewfile-add` — adds a `brew/Brewfile.*` entry against the four documented
   rules (category, OS guard, no deprecated taps, trailing comment).
 - `doctor-triage` — maps a `dot doctor` report's sections to their fixes.
+- `setup-engineering-skills` — one-shot scaffolder that produced this repo's
+  `docs/agents/*` (issue tracker, triage labels, domain docs). Kept because it
+  isn't distributed by the `skills` CLI, so a reinstall wouldn't bring it back.
 
 ## Subagents (`.claude/agents/<name>.md`)
 
