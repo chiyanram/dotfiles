@@ -51,11 +51,16 @@ id_ed25519
 *.pem
 *.p12
 
-# Claude Code local state (skills ARE committed; machine state is not)
+# Claude Code local state (only repo-specific skills are committed — #168)
 .claude/settings.local.json
 .claude/worktrees/
 # app rewrites settings.json at runtime (model/effort/theme) — would churn the repo
 home/.claude/settings.json
+# The `skills` CLI's install artifacts. Generic skills are user-level state and
+# live in ~/.claude + ~/.agents; running the CLI with cwd here would otherwise
+# drop a duplicate install into the repo and dirty the tree indefinitely (#168).
+.agents/
+skills-lock.json
 
 # Per-machine identity env (e.g. GH_CONFIG_DIR) — never shared, like .gitconfig-local
 .envrc

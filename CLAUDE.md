@@ -182,3 +182,5 @@ Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agent
 ### Claude Code automations
 
 Repo-specific hooks (bash hygiene, identity-config guard), skills (issue/PR ritual, Brewfile edits, doctor triage), and subagents (bash-pitfalls, docs-drift, Brewfile review) live under `.claude/`. See `docs/agents/claude-automations.md`.
+
+`.claude/skills/` holds **only** skills about this repo. Generic third-party skills are user-level state — they install to `~/.claude/skills` + `~/.agents/skills` via the `skills` CLI and are never vendored here; `.agents/` and `skills-lock.json` are gitignored so a CLI run with cwd here can't re-vendor them (#168).

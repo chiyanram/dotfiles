@@ -2,11 +2,6 @@
 # Install: pip install pre-commit && pre-commit install
 # Run all: pre-commit run --all-files
 
-# Vendored skill content stays exactly as upstream ships it (bytes are hashed
-# in skills-lock.json, template scripts are deliberately non-executable) —
-# our hooks don't police it. Prettier has the same carve-out in .prettierignore.
-exclude: ^\.claude/skills/
-
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
