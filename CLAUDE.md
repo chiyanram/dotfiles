@@ -21,7 +21,7 @@ Process:
 
 ## About This Repo
 
-Personal dotfiles for my macOS laptop (backend engineer: JVM toolchain via SDKMAN, Node/Python via mise). Clean git history, fully independent. Who I am and how I work live in the global instructions (dev-kit `AGENTS.md`) — this file only holds what's specific to this repo.
+Personal dotfiles for my macOS laptop (backend engineer: JVM toolchain via SDKMAN, Node via mise, Python via Homebrew). Clean git history, fully independent. Who I am and how I work live in the global instructions (dev-kit `AGENTS.md`) — this file only holds what's specific to this repo.
 
 ## Platform
 
@@ -110,7 +110,7 @@ Personal dotfiles for my macOS laptop (backend engineer: JVM toolchain via SDKMA
 - Plugin keybindings must come AFTER the plugin's `zfetch` call, not in the Key Bindings section
 - `fzf-git.sh` requires `[[ -o zle ]]` guard — it registers zle widgets at source time
 - Tool initializations check `command -v` before running
-- mise activates Node/Python runtimes (reads .nvmrc/.python-version natively)
+- mise activates the Node runtime only, and reads `.nvmrc`/`.node-version` **because** `config/mise/config.toml` opts node into `idiomatic_version_file_enable_tools` — modern mise ignores those files by default. Python is Homebrew's (`/opt/homebrew/bin/python3`), not mise-managed; don't opt python in without actually moving the runtime (#170)
 - SDKMAN is lazy-loaded (candidate bins on PATH, full init deferred) and must stay at the end
 - Starship init is the very last thing
 - Never alias POSIX core commands (`find`, `grep`, `sed`, `awk`, `sort`) — other tools call them internally (SDKMAN uses `find`, etc.)

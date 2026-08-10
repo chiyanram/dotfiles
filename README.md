@@ -169,18 +169,18 @@ Managed via `dot link`. Each directory in `config/` becomes a symlink in `~/.con
 
 Each directory under `config/` is a package (the list below is a snapshot — `ls config/` is authoritative):
 
-| Package    | Description                                                    |
-| ---------- | -------------------------------------------------------------- |
-| `atuin`    | Shell history database (Ctrl-R)                                |
-| `ghostty`  | Terminal emulator (Catppuccin theme)                           |
-| `git`      | Git configuration and global ignore                            |
-| `lazygit`  | Git TUI                                                        |
-| `mise`     | Node/Python runtime manager (reads `.nvmrc`/`.python-version`) |
-| `nvim`     | Neovim (Lua config, lazy.nvim plugin manager)                  |
-| `ripgrep`  | Ripgrep configuration                                          |
-| `sesh`     | Terminal session manager                                       |
-| `starship` | Cross-shell prompt (Java/K8s/Docker aware)                     |
-| `tmux`     | Terminal multiplexer                                           |
+| Package    | Description                                           |
+| ---------- | ----------------------------------------------------- |
+| `atuin`    | Shell history database (Ctrl-R)                       |
+| `ghostty`  | Terminal emulator (Catppuccin theme)                  |
+| `git`      | Git configuration and global ignore                   |
+| `lazygit`  | Git TUI                                               |
+| `mise`     | Node runtime manager (reads `.nvmrc`/`.node-version`) |
+| `nvim`     | Neovim (Lua config, lazy.nvim plugin manager)         |
+| `ripgrep`  | Ripgrep configuration                                 |
+| `sesh`     | Terminal session manager                              |
+| `starship` | Cross-shell prompt (Java/K8s/Docker aware)            |
+| `tmux`     | Terminal multiplexer                                  |
 
 Zsh rc files (`.zshrc`, `.zprofile`, `.zsh_aliases`, `.zsh_functions`, `.docker_aliases`) live under `home/` and symlink directly into `$HOME`.
 
@@ -195,7 +195,7 @@ Configuration lives in `home/` (`.zshrc`, `.zsh_functions`, `.zsh_aliases`, `.zp
 - **Starship prompt** with git status, Java version, K8s context, Docker status
 - **Plugins** via `zfetch` (custom plugin manager):
   - zsh-completions, zsh-syntax-highlighting, zsh-autosuggestions, zsh-history-substring-search, zsh-you-should-use, fzf-tab, fzf-git.sh
-- **Tool initialization**: mise (Node/Python), zoxide, direnv, fzf, atuin, SDKMAN (lazy-loaded), starship
+- **Tool initialization**: mise (Node), zoxide, direnv, fzf, atuin, SDKMAN (lazy-loaded), starship
 - **Docker aliases** (`home/.docker_aliases`)
 - **Custom functions**: `c` (cd into a `$CODE_DIR` project), `h` (cd to home subdir), `g` (git shortcut), `md` (mkdir + cd), `zfetch` (plugin manager)
 - **Project navigation**: `cdpath` + `AUTO_CD` let a bare project name (`myproject`↵) cd from anywhere with Tab completion; fzf `Alt-C` is scoped to `$CODE_DIR`; zoxide `z`/`zi` jump by frecency. `CODE_DIR` (per-machine, in `~/.zshenv.local`) and any `hash -d` named dirs (per-machine, in `~/.zshrc.local`) stay out of the shared config. See `docs/research/fast-project-navigation-zsh.md`.

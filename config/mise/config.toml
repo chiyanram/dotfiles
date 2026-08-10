@@ -1,2 +1,10 @@
 [tools]
 node = "20"
+
+# mise ignores "idiomatic" version files (.nvmrc, .node-version, .python-version)
+# unless a tool opts in — they're ambiguous across tools. Opt node in so cd'ing
+# into a repo with a .nvmrc switches versions. Node only: no Python is
+# mise-managed (python3 comes from Homebrew), so enabling it here would be a
+# claim we don't back. mise writes this line itself if it's missing (#170).
+[settings]
+idiomatic_version_file_enable_tools = ["node"]
