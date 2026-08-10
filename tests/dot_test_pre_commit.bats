@@ -107,3 +107,34 @@ EOF
   teardown_sandbox
   [ "$status" -eq 0 ]
 }
+
+# #179: pre-commit resolves its store to $XDG_CACHE_HOME/pre-commit, falling back
+# to $HOME/.cache/pre-commit. With the sandbox owning $HOME, that fallback put the
+# whole store inside a temp dir teardown then deleted — reinstalling it on every
+# run, and racing `rm -rf` against the subprocesses still writing ("Directory not
+# empty", the flake on the macOS runner). setup_sandbox pins PRE_COMMIT_HOME to
+# the real store instead.
+#
+# XDG_CACHE_HOME is unset deliberately: that is what CI looks like, and with it
+# set (as an interactive shell has it) the bug cannot reproduce at all.
+@test "a sandboxed pre-commit run writes no store inside the sandbox" {
+  command -v pre-commit >/dev/null || skip "pre-commit not installed"
+  command -v git >/dev/null || skip "git not installed"
+
+  unset XDG_CACHE_HOME
+  unset PRE_COMMIT_HOME
+  setup_sandbox
+  _seed_shebang_fixture "executable"
+
+  run env PYTHONPATH="$REAL_USER_SITE${PYTHONPATH:+:$PYTHONPATH}" \
+    bash -c "source '$DOTFILES/bin/dot-test'; check_pre_commit"
+
+  local strays
+  strays="$(find "$HOME" -type f 2>/dev/null | wc -l | tr -d ' ')"
+  local store_in_sandbox=no
+  [ -d "$HOME/.cache/pre-commit" ] && store_in_sandbox=yes
+  teardown_sandbox
+
+  [ "$store_in_sandbox" = "no" ]
+  [ "$strays" -eq 0 ]
+}

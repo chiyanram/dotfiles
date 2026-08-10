@@ -9,6 +9,21 @@ setup_sandbox() {
   local repo_root
   repo_root="$(cd "$BATS_TEST_DIRNAME/.." && pwd -P)"
 
+  # Pin pre-commit's store OUTSIDE the sandbox, resolved against the REAL $HOME
+  # before the override below (#179). pre-commit defaults its store to
+  # $XDG_CACHE_HOME/pre-commit, falling back to $HOME/.cache/pre-commit — and
+  # with $HOME pointing into the sandbox, that fallback makes it clone repos and
+  # build hook environments inside a temp dir we are about to delete. Two costs:
+  # every sandboxed run reinstalls the whole store, and teardown's `rm -rf` races
+  # the subprocesses still writing into it ("Directory not empty").
+  #
+  # Only bites where XDG_CACHE_HOME is unset, which is why this reproduced on CI
+  # and never locally — a local shell exports it, so the real store got reused.
+  if [ -z "${PRE_COMMIT_HOME:-}" ]; then
+    PRE_COMMIT_HOME="${XDG_CACHE_HOME:-$HOME/.cache}/pre-commit"
+  fi
+  export PRE_COMMIT_HOME
+
   SANDBOX="$(mktemp -d)"
   SANDBOX="$(cd "$SANDBOX" && pwd -P)" # resolve symlinks (e.g. /var -> /private/var on
   # macOS) so this matches dot's own self-located, pwd -P-resolved DOTFILES exactly.
