@@ -91,6 +91,7 @@ These files are sourced automatically if they exist:
 | `~/.localrc`                             | Machine-specific shell config (e.g., `HOMEBREW_DOCKER_RUNTIME`)                                                                                                                                                                                                                |
 | `~/.zshrc.local`                         | Additional shell config                                                                                                                                                                                                                                                        |
 | `~/.zshenv.local`                        | Machine-specific env vars                                                                                                                                                                                                                                                      |
+| `~/.zprofile.local`                      | Machine-specific login-shell env (sourced by `.zprofile`) — the sink for installer-added `PATH` lines that would otherwise dirty the shared `home/.zprofile`                                                                                                                   |
 
 ## The `dot` Command
 
