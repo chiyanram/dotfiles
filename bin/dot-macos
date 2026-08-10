@@ -33,9 +33,6 @@ setup_macos() {
   log_info "show hidden files by default"
   defaults write com.apple.Finder AppleShowAllFiles -bool true
 
-  log_info "only use UTF-8 in Terminal.app"
-  defaults write com.apple.terminal StringEncodings -array 4
-
   log_info "expand save dialog by default"
   defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode -bool true
 
@@ -44,9 +41,6 @@ setup_macos() {
 
   log_info "Enable full keyboard access for all controls (e.g. enable Tab in modal dialogs)"
   defaults write NSGlobalDomain AppleKeyboardUIMode -int 3
-
-  log_info "Enable subpixel font rendering on non-Apple LCDs"
-  defaults write NSGlobalDomain AppleFontSmoothing -int 2
 
   log_info "Use current directory as default search scope in Finder"
   defaults write com.apple.finder FXDefaultSearchScope -string "SCcf"
@@ -69,11 +63,68 @@ setup_macos() {
   log_info "Set a shorter Delay until key repeat"
   defaults write NSGlobalDomain InitialKeyRepeat -int 15
 
-  log_info "Enable tap to click (Trackpad)"
+  # Four writes, not one: the Bluetooth domain covers an external Magic
+  # Trackpad and AppleMultitouchTrackpad the built-in one, plus tapBehavior in
+  # both its per-host and global forms — only the per-host one is authoritative,
+  # but without them the System Settings checkbox renders unchecked even though
+  # tapping works.
+  log_info "Enable tap to click (built-in + Bluetooth trackpad)"
   defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad Clicking -bool true
+  defaults write com.apple.AppleMultitouchTrackpad Clicking -bool true
+  defaults -currentHost write NSGlobalDomain com.apple.mouse.tapBehavior -int 1
+  defaults write NSGlobalDomain com.apple.mouse.tapBehavior -int 1
 
+  # Smart quotes and em-dashes silently corrupt pasted code and commit text;
+  # capitalization and the double-space period fire mid-identifier. Only two of
+  # these five were on, but the whole family is the same class of problem.
+  log_info "Disable autocorrect and smart substitutions"
+  defaults write NSGlobalDomain NSAutomaticSpellingCorrectionEnabled -bool false
+  defaults write NSGlobalDomain NSAutomaticCapitalizationEnabled -bool false
+  defaults write NSGlobalDomain NSAutomaticDashSubstitutionEnabled -bool false
+  defaults write NSGlobalDomain NSAutomaticQuoteSubstitutionEnabled -bool false
+  defaults write NSGlobalDomain NSAutomaticPeriodSubstitutionEnabled -bool false
+
+  log_info "Do not write .DS_Store files on network or USB volumes"
+  defaults write com.apple.desktopservices DSDontWriteNetworkStores -bool true
+  defaults write com.apple.desktopservices DSDontWriteUSBStores -bool true
+
+  # screencapture silently falls back to the Desktop if the path is missing, so
+  # create it first — but never abort the run over it: `mkdir -p` fails if the
+  # path exists as a file or dangling symlink, and under `set -e` that would
+  # skip every remaining setting.
+  log_info "Screenshots: PNG, no window shadow, saved to ~/Screenshots"
+  if mkdir -p "$HOME/Screenshots" 2>/dev/null; then
+    defaults write com.apple.screencapture location -string "$HOME/Screenshots"
+  else
+    log_warning "Could not create ~/Screenshots; leaving the screenshot location unchanged."
+  fi
+  defaults write com.apple.screencapture type -string "png"
+  defaults write com.apple.screencapture disable-shadow -bool true
+
+  log_info "Dock: autohide instantly, no recent applications"
+  defaults write com.apple.dock autohide -bool true
+  defaults write com.apple.dock autohide-delay -float 0
+  defaults write com.apple.dock autohide-time-modifier -float 0.15
+  defaults write com.apple.dock show-recents -bool false
+
+  # Spaces keep their position, so Ctrl+<n> stays muscle memory.
+  log_info "Do not reorder Spaces by most recent use"
+  defaults write com.apple.dock mru-spaces -bool false
+
+  log_info "Finder: sort folders first, show the POSIX path in the title bar"
+  defaults write com.apple.finder _FXSortFoldersFirst -bool true
+  defaults write com.apple.finder _FXShowPosixPathInTitle -bool true
+
+  # Safari and Mail are deliberately absent: nothing above touches them, and
+  # killing them discards unsaved tabs and drafts.
+  #
+  # `|| true` is load-bearing: killall exits 1 when an app isn't running, and
+  # under `set -e` that aborts the whole script — skipping the warning below and
+  # reporting failure after every setting has already been applied.
   log_info "Killing affected applications"
-  for app in Safari Finder Dock Mail SystemUIServer; do killall "$app" >/dev/null 2>&1; done
+  for app in Finder Dock SystemUIServer; do killall "$app" >/dev/null 2>&1 || true; done
+
+  log_warning "Applies only after you log out and back in: key repeat rate and delay, tap to click, full keyboard access, and the .DS_Store suppression on already-mounted volumes. Typing substitutions apply to each app the next time it launches."
 }
 
 main() {

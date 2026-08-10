@@ -52,3 +52,39 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   [[ "$output" == *'uname'* ]]
   [[ "$output" == *"Darwin"* ]]
 }
+
+# #172: tap-to-click only wrote the Bluetooth domain, so it was a no-op on the
+# built-in trackpad. All three writes are needed — the second for the built-in
+# device, the third for the System Settings checkbox that mirrors it.
+@test "tap to click writes the built-in trackpad domain, not just Bluetooth" {
+  run bash -c "source '$DOT_MACOS'; declare -f setup_macos"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"com.apple.driver.AppleBluetoothMultitouch.trackpad Clicking"* ]]
+  [[ "$output" == *"com.apple.AppleMultitouchTrackpad Clicking"* ]]
+  [[ "$output" == *"com.apple.mouse.tapBehavior"* ]]
+}
+
+# #172: nothing setup_macos writes affects Safari or Mail, and killing them
+# discards unsaved tabs and drafts. Assert against the loop line alone — the
+# whole function body mentions both apps in a comment, and a bare substring
+# match would also false-fail on an unrelated word like "Mailbox".
+@test "the killall list restarts only Finder, Dock and SystemUIServer" {
+  run bash -c "source '$DOT_MACOS'; declare -f setup_macos"
+  [ "$status" -eq 0 ]
+  killall_line="$(printf '%s\n' "$output" | grep 'for app in')"
+  [[ "$killall_line" == *"Finder Dock SystemUIServer"* ]]
+  [[ "$killall_line" != *"Safari"* ]]
+  [[ "$killall_line" != *"Mail"* ]]
+}
+
+# killall exits 1 when an app isn't running. Without `|| true`, `set -e` aborts
+# the script there: the logout warning never prints and the command reports
+# failure after every setting has already been applied.
+# declare -f pretty-prints the loop over several lines, so the guard lands on
+# the killall line rather than the `for` line.
+@test "the killall loop tolerates an app that is not running" {
+  run bash -c "source '$DOT_MACOS'; declare -f setup_macos"
+  [ "$status" -eq 0 ]
+  killall_cmd="$(printf '%s\n' "$output" | grep 'killall')"
+  [[ "$killall_cmd" == *"|| true"* ]]
+}

@@ -270,7 +270,17 @@ dot doctor                  # Check all required and optional tools
 dot macos defaults
 ```
 
-Configures: Finder (show extensions, hidden files, path bar), keyboard (fast repeat, full access), Terminal (UTF-8), and more.
+Configures:
+
+- **Finder** — show extensions, hidden files, path and status bars, folders first, POSIX path in the title bar
+- **Keyboard** — fast repeat rate, full keyboard access, no press-and-hold
+- **Text input** — autocorrect, capitalization, smart dashes/quotes and the double-space period are all disabled, since they corrupt pasted code and commit text
+- **Trackpad** — tap to click, on both the built-in and a Bluetooth trackpad
+- **Dock** — autohide with no delay, no recent applications, Spaces keep their position
+- **Screenshots** — PNG, no window shadow, saved to `~/Screenshots` (created if missing) instead of the Desktop
+- **Volumes** — no `.DS_Store` files written on network or USB shares
+
+It restarts Finder, Dock and SystemUIServer at the end. Settings that already-running apps have read — key repeat, tap-to-click and the text-input options — apply after you log out and back in.
 
 ## Preferred Software
 
