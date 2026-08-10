@@ -53,6 +53,25 @@ teardown() { [[ -n "${SANDBOX:-}" && -d "$SANDBOX" ]] && rm -rf "$SANDBOX"; }
   [[ "$output" == *"Darwin"* ]]
 }
 
+# #174: the guard uses `return 1`, not `exit 1`, per the repo's function rule.
+# `return` only propagates because setup_macos is the last command of its case
+# arm — so assert the observable status, not the keyword. `defaults` and
+# `killall` are stubbed as well: if the guard ever regresses, the test must not
+# mutate the real machine to find out.
+@test "on a non-Darwin system the defaults subcommand fails without writing" {
+  local stub="$SANDBOX/stub"
+  mkdir -p "$stub"
+  printf '#!/bin/sh\necho Linux\n' >"$stub/uname"
+  printf '#!/bin/sh\necho "STUB-DEFAULTS $*" >>"%s/called"\n' "$stub" >"$stub/defaults"
+  printf '#!/bin/sh\nexit 0\n' >"$stub/killall"
+  chmod +x "$stub/uname" "$stub/defaults" "$stub/killall"
+
+  PATH="$stub:$PATH" run "$DOT_MACOS" defaults
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"non-macOS"* ]]
+  [ ! -f "$stub/called" ]
+}
+
 # #172: tap-to-click only wrote the Bluetooth domain, so it was a no-op on the
 # built-in trackpad. All three writes are needed — the second for the built-in
 # device, the third for the System Settings checkbox that mirrors it.

@@ -24,7 +24,7 @@ setup_macos() {
 
   if [[ "$(uname)" != "Darwin" ]]; then
     log_error "Cannot run this command on non-macOS system. Exiting."
-    exit 1
+    return 1
   fi
 
   log_info "Finder: show all filename extensions"
