@@ -85,19 +85,32 @@ else
 fi
 args='[^;&|]*' # one command's worth of arguments — stop at a separator
 
+# Git accepts global options BETWEEN the executable and the subcommand, so
+# `git -C /path push --force` never matched a `git[[:space:]]+push` anchor and
+# sailed through every rule below. The same hole applied to `-c`, `--git-dir`,
+# `--no-pager` and friends, and to reset/clean/branch as much as to push.
+#
+# The option forms are enumerated rather than accepting any `-…` token followed
+# by an optional value. That shortcut looks equivalent and is not: it lets
+# `git --no-pager push` consume `push` as --no-pager's value, so the pattern
+# stops matching and the guard fails open again — the same bug one layer down.
+gitopt_val='(-[cC]|--(git-dir|work-tree|namespace|exec-path|config-env))[[:space:]]*=?[[:space:]]*[^[:space:];&|]+'
+gitopt_flag='--(no-pager|paginate|bare|literal-pathspecs|no-replace-objects|no-optional-locks)|-[pP]'
+gitopts="([[:space:]]+(${gitopt_val}|${gitopt_flag}))*[[:space:]]+"
+
 dangerous=(
-  "${cmd_pos}git[[:space:]]+reset${args}--hard"
-  "${cmd_pos}git[[:space:]]+clean${args}-[a-zA-Z]*f"
-  "${cmd_pos}git[[:space:]]+branch${args}-D"
-  "${cmd_pos}git[[:space:]]+checkout[[:space:]]+\."
-  "${cmd_pos}git[[:space:]]+restore[[:space:]]+\."
-  "${cmd_pos}git[[:space:]]+push${args}--force"
-  "${cmd_pos}git[[:space:]]+push${args}force-with-lease"
+  "${cmd_pos}git${gitopts}reset${args}--hard"
+  "${cmd_pos}git${gitopts}clean${args}-[a-zA-Z]*f"
+  "${cmd_pos}git${gitopts}branch${args}-D"
+  "${cmd_pos}git${gitopts}checkout[[:space:]]+\."
+  "${cmd_pos}git${gitopts}restore[[:space:]]+\."
+  "${cmd_pos}git${gitopts}push${args}--force"
+  "${cmd_pos}git${gitopts}push${args}force-with-lease"
 )
 
 guarded=(
-  "${cmd_pos}git[[:space:]]+commit"
-  "${cmd_pos}git[[:space:]]+push"
+  "${cmd_pos}git${gitopts}commit"
+  "${cmd_pos}git${gitopts}push"
 )
 
 matches_any() {
@@ -108,17 +121,41 @@ matches_any() {
   return 1
 }
 
-refuse() {
-  printf 'BLOCKED: %s\n' "$1" >&2
+# Escalate to the human rather than refusing outright: `permissionDecision:
+# "ask"` makes Claude Code show its normal permission prompt, so the command is
+# one keypress away instead of unavailable. Exit 0 — a PreToolUse hook exiting 2
+# blocks the call outright and never reaches the user, which is the behaviour
+# this replaces.
+#
+# The point was always a checkpoint, not a wall. A guard that cannot be
+# overridden gets worked around: the agent reaches for a shape the pattern does
+# not match (`git -C …` was exactly that), and then nobody is prompted at all.
+# Asking keeps the human in the loop on the commands that matter without
+# inviting anyone to route around it.
+ask() {
+  local reason="$1" payload
+  # Test that jq PRODUCED something, not that it exists. `command -v jq` passes
+  # for a jq that is present and broken — which is what the no-jq test installs —
+  # and the hook would then exit 0 having printed nothing, i.e. allow the command
+  # with no prompt at all. Failing open is the one outcome worse than blocking.
+  if payload=$(jq -nc --arg r "$reason" \
+    '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$r}}' 2>/dev/null) &&
+    [ -n "$payload" ]; then
+    printf '%s\n' "$payload"
+    exit 0
+  fi
+  # No usable jq, so a well-formed decision cannot be emitted and a malformed one
+  # would be ignored. Degrade closed, consistent with the raw-JSON fallback above.
+  printf 'BLOCKED (jq unavailable, cannot request confirmation): %s\n' "$reason" >&2
   exit 2
 }
 
 if matches_any "${dangerous[@]}"; then
-  refuse "'$COMMAND' is a destructive git command. The user has prevented you from doing this."
+  ask "'$COMMAND' is a destructive git command. Confirm you want it to run."
 fi
 
 if [ "$is_trusted" = false ] && matches_any "${guarded[@]}"; then
-  refuse "'$COMMAND' writes git history outside a trusted repo ($CWD). The user has prevented you from doing this. Add the repo to ~/.claude/hooks/trusted-git-repos.local to allow it."
+  ask "'$COMMAND' writes git history outside a trusted repo ($CWD). Confirm, or add the repo to ~/.claude/hooks/trusted-git-repos.local to stop being asked."
 fi
 
 exit 0
