@@ -85,19 +85,32 @@ else
 fi
 args='[^;&|]*' # one command's worth of arguments — stop at a separator
 
+# Git accepts global options BETWEEN the executable and the subcommand, so
+# `git -C /path push --force` never matched a `git[[:space:]]+push` anchor and
+# sailed through every rule below. The same hole applied to `-c`, `--git-dir`,
+# `--no-pager` and friends, and to reset/clean/branch as much as to push.
+#
+# The option forms are enumerated rather than accepting any `-…` token followed
+# by an optional value. That shortcut looks equivalent and is not: it lets
+# `git --no-pager push` consume `push` as --no-pager's value, so the pattern
+# stops matching and the guard fails open again — the same bug one layer down.
+gitopt_val='(-[cC]|--(git-dir|work-tree|namespace|exec-path|config-env))[[:space:]]*=?[[:space:]]*[^[:space:];&|]+'
+gitopt_flag='--(no-pager|paginate|bare|literal-pathspecs|no-replace-objects|no-optional-locks)|-[pP]'
+gitopts="([[:space:]]+(${gitopt_val}|${gitopt_flag}))*[[:space:]]+"
+
 dangerous=(
-  "${cmd_pos}git[[:space:]]+reset${args}--hard"
-  "${cmd_pos}git[[:space:]]+clean${args}-[a-zA-Z]*f"
-  "${cmd_pos}git[[:space:]]+branch${args}-D"
-  "${cmd_pos}git[[:space:]]+checkout[[:space:]]+\."
-  "${cmd_pos}git[[:space:]]+restore[[:space:]]+\."
-  "${cmd_pos}git[[:space:]]+push${args}--force"
-  "${cmd_pos}git[[:space:]]+push${args}force-with-lease"
+  "${cmd_pos}git${gitopts}reset${args}--hard"
+  "${cmd_pos}git${gitopts}clean${args}-[a-zA-Z]*f"
+  "${cmd_pos}git${gitopts}branch${args}-D"
+  "${cmd_pos}git${gitopts}checkout[[:space:]]+\."
+  "${cmd_pos}git${gitopts}restore[[:space:]]+\."
+  "${cmd_pos}git${gitopts}push${args}--force"
+  "${cmd_pos}git${gitopts}push${args}force-with-lease"
 )
 
 guarded=(
-  "${cmd_pos}git[[:space:]]+commit"
-  "${cmd_pos}git[[:space:]]+push"
+  "${cmd_pos}git${gitopts}commit"
+  "${cmd_pos}git${gitopts}push"
 )
 
 matches_any() {

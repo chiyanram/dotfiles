@@ -199,3 +199,86 @@ run_guard() {
   run_guard "true; git clean -fd" "$repo"
   [ "$status" -eq 2 ]
 }
+
+########################################
+# Global options between `git` and the subcommand
+########################################
+
+# Every pattern used to anchor `git` directly against its subcommand, so any
+# global option in between made the whole guard miss: `git -C /path push
+# --force` matched nothing and ran. Found in production rather than by review —
+# an agent reached for `-C` to avoid a `cd` (a separate house rule) and the
+# force-push it had already been refused twice went straight through.
+#
+# The hole was never push-specific. Every rule shared the anchor, so every rule
+# had it.
+
+@test "a global option before the subcommand does not evade the dangerous rules" {
+  repo="$(cd "$BATS_TEST_DIRNAME/.." && pwd -P)"
+  for cmd in \
+    "git -C /tmp/x push --force origin main" \
+    "git -C /tmp/x push --force-with-lease origin main" \
+    "git -C /tmp/x reset --hard HEAD~1" \
+    "git -C /tmp/x clean -fd" \
+    "git -C /tmp/x branch -D topic" \
+    "git -C /tmp/x checkout ." \
+    "git -C /tmp/x restore ."; do
+    run_guard "$cmd" "$repo"
+    [ "$status" -eq 2 ] || {
+      echo "expected block for: $cmd"
+      return 1
+    }
+  done
+}
+
+@test "every global-option form is covered, not just -C" {
+  repo="$(cd "$BATS_TEST_DIRNAME/.." && pwd -P)"
+  for cmd in \
+    "git -C/tmp/x push --force" \
+    "git --git-dir=/tmp/x/.git reset --hard" \
+    "git --work-tree=/tmp/x clean -fd" \
+    "git -c user.name=x push --force" \
+    "git --no-pager push --force" \
+    "git -C /tmp/x --no-pager push --force"; do
+    run_guard "$cmd" "$repo"
+    [ "$status" -eq 2 ] || {
+      echo "expected block for: $cmd"
+      return 1
+    }
+  done
+}
+
+# The obvious fix — accept any `-…` token followed by an optional value —
+# reintroduces the same bug one layer down: `--no-pager` takes no value, so the
+# optional-value branch swallows `push`, the pattern stops matching, and the
+# guard fails open again. The option forms are enumerated for exactly that
+# reason, and this test is what stops anyone "simplifying" it back.
+@test "a valueless global option does not swallow the subcommand" {
+  repo="$(cd "$BATS_TEST_DIRNAME/.." && pwd -P)"
+  run_guard "git --no-pager push --force" "$repo"
+  [ "$status" -eq 2 ]
+  run_guard "git --paginate reset --hard" "$repo"
+  [ "$status" -eq 2 ]
+}
+
+@test "global options do not make read-only git look dangerous" {
+  run_guard "git -C /tmp/x status --short" "$SANDBOX"
+  [ "$status" -eq 0 ]
+  run_guard "git -C /tmp/x log --oneline -5" "$SANDBOX"
+  [ "$status" -eq 0 ]
+  run_guard "git --no-pager diff --stat" "$SANDBOX"
+  [ "$status" -eq 0 ]
+  # -d deletes only an already-merged branch; -D is the destructive form
+  run_guard "git -C /tmp/x branch -d merged-topic" "$SANDBOX"
+  [ "$status" -eq 0 ]
+}
+
+@test "trusted-repo scoping still applies through a global option" {
+  repo="$(cd "$BATS_TEST_DIRNAME/.." && pwd -P)"
+  run_guard "git -C /tmp/x commit -m x" "$repo"
+  [ "$status" -eq 0 ]
+  run_guard "git -C /tmp/x commit -m x" "$SANDBOX"
+  [ "$status" -eq 2 ]
+  run_guard "git -C /tmp/x push origin main" "$SANDBOX"
+  [ "$status" -eq 2 ]
+}
