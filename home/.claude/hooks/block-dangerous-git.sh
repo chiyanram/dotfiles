@@ -121,17 +121,41 @@ matches_any() {
   return 1
 }
 
-refuse() {
-  printf 'BLOCKED: %s\n' "$1" >&2
+# Escalate to the human rather than refusing outright: `permissionDecision:
+# "ask"` makes Claude Code show its normal permission prompt, so the command is
+# one keypress away instead of unavailable. Exit 0 — a PreToolUse hook exiting 2
+# blocks the call outright and never reaches the user, which is the behaviour
+# this replaces.
+#
+# The point was always a checkpoint, not a wall. A guard that cannot be
+# overridden gets worked around: the agent reaches for a shape the pattern does
+# not match (`git -C …` was exactly that), and then nobody is prompted at all.
+# Asking keeps the human in the loop on the commands that matter without
+# inviting anyone to route around it.
+ask() {
+  local reason="$1" payload
+  # Test that jq PRODUCED something, not that it exists. `command -v jq` passes
+  # for a jq that is present and broken — which is what the no-jq test installs —
+  # and the hook would then exit 0 having printed nothing, i.e. allow the command
+  # with no prompt at all. Failing open is the one outcome worse than blocking.
+  if payload=$(jq -nc --arg r "$reason" \
+    '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$r}}' 2>/dev/null) &&
+    [ -n "$payload" ]; then
+    printf '%s\n' "$payload"
+    exit 0
+  fi
+  # No usable jq, so a well-formed decision cannot be emitted and a malformed one
+  # would be ignored. Degrade closed, consistent with the raw-JSON fallback above.
+  printf 'BLOCKED (jq unavailable, cannot request confirmation): %s\n' "$reason" >&2
   exit 2
 }
 
 if matches_any "${dangerous[@]}"; then
-  refuse "'$COMMAND' is a destructive git command. The user has prevented you from doing this."
+  ask "'$COMMAND' is a destructive git command. Confirm you want it to run."
 fi
 
 if [ "$is_trusted" = false ] && matches_any "${guarded[@]}"; then
-  refuse "'$COMMAND' writes git history outside a trusted repo ($CWD). The user has prevented you from doing this. Add the repo to ~/.claude/hooks/trusted-git-repos.local to allow it."
+  ask "'$COMMAND' writes git history outside a trusted repo ($CWD). Confirm, or add the repo to ~/.claude/hooks/trusted-git-repos.local to stop being asked."
 fi
 
 exit 0

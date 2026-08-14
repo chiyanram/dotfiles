@@ -4,7 +4,15 @@ setup() { setup_sandbox; }
 teardown() { teardown_sandbox; }
 
 # The Claude Code git guard (#180). It is a PreToolUse hook: Claude Code pipes
-# it JSON on stdin and treats exit 2 as "refuse this tool call".
+# it JSON on stdin and reads a decision back.
+#
+# The guard ASKS rather than refuses. It prints a `permissionDecision: "ask"`
+# payload and exits 0, so Claude Code shows its normal permission prompt and the
+# human decides. It used to exit 2, which blocks outright and never reaches
+# anyone — and an unoverridable guard invites the workaround: reach for a command
+# shape the pattern misses (`git -C …` was exactly that) and nobody is prompted
+# at all. A checkpoint that can be answered is stronger than a wall that can be
+# walked around.
 #
 # These tests run the real, tracked hook out of the repo rather than a fixture —
 # the point of #180 is that the repo owns this file, so the repo's tests are
@@ -16,6 +24,19 @@ REPO_HOOK() { echo "$(cd "$BATS_TEST_DIRNAME/.." && pwd -P)/home/.claude/hooks/b
 run_guard() {
   local cmd="$1" cwd="$2"
   run bash -c "printf '{\"cwd\":\"%s\",\"tool_input\":{\"command\":\"%s\"}}' '$cwd' '$cmd' | '$(REPO_HOOK)'"
+}
+
+# allow and ask both exit 0 now, so the exit code alone no longer says which
+# happened — an over-broad pattern that started asking about `git status` would
+# pass a bare status check. Assert on the decision itself.
+assert_asked() {
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision":"ask"'* ]]
+}
+
+assert_allowed() {
+  [ "$status" -eq 0 ]
+  [[ "$output" != *'"permissionDecision"'* ]]
 }
 
 ########################################
@@ -59,9 +80,9 @@ run_guard() {
   mkdir -p "$HOME/.claude/hooks"
   ln -s "$repo/home/.claude/hooks/block-dangerous-git.sh" "$HOME/.claude/hooks/block-dangerous-git.sh"
   run bash -c "printf '{\"cwd\":\"%s\",\"tool_input\":{\"command\":\"git commit -m x\"}}' '$repo' | '$HOME/.claude/hooks/block-dangerous-git.sh'"
-  [ "$status" -eq 0 ]
+  assert_allowed
   run bash -c "printf '{\"cwd\":\"%s\",\"tool_input\":{\"command\":\"git commit -m x\"}}' '$SANDBOX' | '$HOME/.claude/hooks/block-dangerous-git.sh'"
-  [ "$status" -eq 2 ]
+  assert_asked
 }
 
 # An existing machine already has a hand-installed real file at the target, so
@@ -77,15 +98,15 @@ run_guard() {
 }
 
 ########################################
-# Always blocked, every repo
+# Always asked about, every repo
 ########################################
 
-@test "destructive commands are blocked inside the dotfiles repo too" {
+@test "destructive commands prompt inside the dotfiles repo too" {
   repo="$(cd "$BATS_TEST_DIRNAME/.." && pwd -P)"
   for cmd in "git reset --hard" "git clean -fd" "git branch -D topic" "git push --force" "git checkout ." "git restore ."; do
     run_guard "$cmd" "$repo"
-    [ "$status" -eq 2 ] || {
-      echo "expected block for: $cmd"
+    assert_asked || {
+      echo "expected a prompt for: $cmd"
       return 1
     }
   done
@@ -98,22 +119,22 @@ run_guard() {
 @test "commit and push are allowed inside the dotfiles repo the hook belongs to" {
   repo="$(cd "$BATS_TEST_DIRNAME/.." && pwd -P)"
   run_guard "git commit -m x" "$repo"
-  [ "$status" -eq 0 ]
+  assert_allowed
   run_guard "git push -u origin topic" "$repo"
-  [ "$status" -eq 0 ]
+  assert_allowed
 }
 
 @test "commit and push are allowed in a worktree under the dotfiles repo" {
   repo="$(cd "$BATS_TEST_DIRNAME/.." && pwd -P)"
   run_guard "git commit -m x" "$repo/.claude/worktrees/some-branch"
-  [ "$status" -eq 0 ]
+  assert_allowed
 }
 
-@test "commit and push are blocked outside any trusted repo" {
+@test "commit and push prompt outside any trusted repo" {
   run_guard "git commit -m x" "$SANDBOX"
-  [ "$status" -eq 2 ]
+  assert_asked
   run_guard "git push" "$SANDBOX"
-  [ "$status" -eq 2 ]
+  assert_asked
 }
 
 @test "the hook contains no hardcoded home directory path" {
@@ -125,60 +146,62 @@ run_guard() {
   mkdir -p "$HOME/.claude/hooks"
   printf '%s\n' "$SANDBOX/work" >"$HOME/.claude/hooks/trusted-git-repos.local"
   run_guard "git commit -m x" "$SANDBOX/work"
-  [ "$status" -eq 0 ]
+  assert_allowed
   run_guard "git commit -m x" "$SANDBOX/other"
-  [ "$status" -eq 2 ]
+  assert_asked
 }
 
 @test "blank lines and comments in the local sink are ignored" {
   mkdir -p "$HOME/.claude/hooks"
   printf '# a comment\n\n%s\n' "$SANDBOX/work" >"$HOME/.claude/hooks/trusted-git-repos.local"
   run_guard "git commit -m x" "$SANDBOX/work"
-  [ "$status" -eq 0 ]
+  assert_allowed
   # an empty line must not become a prefix that matches everything
   run_guard "git commit -m x" "$SANDBOX/elsewhere"
-  [ "$status" -eq 2 ]
+  assert_asked
 }
 
 ########################################
 # The matcher fires on invocations, not prose
 ########################################
 
-@test "prose mentioning a dangerous pattern is not blocked" {
+@test "prose mentioning a dangerous pattern does not prompt" {
   repo="$(cd "$BATS_TEST_DIRNAME/.." && pwd -P)"
   run_guard "gh issue create --body The fix avoids a reset --hard here" "$repo"
-  [ "$status" -eq 0 ]
+  assert_allowed
   run_guard "echo documenting git clean -fd for the runbook" "$repo"
-  [ "$status" -eq 0 ]
+  assert_allowed
 }
 
 # Parenthesised prose is the common shape in an issue body or commit message.
 # `(` is deliberately not a command separator for this reason — a genuinely
 # chained subshell is still caught by the && or ; inside it (below).
-@test "a guarded command quoted inside parentheses in prose is not blocked" {
+@test "a guarded command quoted inside parentheses in prose does not prompt" {
   repo="$(cd "$BATS_TEST_DIRNAME/.." && pwd -P)"
   run_guard "gh issue create --body forced pushes (git push --force) are refused" "$repo"
-  [ "$status" -eq 0 ]
+  assert_allowed
   run_guard "gh pr comment --body see the guard (git reset --hard is blocked)" "$repo"
-  [ "$status" -eq 0 ]
+  assert_allowed
 }
 
 @test "a subshell that chains into a dangerous command is still caught" {
   repo="$(cd "$BATS_TEST_DIRNAME/.." && pwd -P)"
   run_guard "(cd /tmp && git reset --hard)" "$repo"
-  [ "$status" -eq 2 ]
+  assert_asked
 }
 
-@test "ordinary read-only git is never blocked" {
+@test "ordinary read-only git never prompts" {
   run_guard "git status --short" "$SANDBOX"
-  [ "$status" -eq 0 ]
+  assert_allowed
   run_guard "git log --oneline -5" "$SANDBOX"
-  [ "$status" -eq 0 ]
+  assert_allowed
 }
 
-# Without jq the command string cannot be parsed out of the payload. Exiting 0
-# there would silently disable the guard on exactly the machine whose setup is
-# broken, so it degrades to scanning the raw JSON instead — coarser, but closed.
+# Two fail-open paths, both closed here. Without jq the command cannot be parsed
+# out of the payload, so the hook scans the raw JSON instead — coarser, but
+# closed. And the ask-payload itself needs jq to build: a jq that is PRESENT and
+# BROKEN (what this test installs) would otherwise let the hook exit 0 having
+# printed nothing, allowing the command with no prompt. Both degrade to exit 2.
 @test "the guard does not fail open when jq is unavailable" {
   stub="$SANDBOX/nojq"
   mkdir -p "$stub"
@@ -195,9 +218,9 @@ run_guard() {
 @test "a dangerous command chained after another is still caught" {
   repo="$(cd "$BATS_TEST_DIRNAME/.." && pwd -P)"
   run_guard "cd /tmp && git reset --hard" "$repo"
-  [ "$status" -eq 2 ]
+  assert_asked
   run_guard "true; git clean -fd" "$repo"
-  [ "$status" -eq 2 ]
+  assert_asked
 }
 
 ########################################
@@ -224,8 +247,8 @@ run_guard() {
     "git -C /tmp/x checkout ." \
     "git -C /tmp/x restore ."; do
     run_guard "$cmd" "$repo"
-    [ "$status" -eq 2 ] || {
-      echo "expected block for: $cmd"
+    assert_asked || {
+      echo "expected a prompt for: $cmd"
       return 1
     }
   done
@@ -241,8 +264,8 @@ run_guard() {
     "git --no-pager push --force" \
     "git -C /tmp/x --no-pager push --force"; do
     run_guard "$cmd" "$repo"
-    [ "$status" -eq 2 ] || {
-      echo "expected block for: $cmd"
+    assert_asked || {
+      echo "expected a prompt for: $cmd"
       return 1
     }
   done
@@ -256,29 +279,29 @@ run_guard() {
 @test "a valueless global option does not swallow the subcommand" {
   repo="$(cd "$BATS_TEST_DIRNAME/.." && pwd -P)"
   run_guard "git --no-pager push --force" "$repo"
-  [ "$status" -eq 2 ]
+  assert_asked
   run_guard "git --paginate reset --hard" "$repo"
-  [ "$status" -eq 2 ]
+  assert_asked
 }
 
 @test "global options do not make read-only git look dangerous" {
   run_guard "git -C /tmp/x status --short" "$SANDBOX"
-  [ "$status" -eq 0 ]
+  assert_allowed
   run_guard "git -C /tmp/x log --oneline -5" "$SANDBOX"
-  [ "$status" -eq 0 ]
+  assert_allowed
   run_guard "git --no-pager diff --stat" "$SANDBOX"
-  [ "$status" -eq 0 ]
+  assert_allowed
   # -d deletes only an already-merged branch; -D is the destructive form
   run_guard "git -C /tmp/x branch -d merged-topic" "$SANDBOX"
-  [ "$status" -eq 0 ]
+  assert_allowed
 }
 
 @test "trusted-repo scoping still applies through a global option" {
   repo="$(cd "$BATS_TEST_DIRNAME/.." && pwd -P)"
   run_guard "git -C /tmp/x commit -m x" "$repo"
-  [ "$status" -eq 0 ]
+  assert_allowed
   run_guard "git -C /tmp/x commit -m x" "$SANDBOX"
-  [ "$status" -eq 2 ]
+  assert_asked
   run_guard "git -C /tmp/x push origin main" "$SANDBOX"
-  [ "$status" -eq 2 ]
+  assert_asked
 }
