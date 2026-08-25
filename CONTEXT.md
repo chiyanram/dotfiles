@@ -178,3 +178,30 @@ still points at the alias, and reminds you to revoke the key on the host account
 first-class because a stale client key left registered is a compliance hazard.
 _Avoid_: deleting an adopted key; treating the revoke reminder as automatic (it's
 a manual step on the host, e.g. GitHub settings).
+
+### Remote sessions
+
+**Remote Session**:
+The tmux session on a remote host that `srv` attaches to — created on first
+connect and re-attached every time after (`tmux new-session -A`, one code path for
+both). Its defining property is that it is **not owned by the ssh connection**:
+detaching, losing wifi, or closing the laptop leaves it and everything running in
+it alive on the host, and the next `srv` lands back in it. Named `main` unless a
+second argument says otherwise, so "the Remote Session" for a host is singular by
+default. Bounded by the host's uptime, not the laptop's — nothing in this repo
+persists a session across a **reboot** of the host (no `tmux-resurrect`, by choice).
+_Avoid_: "ssh session" (that is the connection, which is exactly the thing a Remote
+Session is designed to outlive); "saved session" (nothing is written to disk — the
+session is a live process that simply never had a client attached).
+
+**Generated Remote Config**:
+The rewritten copy of `config/tmux` that `srv-sync` ships to a host, at
+`~/.config/tmux` there. It is **derived, never authored**: four constructs that
+cannot work remotely are rewritten on the way out (`$DOTFILES` paths, the macOS
+appearance probe, `pbcopy`, and the lazygit/`sesh` bindings), everything else stays
+byte-identical so muscle memory carries over, and the whole tree is overwritten on
+every sync. `srv-sync` hard-fails when a rewrite stops matching rather than
+shipping a silently broken config, which makes the local `tmux.conf` the single
+source of truth for both ends.
+_Avoid_: editing the remote copy (it is overwritten); calling it a "remote
+dotfiles install" (only tmux is synced, and only as generated output).
