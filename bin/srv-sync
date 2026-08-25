@@ -1,0 +1,207 @@
+#!/usr/bin/env bash
+
+# srv-sync — install tmux on a remote host and push this repo's tmux config to
+# it, so an ssh session dropped into `srv` has the same prefix, keybindings and
+# theme as a local one.
+#
+# The repo's tmux.conf cannot be copied verbatim: it sources its theme files
+# through $DOTFILES (which does not exist on a server), shells out to `pbcopy`
+# and `defaults read` (macOS-only), and binds keys to lazygit and sesh (not
+# installed there). This script rewrites those four things on the way out and
+# leaves everything else — prefix C-a, vi copy mode, the Ctrl-hjkl pane nav,
+# the split/resize bindings — byte-identical, so muscle memory carries over.
+#
+# The remote copy is GENERATED: re-run this after editing config/tmux and it is
+# overwritten. Never hand-edit it on the server.
+#
+# Usage: srv-sync [host]        (host defaults to $SRV_HOST)
+#
+# $SRV_HOST lives in ~/.zshenv.local — machine-specific, never committed, so
+# no host alias of yours ends up in this public repo.
+
+set -Eeuo pipefail
+
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
+DOTFILES="${DOT_TEST_DOTFILES:-$(cd "$script_dir/.." && pwd -P)}"
+
+if [[ -f "$DOTFILES/bin/lib/common.sh" ]]; then
+  source "$DOTFILES/bin/lib/common.sh"
+else
+  echo "Error: Unable to source common.sh"
+  exit 1
+fi
+setup_colors
+
+HOST="${1:-${SRV_HOST:-}}"
+if [[ -z "$HOST" ]]; then
+  log_error "No host given and \$SRV_HOST is unset"
+  log_error "Set it in ~/.zshenv.local, e.g. export SRV_HOST=my-server"
+  exit 1
+fi
+
+case "${1:-}" in
+  -h | --help)
+    printf "%s — push tmux + its config to a remote host\n\n" "$(fmt_cmd srv-sync)"
+    printf "Usage: %s\n\n" "$(fmt_cmd "srv-sync [host]")"
+    printf "  host   ssh alias or user@address (default: %s)\n\n" "$(fmt_value "\$SRV_HOST")"
+    printf "Installs tmux if missing, then copies %s to the host with its\n" "$(fmt_path config/tmux)"
+    printf "macOS-only bits rewritten. Connect afterwards with %s.\n" "$(fmt_cmd "srv <host>")"
+    exit 0
+    ;;
+esac
+
+fmt_title_underline "Syncing tmux → $HOST"
+
+######################################################################
+#### Resolve the remote layout                                     ####
+######################################################################
+# Everything downstream needs absolute remote paths: tmux expands neither ~ nor
+# $HOME inside `source-file`, and the automatic-rename-format runs nerdwin
+# through a bare `sh` whose PATH will not include ~/.local/bin.
+log_info "Checking $HOST"
+if ! remote_home=$(ssh -o BatchMode=yes "$HOST" 'printf %s "$HOME"' 2>/dev/null); then
+  log_error "Cannot reach $HOST over ssh (try: ssh $HOST)"
+  exit 1
+fi
+remote_tmux="$remote_home/.config/tmux"
+remote_bin="$remote_home/.local/bin"
+
+######################################################################
+#### Ensure tmux exists on the far end                             ####
+######################################################################
+if ssh "$HOST" 'command -v tmux' >/dev/null 2>&1; then
+  log_info "tmux already installed ($(ssh "$HOST" 'tmux -V'))"
+else
+  log_warning "tmux not installed — installing"
+  # Probe for a package manager rather than assuming Debian: the same script
+  # then works on a Fedora/Alpine box without edits.
+  ssh -t "$HOST" '
+    set -e
+    if command -v apt-get >/dev/null; then apt-get update -qq && apt-get install -y tmux
+    elif command -v dnf >/dev/null; then dnf install -y tmux
+    elif command -v yum >/dev/null; then yum install -y tmux
+    elif command -v apk >/dev/null; then apk add --no-cache tmux
+    else echo "srv-sync: no supported package manager found — install tmux manually" >&2; exit 1
+    fi'
+  log_success "tmux installed ($(ssh "$HOST" 'tmux -V'))"
+fi
+
+# tmux only reads ~/.config/tmux/tmux.conf from 3.1 onward; older builds want
+# ~/.tmux.conf, so say so plainly instead of shipping a config that is silently
+# ignored.
+remote_ver=$(ssh "$HOST" 'tmux -V' | sed 's/[^0-9.]*\([0-9]*\.[0-9]*\).*/\1/')
+if [[ "$(printf '3.1\n%s\n' "$remote_ver" | sort -V | head -1)" != "3.1" ]]; then
+  log_warning "Remote tmux $remote_ver predates 3.1 and will not read ~/.config/tmux/tmux.conf"
+  log_warning "Symlink it after this run: ssh $HOST 'ln -sf ~/.config/tmux/tmux.conf ~/.tmux.conf'"
+fi
+
+######################################################################
+#### Build the remote config in a staging dir                      ####
+######################################################################
+stage=$(mktemp -d)
+trap 'rm -rf "$stage"' EXIT
+
+cp -R "$DOTFILES/config/tmux/." "$stage/"
+
+# 1. $DOTFILES/config/tmux → the absolute remote path. tmux does no variable
+#    expansion for an unset name, so leaving these would make every source-file
+#    resolve to "/config/tmux/..." and the theme would silently not load.
+# 2. The macOS light/dark probe (`defaults read AppleInterfaceStyle`) always
+#    fails on Linux, which would quietly select the light theme on a dark
+#    terminal. Pin dark instead.
+# 3. `pbcopy` does not exist remotely. `copy-selection-and-cancel` routes the
+#    yank through tmux's own set-clipboard (already on), which emits OSC 52 —
+#    the outer terminal, i.e. Ghostty on the Mac, puts it on the real clipboard.
+#    That is strictly better than pbcopy over ssh, which could not work at all.
+# 4. lazygit and sesh are not installed on a plain server; leaving the bindings
+#    would give two dead keys. `g` is dropped and `s` falls back to tmux's own
+#    session tree, which is the closest built-in equivalent to sesh.
+python3 - "$stage/tmux.conf" "$remote_tmux" "$remote_bin" <<'PY'
+import sys, re, pathlib
+
+conf, remote_tmux, remote_bin = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+text = conf.read_text()
+
+text = text.replace('$DOTFILES/config/tmux', remote_tmux)
+text = text.replace('nerdwin ', f'{remote_bin}/nerdwin ')
+
+text = re.sub(
+    r"if-shell '\[ \"\$\(defaults read -g AppleInterfaceStyle[^\n]*\n[^\n]*\n[^\n]*\n",
+    f'# Remote sessions pin the dark theme — the macOS appearance probe this\n'
+    f'# replaces cannot run here. (Rewritten by srv-sync.)\n'
+    f'source-file "{remote_tmux}/themes/catppuccin/dark.conf"\n',
+    text,
+)
+
+text = text.replace(
+    'bind -T copy-mode-vi y send -X copy-pipe-and-cancel "pbcopy"',
+    '# OSC 52 via set-clipboard puts the yank on the *local* Mac clipboard,\n'
+    '# which pbcopy could never do from here. (Rewritten by srv-sync.)\n'
+    'bind -T copy-mode-vi y send -X copy-selection-and-cancel',
+)
+
+text = text.replace(
+    'bind-key g display-popup -w "80%" -h "80%" -d "#{pane_current_path}" -E "lazygit"',
+    '# lazygit binding dropped — not installed on the server. (srv-sync)',
+)
+text = text.replace(
+    'bind s display-popup -E -w 60% -h 60% "sesh connect \\"\\$(sesh list -i | fzf --reverse --no-sort --prompt=\'⚡ \')\\""',
+    '# sesh is not installed here; fall back to tmux\'s own session tree. (srv-sync)\n'
+    'bind s choose-tree -Zs',
+)
+
+header = ('# GENERATED BY srv-sync — DO NOT EDIT ON THE SERVER.\n'
+          '# Edit dotfiles/config/tmux/tmux.conf and re-run `srv-sync`; this file is\n'
+          '# overwritten wholesale on every sync.\n')
+conf.write_text(header + text)
+PY
+
+# Guard against a silent no-op: if any rewrite above stopped matching (because
+# tmux.conf was edited), the remote config would ship broken. Fail loudly.
+# Comments are stripped first — tmux.conf mentions $DOTFILES and lazygit in
+# prose that survives the rewrite legitimately; only live directives matter.
+directives=$(grep -v '^[[:space:]]*#' "$stage/tmux.conf")
+# shellcheck disable=SC2016  # these are literal needles, not expansions
+for pattern in '$DOTFILES' 'pbcopy' 'AppleInterfaceStyle'; do
+  if printf '%s' "$directives" | grep -qF -- "$pattern"; then
+    log_error "Rewrite missed '$pattern' — config/tmux/tmux.conf changed shape; update srv-sync"
+    exit 1
+  fi
+done
+
+######################################################################
+#### Ship it                                                       ####
+######################################################################
+# tar over ssh rather than rsync: rsync is not guaranteed on a minimal server
+# image, tar is. Both ends stream, so there is no temp file on the remote.
+#
+# The $remote_* paths below deliberately expand on the CLIENT — they were read
+# off the host earlier precisely so they could be baked in as absolute literals
+# (tmux expands neither ~ nor $HOME in source-file). That is what SC2029 warns
+# about; each such call below carries a disable directive.
+log_info "Copying tmux config → $remote_tmux"
+# --no-mac-metadata/--no-xattrs: bsdtar otherwise ships AppleDouble xattrs
+# that GNU tar on the far end cannot read and warns about on every file.
+# shellcheck disable=SC2029  # remote paths are meant to expand locally
+tar --no-mac-metadata --no-xattrs -C "$stage" -cf - . |
+  ssh "$HOST" "mkdir -p '$remote_tmux' && tar -C '$remote_tmux' -xf -"
+# Prune AppleDouble droppings left by any earlier sync from a macOS tar that
+# predates the --no-mac-metadata flag above. Scoped to the generated dir and to
+# that one filename pattern — this never touches anything else on the host.
+# shellcheck disable=SC2029  # remote paths are meant to expand locally
+ssh "$HOST" "find '$remote_tmux' -name '._*' -delete"
+
+log_info "Copying nerdwin → $remote_bin"
+# shellcheck disable=SC2029  # remote paths are meant to expand locally
+ssh "$HOST" "mkdir -p '$remote_bin' && cat > '$remote_bin/nerdwin' && chmod +x '$remote_bin/nerdwin'" \
+  <"$DOTFILES/bin/nerdwin"
+
+# Reload live sessions so an already-attached session picks the config up
+# without being killed. No server running yet is the normal case, not an error.
+# shellcheck disable=SC2029  # remote paths are meant to expand locally
+if ssh "$HOST" "tmux source-file '$remote_tmux/tmux.conf'" 2>/dev/null; then
+  log_info "Reloaded config in the running tmux server"
+fi
+
+echo
+log_success "$HOST is ready — connect with: $(fmt_cmd "srv $HOST")"
