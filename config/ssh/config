@@ -1,0 +1,77 @@
+# vim:ft=sshconfig
+#
+# Managed by dotfiles: config/ssh → ~/.config/ssh (via `dot link ssh`).
+# ~/.ssh/config is a small REAL file that Includes this one — it cannot be the
+# symlink itself, because ssh refuses a config that is writable by anyone but
+# the owner and will not follow a link out of ~/.ssh for that check.
+#
+# Ordering matters: ssh keeps the FIRST value it sees for each keyword, so
+# ~/.ssh/config includes config.local (machine-specific hosts, never committed —
+# same rule as .gitconfig-local) BEFORE this file. A per-host setting there
+# therefore wins over the Host * defaults below.
+#
+# Coexists with `dot git add-identity`, which appends its own `Host <alias>`
+# blocks to ~/.ssh/config: those set IdentityFile and IdentitiesOnly, neither of
+# which the Host * block below defines, so a slot still picks its own key and
+# just inherits the keepalive and multiplexing settings.
+#
+# One-time bootstrap on a new machine (not done by `dot link`):
+#   mkdir -p ~/.ssh/sockets && chmod 700 ~/.ssh ~/.ssh/sockets
+#   printf 'Include ~/.ssh/config.local\nInclude ~/.config/ssh/config\n' > ~/.ssh/config
+#   chmod 600 ~/.ssh/config
+
+# UseKeychain is macOS-only; without this guard Linux ssh aborts the whole file
+# with "Bad configuration option" instead of skipping the line.
+IgnoreUnknown UseKeychain
+
+Host *
+  ##################################################################
+  #### Keepalive — why sessions used to die when left unattended ####
+  ##################################################################
+  # An idle SSH connection sends no packets, so the NAT table in a home router
+  # (or a cloud provider's edge firewall) eventually forgets the flow and drops
+  # it silently — you only find out when you type and nothing happens.
+  # ServerAliveInterval sends an encrypted no-op every 60s, which keeps that
+  # state alive. CountMax 10 means ~10 minutes of unanswered pings before ssh
+  # gives up, so a wifi handoff or a brief upstream blip does not kill the
+  # session. TCPKeepAlive is the kernel-level equivalent; it also lets ssh
+  # notice a genuinely dead peer instead of hanging forever.
+  #
+  # NOTE: this keeps the *connection* alive; it cannot save work when the
+  # laptop sleeps or the link really goes away. That is what the remote tmux
+  # session behind `srv` is for — see srv() in .zsh_functions.
+  ServerAliveInterval 60
+  ServerAliveCountMax 10
+  TCPKeepAlive yes
+
+  ##################################################
+  #### Connection multiplexing (ControlMaster) ####
+  ##################################################
+  # The first connection to a host opens a master socket; every later ssh, scp
+  # or rsync to the same host rides that socket instead of paying another TCP
+  # handshake, key exchange and auth round trip — remote calls become instant,
+  # which is what makes srv()'s pre-flight `command -v tmux` check free.
+  # %C is a hash of (host, port, user, local host), so distinct targets never
+  # share a socket. ControlPersist keeps the master warm for 10 minutes after
+  # the last session exits, then it closes itself.
+  #
+  # Caveat worth knowing: killing the master drops every session riding it, and
+  # a hung master makes new connections hang too — `ssh -O stop <host>` (or
+  # `rm ~/.ssh/sockets/*`) clears it. Use `ssh -S none <host>` to bypass mux for
+  # one call.
+  ControlMaster auto
+  ControlPath ~/.ssh/sockets/%C
+  ControlPersist 10m
+
+  #################
+  #### General ####
+  #################
+  # Load a key into the agent on first use so the passphrase is asked once per
+  # login, not once per connection; UseKeychain persists it in the macOS
+  # keychain across reboots (ignored elsewhere, see IgnoreUnknown above).
+  AddKeysToAgent yes
+  UseKeychain yes
+
+  # Readable known_hosts — hashing only helps if the host list itself is the
+  # secret, which it is not here, and it makes the file impossible to audit.
+  HashKnownHosts no

@@ -47,6 +47,7 @@ fi
 # Register completions for functions defined in .zsh_functions (compdef requires compinit)
 compdef _c c
 compdef _h h
+compdef _srv srv
 
 # PATH setup (consolidated)
 [[ -d "/opt/homebrew/opt/coreutils/libexec/gnubin" ]] && export PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:$PATH"

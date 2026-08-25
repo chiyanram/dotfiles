@@ -350,3 +350,56 @@ zfetch() {
     cd "$cwd"
   fi
 }
+
+########################################################
+# Remote Servers
+########################################################
+
+# SSH into a host and land inside a persistent tmux session there, creating it
+# on first use and re-attaching every time after.
+#
+# The point is that the shell lives INSIDE tmux ON THE SERVER, so the session
+# is not tied to the ssh connection: close the laptop, change wifi, let the
+# link time out — the work keeps running and `srv` puts you back exactly where
+# you were. The keepalives in ~/.config/ssh/config stop the connection dropping
+# in the first place; this is what makes it not matter when it drops anyway.
+#
+# With no host, falls back to $SRV_HOST — set that in ~/.zshenv.local, which is
+# machine-specific and never committed. Deliberately not defaulted to a literal
+# alias here: this file is public, and which boxes exist is nobody else's
+# business (same rule that keeps the address in ~/.ssh/config.local).
+#
+# Usage: srv [host] [session]     defaults: $SRV_HOST, main
+srv() {
+    local host="${1:-${SRV_HOST:-}}" session="${2:-main}"
+
+    if [[ -z "$host" ]]; then
+        print -u2 "srv: no host given and \$SRV_HOST is unset"
+        print -u2 "     set it in ~/.zshenv.local, e.g. export SRV_HOST=my-server"
+        return 1
+    fi
+
+    # Pre-flight rather than a confusing "tmux: command not found" after the
+    # terminal has already been handed over. Nearly free: ControlMaster means
+    # this rides the socket the real connection is about to reuse.
+    if ! ssh "$host" 'command -v tmux' >/dev/null 2>&1; then
+        print -u2 "srv: no tmux on $host — run: srv-sync $host"
+        return 1
+    fi
+
+    # -t forces a PTY (ssh would not allocate one for a command), -A attaches to
+    # the session if it exists and creates it otherwise, so there is one code
+    # path for first connect and reconnect.
+    ssh -t "$host" "tmux new-session -A -s ${(q)session}"
+}
+
+# Complete srv on the Host aliases defined in either ssh config, skipping
+# patterns like `Host *` which are defaults rather than connectable targets.
+_srv() {
+    local -a hosts
+    hosts=(${(f)"$(awk '/^[[:space:]]*[Hh]ost[[:space:]]/ {
+                          for (i = 2; i <= NF; i++)
+                              if ($i !~ /[*?!]/) print $i
+                      }' ~/.ssh/config.local ~/.config/ssh/config 2>/dev/null)"})
+    _describe 'host' hosts
+}
