@@ -181,6 +181,7 @@ Each directory under `config/` is a package (the list below is a snapshot — `l
 | `nvim`     | Neovim (Lua config, lazy.nvim plugin manager)         |
 | `ripgrep`  | Ripgrep configuration                                 |
 | `sesh`     | Terminal session manager                              |
+| `ssh`      | SSH client defaults (keepalives, connection reuse)    |
 | `starship` | Cross-shell prompt (Java/K8s/Docker aware)            |
 | `tmux`     | Terminal multiplexer                                  |
 
@@ -201,7 +202,7 @@ Configuration lives in `home/` (`.zshrc`, `.zsh_functions`, `.zsh_aliases`, `.zp
   - zsh-completions, zsh-syntax-highlighting, zsh-autosuggestions, zsh-history-substring-search, zsh-you-should-use, fzf-tab, fzf-git.sh
 - **Tool initialization**: mise (Node), zoxide, direnv, fzf, atuin, SDKMAN (lazy-loaded), starship
 - **Docker aliases** (`home/.docker_aliases`)
-- **Custom functions**: `c` (cd into a `$CODE_DIR` project), `h` (cd to home subdir), `g` (git shortcut), `md` (mkdir + cd), `zfetch` (plugin manager)
+- **Custom functions**: `c` (cd into a `$CODE_DIR` project), `h` (cd to home subdir), `g` (git shortcut), `md` (mkdir + cd), `zfetch` (plugin manager), `srv` (ssh into a persistent remote tmux session)
 - **Project navigation**: `cdpath` + `AUTO_CD` let a bare project name (`myproject`↵) cd from anywhere with Tab completion; fzf `Alt-C` is scoped to `$CODE_DIR`; zoxide `z`/`zi` jump by frecency. `CODE_DIR` (per-machine, in `~/.zshenv.local`) and any `hash -d` named dirs (per-machine, in `~/.zshrc.local`) stay out of the shared config. See `docs/research/fast-project-navigation-zsh.md`.
 
 ### Neovim
@@ -215,16 +216,101 @@ vimu
 
 ### tmux
 
-Custom keybindings with `⌃-a` prefix (remapped from `⌃-b`). Session management via `sesh` (the terminal session manager).
+The prefix is `⌃-a` (remapped from `⌃-b`). Every key below is pressed **after** the
+prefix unless the table says "no prefix" — press `⌃-a`, release, then the key.
+Session management via `sesh` (the terminal session manager).
 
-| Key       | Action           |
-| --------- | ---------------- |
-| `h/j/k/l` | Navigate panes   |
-| `H/J/K/L` | Resize panes     |
-| `-`       | Vertical split   |
-| `\|`      | Horizontal split |
+**Leaving a session: `⌃-a` `d` detaches, `exit` destroys.** This is the one
+distinction worth memorising, because the two look identical for a second and then
+diverge completely — `d` leaves the session (and everything running in it) alive on
+the server to be reattached later, while `exit` kills the shell, which kills the
+last pane, which takes the whole session and its work with it. Closing the terminal
+window, losing wifi, or shutting the laptop all behave like `d`, not like `exit`.
+Nothing here survives a **reboot** of the machine the session lives on — no
+`tmux-resurrect`/`continuum` is installed, by choice.
+
+| Key         | Action                                                |
+| ----------- | ----------------------------------------------------- |
+| `d`         | **Detach** — session keeps running, reattach later    |
+| `s`         | Session picker (`sesh`, zoxide-ranked, in a popup)    |
+| `c`         | New window in the current pane's directory            |
+| `\|` / `-`  | Split horizontally / vertically, keeping the CWD      |
+| `h/j/k/l`   | Navigate panes                                        |
+| `⌃-h/j/k/l` | Navigate panes, **no prefix** (passes through to Vim) |
+| `H/J/K/L`   | Resize panes (repeatable)                             |
+| `=`         | Tile all panes                                        |
+| `y`         | Toggle synchronised panes (type into all at once)     |
+| `g`         | lazygit in a popup                                    |
+| `Escape`    | Copy mode (`v` select, `y` yank, vi keys)             |
+| `p`         | Paste buffer                                          |
+| `r`         | Reload the config                                     |
+| `T`         | Toggle the status bar                                 |
+| `⌃-l`       | Clear screen (root `⌃-l` is pane navigation)          |
+| `⌃-a`       | Send a literal `⌃-a` through to a nested tmux         |
 
 Set `TMUX_MINIMAL=1` in `~/.localrc` to auto-hide the status bar with a single window.
+
+### Remote servers (`srv`)
+
+An ssh connection dies when the laptop sleeps or the link drops, and everything
+running inside it dies too. `srv` fixes that by putting the shell inside a tmux
+session **on the server**, so the work is not tied to the connection:
+
+```bash
+srv                     # ssh to $SRV_HOST, attach to session "main" (creates it once)
+srv myhost              # a specific host
+srv myhost build        # a specific host and session name
+```
+
+Detach with `⌃-a` `d` and the session keeps running with nothing connected to it;
+`srv` again drops you back exactly where you were. Use `exit` only when you actually
+want the session gone.
+
+`$SRV_HOST` is the default host and lives in `~/.zshenv.local` (machine-specific,
+never committed) — no host alias belongs in this public repo. Tab completion for
+`srv` reads the `Host` aliases out of `~/.ssh/config.local` and `~/.config/ssh/config`.
+
+**First-time setup for a host** — installs tmux there and ships this repo's tmux
+config across, so the prefix, keybindings and theme match a local session:
+
+```bash
+srv-sync myhost         # or just `srv-sync` for $SRV_HOST
+```
+
+The remote config is **generated**: re-run `srv-sync` after editing `config/tmux/`,
+and never hand-edit the copy on the server. Four things are rewritten on the way
+out because they cannot work remotely — `$DOTFILES` paths, the macOS light/dark
+probe (pinned dark), `pbcopy` (replaced by OSC 52, which puts the yank on the
+**local** Mac clipboard), and the lazygit/`sesh` bindings. `srv-sync` hard-fails if
+any of those rewrites stops matching, so editing `tmux.conf` cannot silently ship a
+broken remote config.
+
+OSC 52 clipboard needs the terminal's cooperation: Ghostty allows it by default,
+iTerm2 gates it behind **Preferences → General → Selection → "Applications in
+terminal may access clipboard"**.
+
+### SSH
+
+`config/ssh` links to `~/.config/ssh/` and holds `Host *` defaults: `ServerAlive`
+keepalives (an idle connection sends no packets, so NAT tables and edge firewalls
+silently reap the flow) and `ControlMaster` multiplexing (repeat connections to a
+host reuse one socket — measured 2.09s cold vs 0.37s warm).
+
+`~/.ssh/config` stays a **real file outside the repo** — ssh refuses a config
+writable by anyone but the owner and will not follow a symlink out of `~/.ssh` for
+that check — and just includes this one. Because ssh keeps the _first_ value it
+sees for each keyword, machine-specific hosts are included first and win over the
+shared defaults. One-time bootstrap on a new machine (`dot link` does not do this):
+
+```bash
+mkdir -p ~/.ssh/sockets && chmod 700 ~/.ssh ~/.ssh/sockets
+printf 'Include ~/.ssh/config.local\nInclude ~/.config/ssh/config\n' > ~/.ssh/config
+chmod 600 ~/.ssh/config
+```
+
+Addresses, usernames and per-host keys go in `~/.ssh/config.local` (never committed).
+If a multiplexed connection hangs, `ssh -O stop <host>` clears the master socket;
+`ssh -S none <host>` bypasses multiplexing for a single call.
 
 ### Ghostty quick-terminal
 

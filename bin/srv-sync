@@ -111,7 +111,10 @@ cp -R "$DOTFILES/config/tmux/." "$stage/"
 #    terminal. Pin dark instead.
 # 3. `pbcopy` does not exist remotely. `copy-selection-and-cancel` routes the
 #    yank through tmux's own set-clipboard (already on), which emits OSC 52 —
-#    the outer terminal, i.e. Ghostty on the Mac, puts it on the real clipboard.
+#    the outer terminal on the Mac puts it on the real clipboard. Ghostty does
+#    that out of the box; iTerm2 gates OSC 52 behind Preferences > General >
+#    Selection > "Applications in terminal may access clipboard", so a remote
+#    yank no-ops until that is ticked.
 #    That is strictly better than pbcopy over ssh, which could not work at all.
 # 4. lazygit and sesh are not installed on a plain server; leaving the bindings
 #    would give two dead keys. `g` is dropped and `s` falls back to tmux's own
