@@ -43,6 +43,7 @@ brew 'procs'                           # modern ps with color and tree view
 brew 'neovim'                          # A better vim
 brew 'tmux'                            # terminal multiplexer
 brew 'sesh'                            # terminal session manager
+brew 'herdr'                           # terminal workspace manager for AI coding agents (ships zsh completions)
 brew 'lazygit'                         # a better git UI
 brew 'gh'                              # GitHub CLI
 brew 'git-delta'                       # a better git diff

@@ -198,7 +198,7 @@ Configuration lives in `home/` (`.zshrc`, `.zsh_functions`, `.zsh_aliases`, `.zp
 
 - **Starship prompt** with git status, Java version, K8s context, Docker status
 - **Plugins** via `zfetch` (custom plugin manager):
-  - zsh-completions, zsh-syntax-highlighting, zsh-autosuggestions, zsh-history-substring-search, zsh-you-should-use, fzf-tab, fzf-git.sh
+  - zsh-completions, zsh-syntax-highlighting, zsh-autosuggestions, zsh-history-substring-search, zsh-you-should-use, fzf-tab, fzf-git.sh, herdr-ohmyzsh (herdr pane helpers: `hsplit`, `htab`, `hagent`, `hworktree`)
 - **Tool initialization**: mise (Node), zoxide, direnv, fzf, atuin, SDKMAN (lazy-loaded), starship
 - **Docker aliases** (`home/.docker_aliases`)
 - **Custom functions**: `c` (cd into a `$CODE_DIR` project), `h` (cd to home subdir), `g` (git shortcut), `md` (mkdir + cd), `zfetch` (plugin manager)

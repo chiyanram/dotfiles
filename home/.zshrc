@@ -155,6 +155,9 @@ zfetch zsh-users/zsh-autosuggestions
 zfetch zsh-users/zsh-history-substring-search
 zfetch MichaelAquilina/zsh-you-should-use you-should-use.plugin.zsh
 zfetch Aloxaf/fzf-tab
+# herdr: slow-command sidebar/notify + hsplit/htab/hagent/hworktree, active only inside
+# a herdr pane. Plain zsh despite the name; completions come from brew, hreload needs OMZ.
+zfetch robbyrussell/herdr-ohmyzsh herdr.plugin.zsh
 # fzf-git: clone only, source manually (requires zle)
 zfetch junegunn/fzf-git.sh __skip__
 [[ -o zle ]] && [[ -f "$ZPLUGDIR/junegunn/fzf-git.sh/fzf-git.sh" ]] && source "$ZPLUGDIR/junegunn/fzf-git.sh/fzf-git.sh"
